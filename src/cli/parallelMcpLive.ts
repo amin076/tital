@@ -38,10 +38,23 @@ async function main(): Promise<void> {
     loadLocalEnvironment();
     assertVertexAiConfiguration();
 
-    // Import the agent only after the Vertex AI environment has been loaded.
-    // This prevents the Google GenAI client from falling back to API-key auth.
-    const { parallelSourceAgent } = await import('../agents/parallelSourceAgent.js');
+    // Import MCP/agent modules only after Vertex AI configuration is loaded.
+    const { parallelSearchMcpToolset } = await import('../integrations/parallel/parallelMcp.js');
 
+    // Probe the Partner MCP server before spending a Gemini request. This makes
+    // transport/tool-discovery failures explicit instead of looking like an
+    // empty model response.
+    const discoveredTools = await parallelSearchMcpToolset.getTools();
+    const toolNames = discoveredTools.map((tool) => tool.name);
+    console.log(`Parallel MCP tools: ${toolNames.join(', ') || '(none)'}`);
+
+    if (!toolNames.includes('parallel_web_search')) {
+      throw new Error(
+        `Parallel MCP connected but parallel_web_search was not discovered. Tools: ${toolNames.join(', ') || '(none)'}`
+      );
+    }
+
+    const { parallelSourceAgent } = await import('../agents/parallelSourceAgent.js');
     const runner = new InMemoryRunner({ agent: parallelSourceAgent });
     const run = runner.runEphemeral({
       userId: 'phase-4b-live',
@@ -55,12 +68,29 @@ async function main(): Promise<void> {
     });
 
     let output = '';
+    const trace: string[] = [];
+
     for await (const event of run) {
-      output += stringifyContent(event);
+      const text = stringifyContent(event);
+      if (text) {
+        output += text;
+        trace.push(`text:${event.author ?? 'unknown'}:${text.slice(0, 120)}`);
+      }
+
+      for (const part of event.content?.parts ?? []) {
+        if (part.functionCall?.name) {
+          trace.push(`functionCall:${part.functionCall.name}`);
+        }
+        if (part.functionResponse?.name) {
+          trace.push(`functionResponse:${part.functionResponse.name}`);
+        }
+      }
     }
 
     if (!output.trim()) {
-      throw new Error('The ADK agent returned no output.');
+      throw new Error(
+        `The ADK agent returned no textual output. Event trace: ${trace.join(' | ') || '(no content events)'}`
+      );
     }
 
     console.log(output.trim());
