@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const ParallelSearchRequestSchema = z.object({
   objective: z.string().min(1, 'Search objective must be a non-empty string'),
   searchQueries: z.array(z.string().min(1, 'Search query must be a non-empty string')).min(1).max(3),
-  mode: z.enum(['turbo', 'basic', 'advanced']).default('basic'),
+  mode: z.enum(['basic', 'advanced']).default('basic'),
   maxCharsTotal: z.number().int().positive().optional(),
 });
 
