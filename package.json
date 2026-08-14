@@ -1,0 +1,32 @@
+{
+  "name": "tital",
+  "version": "1.0.0",
+  "description": "",
+  "main": "agent.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "adk:run": "adk run agent.ts",
+    "test": "echo \"Info: Tests are not implemented yet.\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amin076/tital.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/amin076/tital/issues"
+  },
+  "homepage": "https://github.com/amin076/tital#readme",
+  "type": "module",
+  "dependencies": {
+    "@google/adk": "^1.6.0"
+  },
+  "devDependencies": {
+    "@google/adk-devtools": "^1.6.0",
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.10",
+    "typescript": "^7.0.2"
+  }
+}
