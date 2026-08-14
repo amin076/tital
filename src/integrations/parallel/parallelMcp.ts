@@ -1,11 +1,11 @@
-import { MCPToolset, StreamableHTTPConnectionParamsSchema } from '@google/adk';
+import { MCPToolset, type StreamableHTTPConnectionParams } from '@google/adk';
 
 export const PARALLEL_SEARCH_MCP_URL = 'https://search.parallel.ai/mcp';
 
-const connectionParams = StreamableHTTPConnectionParamsSchema.parse({
+const connectionParams: StreamableHTTPConnectionParams = {
   type: 'StreamableHTTPConnectionParams',
   url: PARALLEL_SEARCH_MCP_URL,
-});
+};
 
 /**
  * Anonymous Parallel Search MCP integration.
@@ -14,6 +14,6 @@ const connectionParams = StreamableHTTPConnectionParamsSchema.parse({
  */
 export const parallelSearchMcpToolset = new MCPToolset(
   connectionParams,
-  ['web_search', 'web_fetch'],
+  ['parallel_web_search', 'parallel_web_fetch'],
   'parallel'
 );
