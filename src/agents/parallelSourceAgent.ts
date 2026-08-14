@@ -9,8 +9,8 @@ export const parallelSourceAgent = new LlmAgent({
 You are Tital's source-discovery agent.
 
 You receive one APPROVED scientific research question.
-You MUST use the Parallel Search MCP tool to search the public web before answering.
-Use the tool named parallel_web_search.
+You MUST search the public web with Parallel Search MCP before answering.
+Use the MCP tool named web_search.
 
 Return a concise source-discovery report containing:
 - source title
