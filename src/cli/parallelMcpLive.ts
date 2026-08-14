@@ -1,5 +1,24 @@
+import { existsSync } from 'node:fs';
+import { loadEnvFile } from 'node:process';
 import { InMemoryRunner, stringifyContent } from '@google/adk';
-import { parallelSourceAgent } from '../agents/parallelSourceAgent.js';
+
+function loadLocalEnvironment(): void {
+  if (existsSync('.env')) {
+    loadEnvFile('.env');
+  }
+}
+
+function assertVertexAiConfiguration(): void {
+  const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI?.toLowerCase() === 'true';
+  const project = process.env.GOOGLE_CLOUD_PROJECT;
+  const location = process.env.GOOGLE_CLOUD_LOCATION;
+
+  if (!useVertexAi || !project || !location) {
+    throw new Error(
+      'Vertex AI configuration is missing. Create a local .env from .env.example or set GOOGLE_GENAI_USE_VERTEXAI=true, GOOGLE_CLOUD_PROJECT, and GOOGLE_CLOUD_LOCATION in this PowerShell session.'
+    );
+  }
+}
 
 async function main(): Promise<void> {
   const question = process.argv.slice(2).join(' ').trim();
@@ -10,6 +29,13 @@ async function main(): Promise<void> {
   }
 
   try {
+    loadLocalEnvironment();
+    assertVertexAiConfiguration();
+
+    // Import the agent only after the Vertex AI environment has been loaded.
+    // This prevents the Google GenAI client from falling back to API-key auth.
+    const { parallelSourceAgent } = await import('../agents/parallelSourceAgent.js');
+
     const runner = new InMemoryRunner({ agent: parallelSourceAgent });
     const run = runner.runEphemeral({
       userId: 'phase-4b-live',
