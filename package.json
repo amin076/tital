@@ -8,7 +8,7 @@
     "adk:run": "adk run agent.ts",
     "define": "tsx src/cli/define.ts",
     "research-questions": "tsx src/cli/researchQuestions.ts",
-    "parallel-live": "tsx src/cli/parallelLive.ts",
+    "parallel-mcp-live": "tsx src/cli/parallelMcpLive.ts",
     "test": "vitest run",
     "test:run": "vitest run"
   },
