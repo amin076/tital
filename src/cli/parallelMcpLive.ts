@@ -9,13 +9,19 @@ function loadLocalEnvironment(): void {
 }
 
 function assertVertexAiConfiguration(): void {
-  const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI?.toLowerCase() === 'true';
-  const project = process.env.GOOGLE_CLOUD_PROJECT;
-  const location = process.env.GOOGLE_CLOUD_LOCATION;
+  const useVertexAi = process.env.GOOGLE_GENAI_USE_VERTEXAI?.trim().toLowerCase() === 'true';
+  const project = process.env.GOOGLE_CLOUD_PROJECT?.trim();
+  const location = process.env.GOOGLE_CLOUD_LOCATION?.trim();
 
-  if (!useVertexAi || !project || !location) {
+  const missing: string[] = [];
+  if (!useVertexAi) missing.push('GOOGLE_GENAI_USE_VERTEXAI=true');
+  if (!project) missing.push('GOOGLE_CLOUD_PROJECT');
+  if (!location) missing.push('GOOGLE_CLOUD_LOCATION');
+
+  if (missing.length > 0) {
     throw new Error(
-      'Vertex AI configuration is missing. Create a local .env from .env.example or set GOOGLE_GENAI_USE_VERTEXAI=true, GOOGLE_CLOUD_PROJECT, and GOOGLE_CLOUD_LOCATION in this PowerShell session.'
+      `Vertex AI configuration is missing or invalid: ${missing.join(', ')}. ` +
+        'Update the local .env or set these values in the current PowerShell session.'
     );
   }
 }
