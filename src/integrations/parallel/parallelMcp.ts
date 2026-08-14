@@ -9,4 +9,7 @@ export const PARALLEL_SEARCH_MCP_URL = 'https://search.parallel.ai/mcp';
 export const parallelSearchMcpToolset = new MCPToolset({
   type: 'StreamableHTTPConnectionParams',
   url: PARALLEL_SEARCH_MCP_URL,
+  timeout: 60000,          // 60-second connection timeout
+  sseReadTimeout: 60000,   // 60-second read timeout for streaming
+  terminateOnClose: true,
 });
