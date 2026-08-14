@@ -6,9 +6,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "adk:run": "adk run agent.ts",
+    "parallel:run": "adk run parallel-agent.ts",
     "define": "tsx src/cli/define.ts",
     "research-questions": "tsx src/cli/researchQuestions.ts",
-    "parallel-mcp-live": "tsx src/cli/parallelMcpLive.ts",
     "test": "vitest run",
     "test:run": "vitest run"
   },
