@@ -9,7 +9,7 @@ export const FilmBriefSchema = z.object({
   targetAudience: z.string().min(1, "Target audience must be a non-empty string"),
   audienceKnowledgeLevel: z.string().min(1, "Audience knowledge level must be a non-empty string"),
   format: z.string().min(1, "Format must be a non-empty string"),
-  durationMinutes: z.number().positive("Duration must be a positive number"),
+  durationMinutes: z.number().min(0.001, "Duration must be a positive number"),
   tone: z.string().min(1, "Tone must be a non-empty string"),
   learningGoals: z.array(z.string().min(1, "Learning goal must be a non-empty string")),
   scope: z.array(z.string().min(1, "Scope item must be a non-empty string")),
@@ -20,3 +20,10 @@ export const FilmBriefSchema = z.object({
 });
 
 export type FilmBrief = z.infer<typeof FilmBriefSchema>;
+
+export const ModelOutputBriefSchema = FilmBriefSchema.omit({
+  id: true,
+  status: true,
+});
+
+export type ModelOutputBrief = z.infer<typeof ModelOutputBriefSchema>;

@@ -6,6 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "adk:run": "adk run agent.ts",
+    "define": "tsx src/cli/define.ts",
     "test": "vitest run",
     "test:run": "vitest run"
   },
