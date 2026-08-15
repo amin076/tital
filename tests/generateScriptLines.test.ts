@@ -45,7 +45,8 @@ describe('Approved Claim → Script Line governed generation', () => {
   });
 
   it('accepts fenced JSON returned by the model', () => {
-    expect(parseScriptLineProposalList(````json\n${JSON.stringify(proposals)}\n````)).toEqual(proposals);
+    const fenced = '```json\n' + JSON.stringify(proposals) + '\n```';
+    expect(parseScriptLineProposalList(fenced)).toEqual(proposals);
   });
 
   it('rejects non-approved claims before model invocation', async () => {
