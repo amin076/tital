@@ -10,6 +10,9 @@ coverage/
 *.tsbuildinfo
 .eslintcache
 
+# Tital local persisted MVP sessions
+.tital/
+
 # Environment files — keep the example file public
 .env
 .env.*
