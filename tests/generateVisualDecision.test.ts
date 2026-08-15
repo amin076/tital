@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { type ShotRecord } from '../src/domain/shotRecord.js';
 import {
   assembleVisualDecisionRecord,
+  deriveRequiredVisualDisclosure,
   generateVisualDecision,
   parseVisualDecisionProposal,
 } from '../src/services/generateVisualDecision.js';
@@ -53,10 +54,38 @@ describe('Approved Shot → Visual Decision governed generation', () => {
     ).toThrow('category mismatch');
   });
 
-  it('requires disclosure for medium or high visual risk', () => {
-    expect(() =>
-      assembleVisualDecisionRecord(approvedShot, { ...proposal, disclosure: null })
-    ).toThrow('requires a viewer-facing disclosure');
+  it('preserves a model-provided disclosure for medium or high visual risk', () => {
+    expect(deriveRequiredVisualDisclosure(approvedShot, proposal)).toBe(proposal.disclosure);
+  });
+
+  it('derives a viewer-facing disclosure from shot uncertainty when medium or high risk omits one', () => {
+    const record = assembleVisualDecisionRecord(
+      approvedShot,
+      { ...proposal, disclosure: null },
+      { idFactory: () => 'VD-fallback' }
+    );
+
+    expect(record.disclosure).toBe(
+      'Scientific Reconstruction: The subsurface ocean is strongly supported, but exact geometry remains uncertain.'
+    );
+  });
+
+  it('derives a generic evidence-governed disclosure when the approved shot has no uncertainty text', () => {
+    const shotWithoutDisclosure = { ...approvedShot, uncertaintyDisclosure: null };
+    const record = assembleVisualDecisionRecord(
+      shotWithoutDisclosure,
+      { ...proposal, disclosure: null },
+      { idFactory: () => 'VD-generic-fallback' }
+    );
+
+    expect(record.disclosure).toBe(
+      'Scientific Reconstruction: this visual is an evidence-based representation and should not be interpreted as direct observation.'
+    );
+  });
+
+  it('keeps null disclosure for low risk when the model omits it', () => {
+    const lowRiskProposal = { ...proposal, riskLevel: 'LOW' as const, disclosure: null };
+    expect(deriveRequiredVisualDisclosure(approvedShot, lowRiskProposal)).toBeNull();
   });
 
   it('creates application-owned VisualDecisionRecord in REVIEW_REQUIRED state', async () => {
