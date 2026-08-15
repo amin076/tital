@@ -36,6 +36,8 @@ FilmBrief
 graph TD
     U[User / Reviewer]
     CLI[CLI / ADK entry points]
+    PS[Persisted MVP Session]
+    STORE[Local JSON Session Store]
     EC[Execution Controller\nexecuteNextMvpStep]
     EV[evaluateMvpWorkflow]
     RX[Real runtime adapters\ncreateRealMvpStepExecutors]
@@ -43,27 +45,27 @@ graph TD
     A[Google ADK LlmAgents]
     G[Gemini on Vertex AI]
     P[Parallel Search MCP]
-    D[Zod domain schemas]
     H[Human review gates]
     AU[Deterministic scientific audit]
     PKG[Production package builder]
 
     U --> CLI
-    CLI --> EC
+    CLI --> PS
+    PS --> STORE
+    PS --> EC
     EC --> EV
     EC --> RX
     RX --> S
     S --> A
     A --> G
     A --> P
-    S --> D
     S --> H
-    H --> EC
+    H --> PS
     EC --> AU
     AU --> PKG
 ```
 
-The controller is function-based rather than class-based. `src/services/executeNextMvpStep.ts` decides whether the next legal action is automation, human review, audit, or completion. `src/services/createRealMvpStepExecutors.ts` connects that controller contract to the real Tital services.
+The controller is function-based rather than class-based. `src/services/executeNextMvpStep.ts` decides whether the next legal action is automation, human review, audit, or completion. `src/services/createRealMvpStepExecutors.ts` connects that controller contract to the real Tital services. The persisted session layer wraps this state machine without bypassing review gates.
 
 ## Current MVP Status
 
@@ -75,20 +77,23 @@ Implemented now:
 - Structured evidence extraction, claim generation, scientific script generation, scene direction, shot direction, and visual-decision generation.
 - Zod validation at model/service boundaries.
 - Explicit human review services and approval gates.
-- Deterministic workflow evaluation through `evaluateMvpWorkflow`.
+- Coverage-aware and provenance-connected workflow evaluation.
 - Function-based execution control through `executeNextMvpStep`.
-- Real service wiring through `createRealMvpStepExecutors`.
+- Incremental real service wiring through `createRealMvpStepExecutors`.
+- Rejection-aware progression: rejected records remain historical provenance while approved replacements can restore required coverage.
+- Local persisted MVP sessions across CLI invocations/restarts.
+- Local session event history for creation, automation, review decisions, audit, and packaging.
 - Deterministic scientific audit.
-- Deterministic `ProductionPackage` construction.
-- Unit tests covering domain contracts, service gates, provenance validation, orchestration, audit, packaging, and real-executor wiring without live model calls.
+- Deterministic `ProductionPackage` construction using only the approved, provenance-connected production chain.
+- Unit tests designed to cover domain contracts, service gates, persistence, rejection recovery, provenance validation, orchestration, audit, packaging, and real-executor wiring without live model calls.
 
 Important current limits:
 
-- There is **no production UI yet**; user-facing entry points are currently CLI/ADK-oriented.
-- There is **no persistent database/state store yet**; MVP workflow state is represented by typed in-memory objects such as `MvpWorkflowState`.
-- There is **not yet one persisted end-to-end application session** that drives a project from idea to package across restarts. Human review gates are intentionally explicit.
-- Source discovery initially produces `SourceRecord.status = DISCOVERED`; source review is a distinct step before approved evidence extraction.
-- The current scientific audit is a deterministic MVP rule set, not a complete future scientific-integrity engine.
+- There is **no production React/web UI yet**; the governed product-session interface is currently CLI-oriented.
+- Persistence is a **local JSON MVP store**, not a production database, multi-user project store, or cloud persistence layer.
+- Review events do not yet include authenticated reviewer identity/signature.
+- Upstream edits do not yet automatically propagate a formal `STALE` status through all downstream records.
+- The current scientific audit is a deterministic MVP rule set, not the complete future scientific-integrity engine.
 
 For a detailed implementation matrix, see [Current Status](./docs/CURRENT_STATUS.md). For planned work, see [Roadmap](./docs/ROADMAP.md).
 
@@ -103,6 +108,7 @@ For a detailed implementation matrix, see [Current Status](./docs/CURRENT_STATUS
 │  ├─ cli/
 │  ├─ domain/
 │  ├─ integrations/
+│  ├─ persistence/
 │  ├─ services/
 │  └─ utils/
 ├─ tests/
@@ -111,6 +117,8 @@ For a detailed implementation matrix, see [Current Status](./docs/CURRENT_STATUS
 ├─ tsconfig.json
 └─ .env.example
 ```
+
+Local MVP session data is written under `.tital/` by default and is gitignored.
 
 See [Repository Structure](./docs/architecture/repository-structure.md) for the detailed map.
 
@@ -131,7 +139,7 @@ npm install
 
 ### Environment
 
-`.env.example` is a configuration reference. The current repository does **not** implement one universal project-level dotenv loader, so the safest live-development path is to set the runtime variables in the shell that launches Tital.
+`.env.example` is a configuration reference. The repository does **not** implement one universal project-level dotenv loader, so the safest live-development path is to set runtime variables in the shell that launches Tital.
 
 Typical Vertex AI configuration:
 
@@ -149,9 +157,60 @@ gcloud auth application-default login
 
 If `GOOGLE_APPLICATION_CREDENTIALS` is set, ensure it points to a real credential file. A stale path can override normal ADC discovery and cause confusing authentication failures. See [Runtime Configuration](./docs/execution/runtime-configuration.md).
 
-## Running the Current Entry Points
+## Persisted Governed MVP Session
 
-Generate a film brief:
+Start a project session from a film idea:
+
+```bash
+npm run mvp -- start "A five-minute film explaining the evidence for Europa's subsurface ocean"
+```
+
+This creates the FilmBrief and persists the session, but it does **not** auto-approve the brief.
+
+Inspect status without calling a model:
+
+```bash
+npm run mvp -- status <session-id>
+```
+
+Apply the explicit human decision at the current gate:
+
+```bash
+npm run mvp -- review <session-id> approve
+npm run mvp -- review <session-id> reject
+```
+
+Run the next legal automated stage:
+
+```bash
+npm run mvp -- continue <session-id>
+```
+
+Inspect or list persisted sessions:
+
+```bash
+npm run mvp -- show <session-id>
+npm run mvp -- list
+```
+
+The normal governed cycle is:
+
+```text
+continue
+→ model/tool proposal generation
+→ persist records requiring review
+→ stop
+→ explicit review
+→ continue
+```
+
+Rejected records remain in the session history. If rejection removes required approved coverage, a later `continue` can generate replacement candidates instead of deleting or silently reusing the rejected record.
+
+See [Persisted MVP Sessions](./docs/execution/persisted-mvp-session.md).
+
+## Other Runtime Entry Points
+
+Generate a FilmBrief directly:
 
 ```bash
 npm run define -- "A film about the discovery of penicillin"
@@ -175,7 +234,7 @@ Run the Parallel MCP agent harness:
 npm run parallel:run
 ```
 
-Live ADK/Gemini runs can consume Vertex AI quota/credits. Unit tests and type checking are designed not to require live Vertex or Parallel calls.
+Live ADK/Gemini runs can consume Vertex AI quota/credits. `mvp start` and some `mvp continue` stages are live-runtime operations. `status`, `review`, `show`, `list`, unit tests, and type checking are local/deterministic.
 
 ## Testing
 
@@ -184,7 +243,7 @@ npm run typecheck
 npm test
 ```
 
-Tests use dependency injection/fakes where appropriate so orchestration and provenance rules can be validated without paid live model calls.
+Tests use dependency injection/fakes where appropriate so orchestration, persistence, and provenance rules can be validated without paid live model calls.
 
 ## Human Review and Statuses
 
@@ -203,6 +262,8 @@ LOCKED
 ```text
 DISCOVERED
 ```
+
+`FilmBrief` does not currently define `REJECTED`; rejecting the brief at the generic MVP review command therefore fails clearly instead of inventing an unsupported state. Revise/restart an unacceptable brief.
 
 Do not assume every generated record begins in `REVIEW_REQUIRED`. The service/domain schema is the source of truth for each record type.
 
@@ -230,6 +291,7 @@ Do not assume every generated record begins in `REVIEW_REQUIRED`. The service/do
 ### Execution
 - [How Agents Run](./docs/execution/how-agents-run.md)
 - [Orchestration](./docs/execution/orchestration.md)
+- [Persisted MVP Sessions](./docs/execution/persisted-mvp-session.md)
 - [Real Execution Path](./docs/execution/real-execution-path.md)
 - [Runtime Configuration](./docs/execution/runtime-configuration.md)
 
@@ -237,13 +299,6 @@ Do not assume every generated record begins in `REVIEW_REQUIRED`. The service/do
 - [Local Development](./docs/development/local-development.md)
 - [Testing and Validation](./docs/development/testing-and-validation.md)
 - [Contribution Guide](./docs/development/contribution-guide.md)
-
-### Diagrams
-- [System Overview](./docs/diagrams/system-overview.md)
-- [Workflow Flow](./docs/diagrams/workflow-flow.md)
-- [Provenance Chain](./docs/diagrams/provenance-chain.md)
-- [Execution Controller](./docs/diagrams/execution-controller.md)
-- [Repository Map](./docs/diagrams/repo-map.md)
 
 ## Design Rule
 
@@ -257,4 +312,4 @@ Model proposes
 → next stage becomes eligible
 ```
 
-That boundary is the core of Tital's evidence-governed architecture.
+Persistence does not weaken that boundary. It makes the governed state machine durable enough for an MVP project session.

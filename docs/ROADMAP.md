@@ -2,26 +2,28 @@
 
 This document describes recommended next development work. It is **not** a list of capabilities that already exist. For current implementation status, see [CURRENT_STATUS.md](CURRENT_STATUS.md).
 
-## Priority 1 — runnable governed end-to-end MVP session
+## Completed MVP foundation — persisted governed project session
 
-The workflow evaluator, Execution Controller, real executor wiring, review services, audit, and package builder already exist. The next product step is to connect them into one developer/demo-facing project session that can:
+The earlier highest-priority orchestration goal is now implemented in the codebase:
 
 ```text
-create/load project state
-→ execute one legal stage
-→ persist updated state
+create project session
+→ persist state locally
+→ execute the next legal automated stage
+→ persist generated records
 → stop at a human gate
-→ accept an explicit approve/reject action
-→ continue from the stored state
-→ run audit
+→ accept explicit approve/reject
+→ recover missing coverage after rejection
+→ continue from stored state
+→ run deterministic audit
 → build ProductionPackage
 ```
 
-The key requirement is persistence without bypassing review. A demo mode may explicitly simulate approvals, but it must be labelled as simulation rather than pretending those decisions were human-reviewed.
+The implementation deliberately does not auto-approve model output. Local persistence is an MVP JSON store, not the final production database architecture.
 
-## Priority 2 — strengthen source-to-evidence verification
+## Priority 1 — strengthen source-to-evidence verification
 
-Current Parallel integration uses Search MCP for source discovery and preserves source excerpts/provider provenance. A stronger evidence workflow should add a controlled source-content retrieval step for approved sources where appropriate.
+Current Parallel integration uses Search MCP for source discovery and preserves source excerpts/provider provenance. A stronger evidence workflow should add controlled source-content retrieval for approved sources where appropriate.
 
 Candidate direction:
 
@@ -35,15 +37,16 @@ Parallel web_search
 → EvidenceRecord REVIEW_REQUIRED
 ```
 
-Before implementing this, verify the current Parallel MCP tool contract and usage limits. Do not store full copyrighted documents unnecessarily.
+Before implementation, verify the current Parallel MCP tool contract and usage limits. Do not store full copyrighted documents unnecessarily.
 
-## Priority 3 — minimal product UI
+## Priority 2 — minimal product UI
 
-After the persisted workflow is runnable, add a small web interface focused on Tital's differentiator rather than generic dashboard complexity.
+Add a small React/TypeScript interface around the persisted workflow rather than creating a generic dashboard.
 
-A useful first UI should make these actions visible:
+The first UI should expose:
 
 ```text
+Project / current gate
 Define
 Research
 Evidence / Claims
@@ -54,17 +57,24 @@ Audit
 Package
 ```
 
-The most important interaction is provenance navigation: a user should be able to move from a script line/shot backward to claims, evidence, and sources.
+The most important interaction is provenance navigation: a user should be able to move from a script line/shot backward to claims, evidence, and sources. Review actions must remain explicit and visible.
 
-## Priority 4 — persistence model
+## Priority 3 — persistence hardening
 
-Introduce a project store only after the state contract is clear. Persistence should retain record IDs, statuses, provenance relationships, source retrieval timestamps/provider IDs, and audit/package state.
+The local JSON session store is sufficient for the MVP/developer workflow. Before multi-user or deployed production use, define a stronger persistence contract for:
 
-Do not build a large database abstraction before the single-project workflow works.
+- schema/session versioning and migrations;
+- project ownership and reviewer identity;
+- concurrency/optimistic locking;
+- transactional state + event updates;
+- cloud/database storage;
+- backup/export/import behavior.
 
-## Priority 5 — dependency invalidation / staleness
+Do not replace the simple store with a large abstraction until the web UI and single-project workflow requirements are clear.
 
-The current MVP enforces approval gates but does not yet automatically propagate staleness after an approved upstream record changes.
+## Priority 4 — dependency invalidation / staleness
+
+The current session layer invalidates the stored audit after new generation/review decisions, but it does not yet propagate formal downstream staleness after an approved upstream record is edited/replaced.
 
 Future behavior should support relationships such as:
 
@@ -78,7 +88,7 @@ Source/Evidence changed
 
 Start with deterministic dependency invalidation before designing a large knowledge-graph system.
 
-## Priority 6 — expand Scientific Audit
+## Priority 5 — expand Scientific Audit
 
 The current deterministic audit should remain the base. Candidate future rules include:
 
@@ -91,22 +101,23 @@ The current deterministic audit should remain the base. Candidate future rules i
 
 Do not claim these checks until they are implemented and tested.
 
-## Priority 7 — scientific status and contradiction model
+## Priority 6 — scientific status and contradiction model
 
-The handoff vision includes richer epistemic status and contradiction handling. The current `ClaimRecord` is intentionally smaller.
+The product vision includes richer epistemic status and contradiction handling. The current `ClaimRecord` is intentionally smaller.
 
 A future schema iteration can explore categories such as observation, experiment, strong inference, model-dependent inference, theoretical prediction, consensus, debate, hypothesis, or analogy—but only after the ontology is designed and migration implications are understood.
 
-## Priority 8 — deployment and hackathon demo
+## Priority 7 — deployment and hackathon demo
 
-Once the vertical slice works as one product session:
+Once the persisted vertical slice is locally green:
 
-1. deploy the runnable application using the chosen Google Cloud path;
-2. verify Gemini/Google Cloud use in the deployed runtime;
-3. verify real Parallel MCP use in the deployed/demo runtime;
-4. log enough runtime evidence for the demo;
-5. create the three-minute demonstration around one scientific film project;
-6. complete Devpost submission materials.
+1. wrap the workflow with the minimal UI or a polished demo-facing CLI path;
+2. deploy the runnable application using the chosen Google Cloud path;
+3. verify Gemini/Google Cloud use in the deployed runtime;
+4. verify real Parallel MCP use in the deployed/demo runtime;
+5. capture enough runtime evidence for judging/submission;
+6. create the three-minute demonstration around one scientific film project;
+7. complete Devpost submission materials.
 
 ## Explicitly deferred
 

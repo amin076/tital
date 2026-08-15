@@ -17,11 +17,12 @@ graph TD
     SRC --> CLI[cli/]
     SRC --> DOM[domain/]
     SRC --> INT[integrations/]
+    SRC --> PER[persistence/]
     SRC --> SVC[services/]
     SRC --> U[utils/]
 ```
 
-## Root Files
+## Root files
 
 ### `agent.ts`
 
@@ -29,42 +30,29 @@ Baseline ADK root-agent entry point used by the ADK CLI harness.
 
 ### `parallel-agent.ts`
 
-Entry point for running the Parallel-enabled source-discovery agent through the ADK tooling.
+Entry point for running the Parallel-enabled source-discovery agent through ADK tooling.
 
 ### `package.json`
 
-Defines dependencies and current scripts such as:
+Defines dependencies and scripts including:
 
 ```text
 adk:run
 parallel:run
 define
 research-questions
+mvp
 typecheck
 test
 ```
 
 ### `.env.example`
 
-Documents the expected Google Cloud / Vertex AI environment variables. It is a configuration reference; the repository should not be assumed to contain a custom `.env` loader unless one is explicitly added.
+Documents expected Google Cloud / Vertex AI environment variables. It is a configuration reference; the repository should not be assumed to contain a custom `.env` loader unless one is explicitly added.
 
 ## `src/agents/`
 
-Contains specialized Google ADK `LlmAgent` definitions:
-
-```text
-claimGenerationAgent.ts
-defineAgent.ts
-evidenceExtractionAgent.ts
-parallelSourceAgent.ts
-researchQuestionAgent.ts
-sceneDirectorAgent.ts
-scientificScriptAgent.ts
-shotDirectorAgent.ts
-visualDecisionAgent.ts
-```
-
-Agents propose structured content. They do not own trusted application IDs, approval state, or workflow progression.
+Contains specialized Google ADK `LlmAgent` definitions. Agents propose structured content; they do not own trusted application IDs, approval state, or workflow progression.
 
 ## `src/domain/`
 
@@ -74,15 +62,14 @@ Contains Zod schemas and TypeScript types for:
 - model proposal payloads;
 - scientific-audit structures;
 - production-package structures;
-- MVP workflow state/evaluation structures.
+- MVP workflow state;
+- persisted MVP session/event structures.
 
-The domain layer is the schema-level source of truth for legal fields and legal status values.
+The domain layer is the schema-level source of truth for legal fields and status values.
 
 ## `src/services/`
 
-Contains the core application logic. This is the most important layer for governance.
-
-Major categories include:
+Contains core application logic.
 
 ### Generation / assembly services
 
@@ -102,17 +89,26 @@ These validate upstream state, call agents where necessary, validate model outpu
 
 ### Review services
 
-Services such as `reviewClaim`, `reviewScriptLine`, `reviewScene`, `reviewShot`, and `reviewVisualDecision` implement explicit human-decision transitions for reviewable records.
+Record-specific review services implement explicit transitions. The persisted workflow also adds:
+
+```text
+reviewCurrentMvpGate.ts
+reviewMvpSession.ts
+```
 
 ### Workflow/orchestration services
 
 ```text
+mvpWorkflowGuards.ts
 evaluateMvpWorkflow.ts
 executeNextMvpStep.ts
 createRealMvpStepExecutors.ts
+createMvpSession.ts
+advanceMvpSession.ts
+summarizeMvpSession.ts
 ```
 
-These form the current function-based execution controller and its real runtime wiring.
+These form the function-based execution controller, provenance/coverage rules, real runtime wiring, and persisted session lifecycle.
 
 ### Deterministic integrity/finalization services
 
@@ -123,17 +119,27 @@ buildProductionPackage.ts
 
 These are intentionally deterministic rather than LLM agents.
 
+## `src/persistence/`
+
+Contains the MVP persistence adapter:
+
+```text
+jsonMvpSessionStore.ts
+```
+
+The default local store writes schema-validated sessions to `.tital/sessions/` using temporary file + rename behavior. It is a local MVP store, not a production database abstraction.
+
 ## `src/integrations/`
 
 Contains external integration configuration. The current important integration is Parallel Search MCP, which is provided to the source-discovery agent through ADK's MCP tooling.
 
 ## `src/cli/`
 
-Contains current command-line entry points for selected workflow steps. The CLI is useful for direct development and runtime smoke tests, but it is not yet a persistent end-to-end project UI.
+Contains command-line entry points for direct workflow operations. `mvp.ts` is the persisted governed-session interface and supports start/status/continue/review/show/list commands.
 
 ## `src/utils/`
 
-Contains shared utilities such as model-response JSON parsing. Shared parsing prevents every service from implementing its own inconsistent handling of raw/fenced model JSON.
+Contains shared utilities such as model-response JSON parsing.
 
 ## `tests/`
 
@@ -147,9 +153,11 @@ Mirrors the domain and service architecture with unit tests for:
 - Parallel discovery assembly;
 - scientific audit;
 - production packaging;
-- workflow evaluation;
-- execution control;
-- real executor wiring without live calls.
+- workflow evaluation/control;
+- incremental real executor wiring;
+- local session persistence;
+- rejection recovery;
+- provenance-connected coverage.
 
 Tests should prefer dependency injection and deterministic fixtures so normal development does not require paid Vertex AI execution.
 
@@ -159,6 +167,8 @@ Documentation is grouped by purpose:
 
 ```text
 docs/
+├─ CURRENT_STATUS.md
+├─ ROADMAP.md
 ├─ overview/
 ├─ architecture/
 ├─ domain/
@@ -167,23 +177,33 @@ docs/
 └─ diagrams/
 ```
 
-## Dependency Direction
+## Local runtime state
+
+The default persisted session directory is:
+
+```text
+.tital/
+```
+
+It is gitignored and is not part of the tracked application architecture.
+
+## Dependency direction
 
 The intended dependency direction is approximately:
 
 ```mermaid
 graph LR
     CLI[Entry points] --> S[Services]
+    CLI --> PERS[Persistence]
     S --> D[Domain schemas]
     S --> A[Agents]
+    S --> PERS
     A --> I[External AI / MCP integrations]
     S --> U[Utilities]
+    PERS --> D
     T[Tests] --> S
     T --> D
+    T --> PERS
 ```
 
-Domain schemas should remain independent of agent execution. Agents should not become owners of workflow state. External integrations should remain behind agent/service boundaries.
-
-## Files Not Shown as Architecture
-
-Local/generated directories such as `.git/` and `node_modules/` are not part of Tital's application architecture and are intentionally omitted from this map.
+Domain schemas should remain independent of agent execution. Agents should not become owners of workflow state. Persistence should remain an application boundary rather than leaking file-system concerns into domain records.
