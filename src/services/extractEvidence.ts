@@ -8,6 +8,7 @@ import {
 } from '../domain/evidenceProposal.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SourceRecordSchema, type SourceRecord } from '../domain/sourceRecord.js';
+import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 
 export function validateSourceForEvidence(
   source: SourceRecord,
@@ -43,18 +44,7 @@ export function validateSourceForEvidence(
 }
 
 export function parseEvidenceProposalList(rawText: string): EvidenceProposalList {
-  const trimmed = rawText.trim();
-  if (!trimmed) {
-    throw new Error('Evidence extraction agent returned an empty response.');
-  }
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(trimmed);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Evidence extraction agent returned malformed JSON: ${message}`);
-  }
+  const payload = parseJsonFromModelResponse(rawText, 'Evidence extraction agent');
 
   const parsed = EvidenceProposalListSchema.safeParse(payload);
   if (!parsed.success) {
