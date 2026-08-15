@@ -21,7 +21,7 @@ function baseState(): MvpWorkflowState {
 
 function executors(): MvpStepExecutors {
   return {
-    generateResearchQuestions: vi.fn(async () => [{ id: 'RQ-1', filmBriefId: 'FB-1', question: 'What evidence supports a subsurface ocean on Europa?', purpose: 'Establish evidence base', priority: 'HIGH', status: 'REVIEW_REQUIRED' }]),
+    generateResearchQuestions: vi.fn(async () => [{ id: 'RQ-1', filmBriefId: 'FB-1', question: 'What evidence supports a subsurface ocean on Europa?', purpose: 'Establish evidence base', priority: 'HIGH' as const, status: 'REVIEW_REQUIRED' as const }]),
     discoverSources: vi.fn(async () => []),
     extractEvidence: vi.fn(async () => []),
     generateClaims: vi.fn(async () => []),
@@ -58,7 +58,7 @@ describe('executeNextMvpStep', () => {
     const state = baseState();
     state.researchQuestions = [{ id: 'RQ-1', filmBriefId: 'FB-1', question: 'Question', purpose: 'Purpose', priority: 'HIGH', status: 'APPROVED' }];
     const deps = executors();
-    deps.discoverSources = vi.fn(async () => [{ id: 'SRC-1', researchQuestionId: 'RQ-1', provider: 'PARALLEL', providerSearchId: 'search-1', url: 'https://example.com', title: 'Source', publishDate: null, excerpts: ['Excerpt'], retrievedAt: '2026-08-15T00:00:00.000Z', status: 'REVIEW_REQUIRED' }]);
+    deps.discoverSources = vi.fn(async () => [{ id: 'SRC-1', researchQuestionId: 'RQ-1', provider: 'PARALLEL' as const, providerSearchId: 'search-1', url: 'https://example.com', title: 'Source', publishDate: null, excerpts: ['Excerpt'], retrievedAt: '2026-08-15T00:00:00.000Z', status: 'REVIEW_REQUIRED' as const }]);
 
     const result = await executeNextMvpStep(state, deps);
 
