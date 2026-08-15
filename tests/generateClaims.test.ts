@@ -50,7 +50,8 @@ describe('Approved Evidence → Claim governed generation', () => {
   });
 
   it('accepts a fenced JSON response from the model', () => {
-    expect(parseClaimProposalList(````json\n${JSON.stringify(proposals)}\n````)).toEqual(proposals);
+    const fenced = '```json\n' + JSON.stringify(proposals) + '\n```';
+    expect(parseClaimProposalList(fenced)).toEqual(proposals);
   });
 
   it('rejects non-approved evidence before model invocation', async () => {
