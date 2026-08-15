@@ -29,6 +29,13 @@ describe('Phase 5A evidence record contract', () => {
     expect(EvidenceRecordSchema.parse({ ...validEvidence, uncertainty: null }).uncertainty).toBeNull();
   });
 
+  it.each(['null', 'NULL', 'None', 'N/A', 'unknown', 'no uncertainty']) (
+    'rejects placeholder uncertainty value %s',
+    (uncertainty) => {
+      expect(() => EvidenceRecordSchema.parse({ ...validEvidence, uncertainty })).toThrow();
+    }
+  );
+
   it('rejects evidence that skips the human-review lifecycle', () => {
     expect(() => EvidenceRecordSchema.parse({ ...validEvidence, status: 'LOCKED' })).toThrow();
   });
