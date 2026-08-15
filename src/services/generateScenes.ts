@@ -1,0 +1,146 @@
+import crypto from 'crypto';
+import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { sceneDirectorAgent } from '../agents/sceneDirectorAgent.js';
+import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
+import { SceneProposalListSchema, type SceneProposalList } from '../domain/sceneProposal.js';
+import { SceneRecordSchema, type SceneRecord } from '../domain/sceneRecord.js';
+import { ScriptLineRecordSchema, type ScriptLineRecord } from '../domain/scriptLineRecord.js';
+import { parseJsonFromModelResponse } from '../utils/modelJson.js';
+
+export function validateScriptLinesForScenes(
+  scriptLines: ScriptLineRecord[],
+  question: ResearchQuestion
+): void {
+  const parsedQuestion = ResearchQuestionSchema.safeParse(question);
+  if (!parsedQuestion.success) {
+    throw new Error(`Invalid ResearchQuestion schema: ${parsedQuestion.error.message}`);
+  }
+
+  if (question.status !== 'APPROVED') {
+    throw new Error(
+      `ResearchQuestion is not approved: scene generation requires APPROVED status, current status is "${question.status}".`
+    );
+  }
+
+  if (scriptLines.length === 0) {
+    throw new Error('Scene generation requires at least one approved ScriptLineRecord.');
+  }
+
+  const seenIds = new Set<string>();
+  for (const line of scriptLines) {
+    const parsedLine = ScriptLineRecordSchema.safeParse(line);
+    if (!parsedLine.success) {
+      throw new Error(`Invalid ScriptLineRecord schema: ${parsedLine.error.message}`);
+    }
+
+    if (line.status !== 'APPROVED') {
+      throw new Error(
+        `ScriptLineRecord is not approved: scene generation requires APPROVED status for "${line.id}", current status is "${line.status}".`
+      );
+    }
+
+    if (line.researchQuestionId !== question.id) {
+      throw new Error(
+        `ScriptLineRecord researchQuestionId mismatch for "${line.id}": expected "${question.id}", received "${line.researchQuestionId}".`
+      );
+    }
+
+    if (seenIds.has(line.id)) {
+      throw new Error(`Duplicate ScriptLineRecord id supplied for scene generation: "${line.id}".`);
+    }
+    seenIds.add(line.id);
+  }
+}
+
+export function parseSceneProposalList(rawText: string): SceneProposalList {
+  const payload = parseJsonFromModelResponse(rawText, 'Scene director agent');
+  const parsed = SceneProposalListSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new Error(`Scene proposal validation failed: ${parsed.error.message}`);
+  }
+  return parsed.data;
+}
+
+export function assembleSceneRecords(
+  question: ResearchQuestion,
+  scriptLines: ScriptLineRecord[],
+  proposals: SceneProposalList,
+  options: { idFactory?: () => string } = {}
+): SceneRecord[] {
+  const validated = SceneProposalListSchema.parse(proposals);
+  const approvedScriptLineIds = new Set(scriptLines.map((line) => line.id));
+  const idFactory = options.idFactory ?? (() => `SC-${crypto.randomUUID()}`);
+
+  return validated.scenes.map((proposal) => {
+    const uniqueScriptLineIds = [...new Set(proposal.scriptLineIds)];
+    for (const scriptLineId of uniqueScriptLineIds) {
+      if (!approvedScriptLineIds.has(scriptLineId)) {
+        throw new Error(
+          `Scene proposal references script line that was not supplied as approved: "${scriptLineId}".`
+        );
+      }
+    }
+
+    const record = {
+      id: idFactory(),
+      researchQuestionId: question.id,
+      scriptLineIds: uniqueScriptLineIds,
+      title: proposal.title,
+      purpose: proposal.purpose,
+      visualSummary: proposal.visualSummary,
+      uncertaintyDisclosure: proposal.uncertaintyDisclosure,
+      status: 'REVIEW_REQUIRED' as const,
+    };
+
+    const parsed = SceneRecordSchema.safeParse(record);
+    if (!parsed.success) {
+      throw new Error(`Final SceneRecord validation failed: ${parsed.error.message}`);
+    }
+
+    return parsed.data;
+  });
+}
+
+export async function callSceneDirectorAgent(
+  scriptLines: ScriptLineRecord[],
+  question: ResearchQuestion
+): Promise<SceneProposalList> {
+  const runner = new InMemoryRunner({ agent: sceneDirectorAgent });
+  let responseText = '';
+
+  try {
+    const run = runner.runEphemeral({
+      userId: 'system',
+      newMessage: {
+        parts: [
+          {
+            text: `Create scene proposals for this approved research question using ONLY the supplied approved script lines.\n\nResearchQuestion:\n${JSON.stringify(question, null, 2)}\n\nApproved ScriptLineRecords:\n${JSON.stringify(scriptLines, null, 2)}`,
+          },
+        ],
+      },
+    });
+
+    for await (const event of run) {
+      responseText += stringifyContent(event);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Scene ADK/model invocation failure: ${message}`);
+  }
+
+  return parseSceneProposalList(responseText);
+}
+
+export async function generateScenes(
+  scriptLines: ScriptLineRecord[],
+  question: ResearchQuestion,
+  modelCaller: (
+    scriptLines: ScriptLineRecord[],
+    question: ResearchQuestion
+  ) => Promise<SceneProposalList> = callSceneDirectorAgent,
+  options: { idFactory?: () => string } = {}
+): Promise<SceneRecord[]> {
+  validateScriptLinesForScenes(scriptLines, question);
+  const proposals = await modelCaller(scriptLines, question);
+  return assembleSceneRecords(question, scriptLines, proposals, options);
+}
