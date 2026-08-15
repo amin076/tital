@@ -1,160 +1,253 @@
 # Tital: The Evidence-Governed Scientific Film Director
 
-Tital is an evidence-governed scientific film direction system. It is designed to assist in the creation of short scientific films by ensuring that all claims made in the film are backed by verifiable evidence and a clear provenance chain.
+Tital is an evidence-governed scientific film direction system for turning a scientific film idea into an auditable production package. It is designed around a simple principle:
 
-It is **not** a generic video generator or a general-purpose chatbot. Its core purpose is to guide the creative process of scientific filmmaking through a structured, auditable, and human-in-the-loop workflow.
+> Evidence first, story second.
 
-## The Tital Difference: Provenance and Governance
+Tital is **not** a generic video generator and **not** a general-purpose chatbot. Its job is to preserve scientific provenance, uncertainty, visual integrity, and human review across the path from research to script, scenes, shots, and final production decisions.
 
-The key differentiator for Tital is its focus on **provenance** and **governance**. Every creative decision and factual claim is part of a verifiable audit trail. This is achieved through:
+## Core Idea
 
--   **A Strict Provenance Chain:** From the initial idea to the final shot, every step is recorded as a distinct, validated data model.
--   **Human Review Gates:** AI-generated content is always treated as a *proposal* that must be approved by a human reviewer.
--   **Deterministic Logic:** The core workflow is orchestrated by auditable, deterministic code, not by the AI model.
+Tital separates three responsibilities that are often mixed together in AI applications:
 
-## Core Architecture
+- **Models propose content.** Gemini-based agents generate structured proposals.
+- **Application code governs the workflow.** Deterministic TypeScript services validate provenance, assign IDs/statuses, enforce approval gates, and run the scientific audit.
+- **Humans approve progression.** The workflow stops at review gates instead of silently auto-approving model output.
 
-Tital's architecture is designed to be modular and auditable.
+The implemented provenance chain is:
+
+```text
+FilmBrief
+→ ResearchQuestion
+→ SourceRecord
+→ EvidenceRecord
+→ ClaimRecord
+→ ScriptLineRecord
+→ SceneRecord
+→ ShotRecord
+→ VisualDecisionRecord
+→ ScientificAuditReport
+→ ProductionPackage
+```
+
+## Architecture
 
 ```mermaid
 graph TD
-    subgraph User Interaction
-        A[CLI / UI]
-    end
+    U[User / Reviewer]
+    CLI[CLI / ADK entry points]
+    EC[Execution Controller\nexecuteNextMvpStep]
+    EV[evaluateMvpWorkflow]
+    RX[Real runtime adapters\ncreateRealMvpStepExecutors]
+    S[Deterministic services]
+    A[Google ADK LlmAgents]
+    G[Gemini on Vertex AI]
+    P[Parallel Search MCP]
+    D[Zod domain schemas]
+    H[Human review gates]
+    AU[Deterministic scientific audit]
+    PKG[Production package builder]
 
-    subgraph Application Layer
-        B[Services]
-        C[Agents]
-        D[Integrations]
-    end
-
-    subgraph Core
-        E[Domain Models]
-        F[Provenance Chain]
-    end
-
-    subgraph External Systems
-        G[Google ADK / Gemini]
-        H[Parallel MCP]
-    end
-
-    A --> B
-    B --> C
-    B --> E
-    B --> F
-    C --> G
-    C --> D
-    D --> H
+    U --> CLI
+    CLI --> EC
+    EC --> EV
+    EC --> RX
+    RX --> S
+    S --> A
+    A --> G
+    A --> P
+    S --> D
+    S --> H
+    H --> EC
+    EC --> AU
+    AU --> PKG
 ```
 
--   **Services:** Orchestrate the workflow.
--   **Agents:** AI-powered creative assistants.
--   **Domain Models:** Zod schemas that define the data structure.
--   **Integrations:** Connect to external systems like Parallel Search.
-
-For a more detailed explanation, see the [System Architecture documentation](./docs/architecture/system-architecture.md).
+The controller is function-based rather than class-based. `src/services/executeNextMvpStep.ts` decides whether the next legal action is automation, human review, audit, or completion. `src/services/createRealMvpStepExecutors.ts` connects that controller contract to the real Tital services.
 
 ## Current MVP Status
 
-This repository contains the Minimum Viable Product (MVP) for the Tital system. The following features are implemented:
+Implemented now:
 
--   **Core Workflow:** The full provenance chain from `FilmBrief` to `ProductionPackage` is defined.
--   **Define Step:** The initial "define" step, where a raw idea is turned into a structured `FilmBrief`, is fully implemented.
--   **Agent Architecture:** A standard architecture for creating and running `LlmAgent`s is in place.
--   **Domain Models:** Zod schemas for all domain models are defined.
--   **Unit Tests:** A comprehensive suite of unit tests for the services and domain models is implemented.
--   **Parallel MCP Integration:** A basic integration with the Parallel Search MCP is in place for evidence gathering.
+- Structured `FilmBrief` generation through Google ADK + Gemini.
+- Research-question generation.
+- Live Parallel Search MCP source discovery through `parallelSourceAgent`.
+- Structured evidence extraction, claim generation, scientific script generation, scene direction, shot direction, and visual-decision generation.
+- Zod validation at model/service boundaries.
+- Explicit human review services and approval gates.
+- Deterministic workflow evaluation through `evaluateMvpWorkflow`.
+- Function-based execution control through `executeNextMvpStep`.
+- Real service wiring through `createRealMvpStepExecutors`.
+- Deterministic scientific audit.
+- Deterministic `ProductionPackage` construction.
+- Unit tests covering domain contracts, service gates, provenance validation, orchestration, audit, packaging, and real-executor wiring without live model calls.
+
+Important current limits:
+
+- There is **no production UI yet**; the implemented user-facing entry points are CLI/ADK-oriented.
+- There is **no persistent database/state store yet**; MVP workflow state is represented by typed in-memory objects such as `MvpWorkflowState`.
+- There is **not yet one persisted end-to-end CLI command** that automatically drives the whole project from idea to package. The controller and real service adapters exist, but human review gates are intentionally explicit.
+- Source discovery initially produces `SourceRecord.status = DISCOVERED`; source review is a distinct step before approved evidence extraction.
+
+## Repository Layout
+
+```text
+.
+├─ agent.ts
+├─ parallel-agent.ts
+├─ src/
+│  ├─ agents/
+│  ├─ cli/
+│  ├─ domain/
+│  ├─ integrations/
+│  ├─ services/
+│  └─ utils/
+├─ tests/
+├─ docs/
+├─ package.json
+├─ tsconfig.json
+└─ .env.example
+```
+
+See [Repository Structure](./docs/architecture/repository-structure.md) for the detailed map.
 
 ## Getting Started
 
 ### Prerequisites
 
-1.  **Node.js**: Version `v24.13.0` or higher.
-2.  **Google Cloud SDK**: Installed and authenticated locally.
-3.  **Application Default Credentials (ADC)**: Configured and verified.
+- A recent Node.js runtime compatible with the dependencies in `package.json`.
+- npm.
+- Google Cloud SDK for live Vertex AI runs.
+- Application Default Credentials (ADC) for live Google model calls.
 
-### 1. Install Dependencies
+### Install
 
 ```bash
 npm install
 ```
 
-### 2. Configure Your Environment
+### Environment
 
-```bash
-# On Linux/macOS:
-cp .env.example .env
+Use `.env.example` as the reference for the required runtime variables. You can set them in your shell or use tooling that loads a local `.env` file.
 
-# On Windows PowerShell:
-Copy-Item .env.example .env
+Typical Vertex AI configuration:
+
+```text
+GOOGLE_CLOUD_PROJECT=scientific-film-director-agent
+GOOGLE_CLOUD_LOCATION=global
+GOOGLE_GENAI_USE_VERTEXAI=true
 ```
 
-### 3. Authenticate with Google Cloud
+Authenticate ADC before live Vertex calls:
 
 ```bash
 gcloud auth application-default login
 ```
 
-## How to Run Tital
+If `GOOGLE_APPLICATION_CREDENTIALS` is set, make sure it points to a real credential file. A stale path will override normal ADC discovery and can cause confusing authentication failures.
 
-### Run a CLI Script
+## Running the Current Entry Points
 
-The primary way to interact with the Tital workflow is through the CLI scripts. For example, to run the "define" step:
+Generate a film brief:
 
 ```bash
 npm run define -- "A film about the discovery of penicillin"
 ```
 
-### Run an Agent Directly
+Generate research questions from the relevant CLI flow:
 
-You can also interact with agents directly using the ADK's execution harness:
+```bash
+npm run research-questions
+```
+
+Run the baseline ADK agent harness:
 
 ```bash
 npm run adk:run
 ```
 
-## How to Test Tital
-
-Run the full suite of unit tests:
+Run the Parallel MCP agent harness:
 
 ```bash
-npm test
+npm run parallel:run
 ```
 
-Perform a static type check:
+Live ADK/Gemini runs can incur Vertex AI cost. Unit tests and type checking do not require live Vertex or Parallel calls.
+
+## Testing
 
 ```bash
 npm run typecheck
+npm test
 ```
+
+Tests use dependency injection/fakes where appropriate so orchestration and provenance rules can be validated without paying for model calls.
+
+## Human Review and Statuses
+
+Statuses are model-specific rather than one universal enum. Common states include:
+
+```text
+DRAFT
+REVIEW_REQUIRED
+APPROVED
+REJECTED
+LOCKED
+```
+
+`SourceRecord` is different and also includes:
+
+```text
+DISCOVERED
+```
+
+Do not assume every generated record begins in `REVIEW_REQUIRED`. The service/domain schema is the source of truth for each record type.
 
 ## Documentation Index
 
-For more detailed information, please see the documentation in the `docs/` directory.
+### Overview
+- [Product Overview](./docs/overview/product-overview.md)
+- [Problem and Vision](./docs/overview/problem-and-vision.md)
 
--   **Overview**
-    -   [Product Overview](./docs/overview/product-overview.md)
-    -   [Problem and Vision](./docs/overview/problem-and-vision.md)
--   **Architecture**
-    -   [System Architecture](./docs/architecture/system-architecture.md)
-    -   [Agent Architecture](./docs/architecture/agent-architecture.md)
-    -   [Workflow Architecture](./docs/architecture/workflow-architecture.md)
-    -   [Repository Structure](./docs/architecture/repository-structure.md)
--   **Domain**
-    -   [Domain Models](./docs/domain/domain-models.md)
-    -   [Provenance and Governance](./docs/domain/provenance-and-governance.md)
-    -   [Review Workflow](./docs/domain/review-workflow.md)
--   **Execution**
-    -   [How Agents Run](./docs/execution/how-agents-run.md)
-    -   [Orchestration](./docs/execution/orchestration.md)
-    -   [Real Execution Path](./docs/execution/real-execution-path.md)
-    -   [Runtime Configuration](./docs/execution/runtime-configuration.md)
--   **Development**
-    -   [Local Development](./docs/development/local-development.md)
-    -   [Testing and Validation](./docs/development/testing-and-validation.md)
-    -   [Contribution Guide](./docs/development/contribution-guide.md)
--   **Diagrams**
-    -   [System Overview](./docs/diagrams/system-overview.md)
-    -   [Workflow Flow](./docs/diagrams/workflow-flow.md)
-    -   [Provenance Chain](./docs/diagrams/provenance-chain.md)
-    -   [Execution Controller](./docs/diagrams/execution-controller.md)
-    -   [Repository Map](./docs/diagrams/repo-map.md)
+### Architecture
+- [System Architecture](./docs/architecture/system-architecture.md)
+- [Agent Architecture](./docs/architecture/agent-architecture.md)
+- [Workflow Architecture](./docs/architecture/workflow-architecture.md)
+- [Repository Structure](./docs/architecture/repository-structure.md)
+
+### Domain
+- [Domain Models](./docs/domain/domain-models.md)
+- [Provenance and Governance](./docs/domain/provenance-and-governance.md)
+- [Review Workflow](./docs/domain/review-workflow.md)
+
+### Execution
+- [How Agents Run](./docs/execution/how-agents-run.md)
+- [Orchestration](./docs/execution/orchestration.md)
+- [Real Execution Path](./docs/execution/real-execution-path.md)
+- [Runtime Configuration](./docs/execution/runtime-configuration.md)
+
+### Development
+- [Local Development](./docs/development/local-development.md)
+- [Testing and Validation](./docs/development/testing-and-validation.md)
+- [Contribution Guide](./docs/development/contribution-guide.md)
+
+### Diagrams
+- [System Overview](./docs/diagrams/system-overview.md)
+- [Workflow Flow](./docs/diagrams/workflow-flow.md)
+- [Provenance Chain](./docs/diagrams/provenance-chain.md)
+- [Execution Controller](./docs/diagrams/execution-controller.md)
+- [Repository Map](./docs/diagrams/repo-map.md)
+
+## Design Rule
+
+When extending Tital, preserve this boundary:
+
+```text
+Model proposes
+→ service validates
+→ application assigns provenance/status
+→ human reviews
+→ next stage becomes eligible
+```
+
+That boundary is the core of Tital's evidence-governed architecture.
