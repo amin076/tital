@@ -3,6 +3,14 @@ import path from 'node:path';
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
 
 const SAFE_SESSION_ID = /^[A-Za-z0-9_-]+$/;
+const LEGACY_SEMANTIC_NULLS = new Set([
+  'null',
+  'none',
+  'n/a',
+  'na',
+  'unknown',
+  'no uncertainty',
+]);
 
 export function defaultMvpSessionDirectory(): string {
   const configured = process.env.TITAL_SESSION_DIR?.trim();
@@ -13,6 +21,43 @@ function assertSafeSessionId(sessionId: string): void {
   if (!SAFE_SESSION_ID.test(sessionId)) {
     throw new Error(`Invalid session ID "${sessionId}".`);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Read-time compatibility migration for sessions written before evidence
+ * uncertainty validation was hardened. It only repairs known legacy placeholder
+ * strings in state.evidence[*].uncertainty; all other values remain untouched
+ * and are still validated by MvpSessionSchema afterwards.
+ */
+export function normalizeLegacyMvpSessionData(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value.state) || !Array.isArray(value.state.evidence)) {
+    return value;
+  }
+
+  let changed = false;
+  const evidence = value.state.evidence.map((item) => {
+    if (!isRecord(item) || typeof item.uncertainty !== 'string') return item;
+
+    const normalized = item.uncertainty.trim().toLowerCase();
+    if (!LEGACY_SEMANTIC_NULLS.has(normalized)) return item;
+
+    changed = true;
+    return { ...item, uncertainty: null };
+  });
+
+  if (!changed) return value;
+
+  return {
+    ...value,
+    state: {
+      ...value.state,
+      evidence,
+    },
+  };
 }
 
 export class JsonMvpSessionStore {
@@ -38,7 +83,8 @@ export class JsonMvpSessionStore {
     const target = this.filePath(sessionId);
     try {
       const raw = await readFile(target, 'utf8');
-      return MvpSessionSchema.parse(JSON.parse(raw));
+      const parsed = JSON.parse(raw) as unknown;
+      return MvpSessionSchema.parse(normalizeLegacyMvpSessionData(parsed));
     } catch (error: unknown) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(`Tital MVP session "${sessionId}" was not found.`);
