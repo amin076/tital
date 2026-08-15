@@ -1,57 +1,166 @@
 # Workflow Architecture
 
-The Tital workflow is designed as a linear sequence of steps, where each step produces a new record in the provenance chain. The workflow is orchestrated by a central "Execution Controller" that calls deterministic services for each step.
+Tital has two related but different structures that should not be confused:
+
+1. the **provenance chain**, which explains how scientific meaning is traced from evidence to production decisions; and
+2. the **execution stage machine**, which explains what the application is allowed to do next.
+
+## Provenance Chain
+
+```mermaid
+graph LR
+    FB[FilmBrief]
+    RQ[ResearchQuestion]
+    SR[SourceRecord]
+    ER[EvidenceRecord]
+    CR[ClaimRecord]
+    SL[ScriptLineRecord]
+    SC[SceneRecord]
+    SH[ShotRecord]
+    VD[VisualDecisionRecord]
+    AU[ScientificAuditReport]
+    PP[ProductionPackage]
+
+    FB --> RQ --> SR --> ER --> CR --> SL --> SC --> SH --> VD --> AU --> PP
+```
+
+The core idea is that a downstream statement or visual choice should be explainable through its upstream records rather than being generated as an untraceable creative assertion.
+
+## Execution Stage Machine
+
+The current MVP workflow evaluator uses these stages:
+
+```text
+DEFINE
+→ RESEARCH
+→ EVIDENCE
+→ CLAIMS
+→ SCRIPT
+→ SCENES
+→ SHOTS
+→ VISUAL_DECISIONS
+→ AUDIT
+→ PACKAGE
+→ COMPLETE
+```
+
+Conceptually:
 
 ```mermaid
 graph TD
-    A[Start] --> B{defineFilm};
-    B --> C(FilmBrief);
-    C --> D{generateResearchQuestions};
-    D --> E(ResearchQuestion);
-    E --> F{discoverSources};
-    F --> G(Source);
-    G --> H{extractEvidence};
-    H --> I(Evidence);
-    I --> J{generateClaims};
-    J --> K(Claim);
-    K --> L{generateScriptLines};
-    L --> M(ScriptLine);
-    M --> N{generateScenes};
-    N --> O(Scene);
-    O --> P{generateShots};
-    P --> Q(Shot);
-    Q --> R{generateVisualDecision};
-    R --> S(VisualDecision);
-    S --> T{runScientificAudit};
-    T --> U(ScientificAudit);
-    U --> V{buildProductionPackage};
-    V --> W[End];
+    D[DEFINE]
+    R[RESEARCH]
+    E[EVIDENCE]
+    C[CLAIMS]
+    S[SCRIPT]
+    SC[SCENES]
+    SH[SHOTS]
+    V[VISUAL_DECISIONS]
+    A[AUDIT]
+    P[PACKAGE]
+    X[COMPLETE]
+
+    D --> R --> E --> C --> S --> SC --> SH --> V --> A --> P --> X
 ```
 
-## Key Concepts
+`evaluateMvpWorkflow` determines the current stage from `MvpWorkflowState`. `executeNextMvpStep` uses that evaluation to decide whether to run automation, wait for review, run the audit, or stop as complete.
 
-### Execution Controller
+## Human Review Gates
 
-The Execution Controller is the heart of the Tital workflow. It is responsible for:
+The stage diagram is not an unconditional automatic pipeline. Between most model-assisted stages, Tital inserts an explicit approval boundary.
 
--   Maintaining the state of the workflow.
--   Calling the appropriate service for the current step.
--   Passing the output of one step as the input to the next.
+```mermaid
+graph LR
+    A[Approved upstream records]
+    M[Agent/service generates proposal]
+    R[Record requires review]
+    H{Human decision}
+    OK[APPROVED]
+    NO[REJECTED]
+    N[Next stage eligible]
 
-### Deterministic Services
+    A --> M --> R --> H
+    H -->|approve| OK --> N
+    H -->|reject| NO
+```
 
-Each step in the workflow is executed by a deterministic service. These services are responsible for:
+The execution controller does not auto-approve records for the sake of completing a demo.
 
--   Validating the input for the step.
--   Calling the appropriate agent (if necessary).
--   Validating the agent's output.
--   Assembling the final domain model for the step.
--   Setting the status of the new record to `REVIEW_REQUIRED`.
+## Source Discovery Is a Special Case
 
-### Human Review Gates
+Source discovery has a different initial state from many downstream generated records.
 
-After each step, the newly created record is set to `REVIEW_REQUIRED`. This indicates that a human needs to review and approve the record before the workflow can proceed. This is a critical part of Tital's governance model. The review workflow is simple:
+Parallel discovery creates:
 
--   **`REVIEW_REQUIRED`**: The default state for a newly created record.
--   **`APPROVED`**: A human reviewer has approved the record. The workflow can proceed to the next step.
--   **`REJECTED`**: A human reviewer has rejected the record. The workflow is paused until the record is revised and re-submitted for review.
+```text
+SourceRecord.status = DISCOVERED
+```
+
+`SourceRecord` supports:
+
+```text
+DISCOVERED
+REVIEW_REQUIRED
+APPROVED
+REJECTED
+```
+
+Approved sources are required before evidence extraction can proceed. Therefore, do not simplify the whole workflow to a universal `REVIEW_REQUIRED → APPROVED` pattern.
+
+## Model-Assisted vs Deterministic Stages
+
+Model-assisted work includes:
+
+```text
+Film brief proposal
+Research questions
+Source discovery via Gemini + Parallel MCP
+Evidence proposals
+Claim proposals
+Script lines
+Scenes
+Shots
+Visual decisions
+```
+
+Deterministic application responsibilities include:
+
+```text
+schema validation
+ID creation
+status assignment
+provenance validation
+human-review transitions
+workflow-stage evaluation
+execution control
+scientific audit
+production-package construction
+```
+
+This division is deliberate: the model creates candidate content; application code decides whether that content can become trusted workflow state.
+
+## Multi-Record Routing
+
+The real MVP executor adapter does more than call one generic agent repeatedly. It routes records according to provenance:
+
+- source discovery runs per approved research question;
+- evidence extraction runs per source with the matching research question;
+- claim, script, and scene generation group records by `researchQuestionId`;
+- shot generation uses each approved scene and the approved script lines referenced by that scene;
+- visual decisions are generated per approved shot.
+
+This routing prevents downstream records from accidentally mixing unrelated research-question chains.
+
+## Audit and Package
+
+The scientific audit is deterministic. It checks implemented integrity rules such as broken provenance, unapproved upstream records, unsupported claims, visual-category mismatches, and missing visual disclosures.
+
+The production package is also constructed deterministically. It becomes production-ready only when the package service's workflow and audit conditions are satisfied.
+
+The current execution-controller contract includes the audit step. Final package construction is implemented as a separate deterministic service rather than an LLM agent.
+
+## Current Execution Limitation
+
+The repository contains the workflow evaluator, execution controller, real runtime adapters, review functions, audit, and package builder. It does **not** yet contain a durable project store or one persisted end-to-end user command that carries a project through every review cycle from raw idea to package.
+
+That application shell is future work; the governed workflow core already exists.
