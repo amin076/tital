@@ -6,6 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "adk:run": "adk run agent.ts",
+    "parallel:run": "adk run parallel-agent.ts",
     "define": "tsx src/cli/define.ts",
     "research-questions": "tsx src/cli/researchQuestions.ts",
     "test": "vitest run",

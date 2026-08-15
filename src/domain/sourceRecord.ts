@@ -4,7 +4,7 @@ export const SourceRecordSchema = z.object({
   id: z.string().min(1, 'Source ID must be a non-empty string'),
   researchQuestionId: z.string().min(1, 'ResearchQuestion ID must be a non-empty string'),
   provider: z.literal('PARALLEL'),
-  providerSearchId: z.string().min(1, 'Provider search ID must be a non-empty string'),
+  providerSearchId: z.string().min(1, 'Provider search ID must be a non-empty string').nullable(),
   url: z.string().url('Source URL must be valid'),
   title: z.string().min(1, 'Source title must be a non-empty string'),
   publishDate: z.string().nullable(),
