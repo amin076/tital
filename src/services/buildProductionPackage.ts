@@ -8,7 +8,12 @@ import { SceneRecordSchema, type SceneRecord } from '../domain/sceneRecord.js';
 import { ShotRecordSchema, type ShotRecord } from '../domain/shotRecord.js';
 import { VisualDecisionRecordSchema, type VisualDecisionRecord } from '../domain/visualDecisionRecord.js';
 import { ProductionPackageSchema, type ProductionPackage } from '../domain/productionPackage.js';
+import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
 import { runScientificAudit } from './runScientificAudit.js';
+import {
+  isProductionWorkflowReady,
+  selectApprovedProductionChain,
+} from './mvpWorkflowGuards.js';
 
 export interface ProductionPackageInput {
   filmBrief: FilmBrief;
@@ -20,10 +25,6 @@ export interface ProductionPackageInput {
   scenes: SceneRecord[];
   shots: ShotRecord[];
   visualDecisions: VisualDecisionRecord[];
-}
-
-function allApproved<T extends { status: string }>(records: T[]): boolean {
-  return records.length > 0 && records.every((record) => record.status === 'APPROVED' || record.status === 'LOCKED');
 }
 
 export function buildProductionPackage(
@@ -40,32 +41,18 @@ export function buildProductionPackage(
   input.shots.forEach((record) => ShotRecordSchema.parse(record));
   input.visualDecisions.forEach((record) => VisualDecisionRecordSchema.parse(record));
 
-  const audit = runScientificAudit(
-    {
-      sources: input.sources,
-      evidence: input.evidence,
-      claims: input.claims,
-      scriptLines: input.scriptLines,
-      scenes: input.scenes,
-      shots: input.shots,
-      visualDecisions: input.visualDecisions,
-    },
-    { idFactory: options.auditIdFactory }
-  );
+  const workflowState: MvpWorkflowState = {
+    ...input,
+    audit: null,
+  };
+  const chain = selectApprovedProductionChain(workflowState);
 
-  const workflowReady =
-    (input.filmBrief.status === 'APPROVED' || input.filmBrief.status === 'LOCKED') &&
-    allApproved(input.researchQuestions) &&
-    allApproved(input.sources) &&
-    allApproved(input.evidence) &&
-    allApproved(input.claims) &&
-    allApproved(input.scriptLines) &&
-    allApproved(input.scenes) &&
-    allApproved(input.shots) &&
-    allApproved(input.visualDecisions);
+  const audit = runScientificAudit(chain, { idFactory: options.auditIdFactory });
+  const workflowReady = isProductionWorkflowReady(workflowState);
 
   return ProductionPackageSchema.parse({
-    ...input,
+    filmBrief: input.filmBrief,
+    ...chain,
     audit,
     generatedAt: (options.now ?? (() => new Date().toISOString()))(),
     status: audit.passed && workflowReady ? 'READY_FOR_PRODUCTION' : 'BLOCKED',
