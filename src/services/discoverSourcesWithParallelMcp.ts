@@ -7,6 +7,7 @@ import {
 } from '../domain/parallelSourceDiscovery.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SourceRecordSchema, type SourceRecord } from '../domain/sourceRecord.js';
+import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 
 export function validateResearchQuestionForMcpDiscovery(question: ResearchQuestion): void {
   const parsed = ResearchQuestionSchema.safeParse(question);
@@ -22,18 +23,7 @@ export function validateResearchQuestionForMcpDiscovery(question: ResearchQuesti
 }
 
 export function parseParallelSourceDiscovery(rawText: string): ParallelSourceDiscovery {
-  const trimmed = rawText.trim();
-  if (!trimmed) {
-    throw new Error('Parallel MCP agent returned an empty response.');
-  }
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(trimmed);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Parallel MCP agent returned malformed JSON: ${message}`);
-  }
+  const payload = parseJsonFromModelResponse(rawText, 'Parallel MCP agent');
 
   const parsed = ParallelSourceDiscoverySchema.safeParse(payload);
   if (!parsed.success) {
