@@ -16,6 +16,7 @@ const approvedQuestion: ResearchQuestion = {
 };
 
 const discovery = {
+  providerSearchId: null,
   sources: [
     {
       title: 'Why Europa: Evidence for an Ocean',
@@ -39,6 +40,7 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
     expect(() =>
       parseParallelSourceDiscovery(
         JSON.stringify({
+          ...discovery,
           sources: [{ ...discovery.sources[0], url: 'not-a-url' }],
         })
       )
@@ -49,7 +51,6 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
     const sources = assembleMcpSourceRecords(approvedQuestion.id, discovery, {
       idFactory: () => 'SRC-fixed',
       now: () => '2026-08-15T00:00:00.000Z',
-      discoveryRunId: 'MCP-run-123',
     });
 
     expect(sources).toEqual([
@@ -57,7 +58,7 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
         id: 'SRC-fixed',
         researchQuestionId: approvedQuestion.id,
         provider: 'PARALLEL',
-        providerSearchId: 'MCP-run-123',
+        providerSearchId: null,
         url: discovery.sources[0].url,
         title: discovery.sources[0].title,
         publishDate: null,
@@ -66,6 +67,19 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
         status: 'DISCOVERED',
       },
     ]);
+  });
+
+  it('preserves an exact provider search id when Parallel exposes one', () => {
+    const sources = assembleMcpSourceRecords(
+      approvedQuestion.id,
+      { ...discovery, providerSearchId: 'search-123' },
+      {
+        idFactory: () => 'SRC-fixed',
+        now: () => '2026-08-15T00:00:00.000Z',
+      }
+    );
+
+    expect(sources[0].providerSearchId).toBe('search-123');
   });
 
   it('requires APPROVED research questions before invoking the MCP model caller', async () => {
@@ -83,7 +97,6 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
     const sources = await discoverSourcesWithParallelMcp(approvedQuestion, modelCaller, {
       idFactory: () => 'SRC-mcp-1',
       now: () => '2026-08-15T00:00:00.000Z',
-      discoveryRunId: 'MCP-run-1',
     });
 
     expect(modelCaller).toHaveBeenCalledOnce();
@@ -91,7 +104,7 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
       id: 'SRC-mcp-1',
       researchQuestionId: approvedQuestion.id,
       provider: 'PARALLEL',
-      providerSearchId: 'MCP-run-1',
+      providerSearchId: null,
       status: 'DISCOVERED',
     });
   });
