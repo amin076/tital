@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EvidenceUncertaintySchema } from './evidenceProposal.js';
 
 export const EvidenceRecordSchema = z.object({
   id: z.string().min(1, 'Evidence ID must be a non-empty string'),
@@ -7,7 +8,7 @@ export const EvidenceRecordSchema = z.object({
   excerpt: z.string().min(1, 'Evidence excerpt must be a non-empty string'),
   interpretation: z.string().min(1, 'Evidence interpretation must be a non-empty string'),
   strength: z.enum(['HIGH', 'MEDIUM', 'LOW']),
-  uncertainty: z.string().min(1).nullable(),
+  uncertainty: EvidenceUncertaintySchema,
   status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED']),
 });
 
