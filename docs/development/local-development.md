@@ -1,74 +1,143 @@
 # Local Development
 
-This document provides instructions for setting up your local development environment for Tital.
+This document describes the verified local-development workflow for the current Tital MVP.
 
 ## Prerequisites
 
-1.  **Node.js**: Version `v24.13.0` or higher. You can use a version manager like `nvm` to manage your Node.js versions.
-2.  **Google Cloud SDK**: The `gcloud` command-line tool must be installed and authenticated locally.
-3.  **Application Default Credentials (ADC)**: Your local ADC must be configured and verified.
+### Node.js
 
-## Getting Started
+Two Node.js versions have been used successfully during Tital development:
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/amin076/tital.git
-cd tital
+```text
+22.18.0
+24.13.0
 ```
 
-### 2. Install Dependencies
+The repository does **not** currently declare a formal minimum Node version in `package.json`, so do not treat `24.13.0 or higher` as a project requirement. Prefer one of the versions already verified with the current dependency set unless there is a reason to test an upgrade.
 
-Install all package dependencies using `npm`:
+### npm
+
+Tital uses npm. Install dependencies with:
 
 ```bash
 npm install
 ```
 
-### 3. Configure Your Environment
+### Google Cloud SDK
 
-Create a `.env` file in the project root by copying the example file:
+`gcloud` is required for live Vertex AI runs using Application Default Credentials (ADC).
+
+## Clone and install
 
 ```bash
-# On Linux/macOS:
-cp .env.example .env
-
-# On Windows PowerShell:
-Copy-Item .env.example .env
+git clone https://github.com/amin076/tital.git
+cd tital
+npm install
 ```
 
-The default values in `.env.example` are sufficient for running the application.
+## Configure the live runtime
 
-### 4. Authenticate with Google Cloud
+The current repository includes `.env.example`, but the application does not implement a universal project-level dotenv loader. For reliable local runs, set the verified variables in the shell that launches Tital.
 
-Ensure your local Application Default Credentials (ADC) are active:
+Windows PowerShell:
+
+```powershell
+$env:GOOGLE_CLOUD_PROJECT="scientific-film-director-agent"
+$env:GOOGLE_CLOUD_LOCATION="global"
+$env:GOOGLE_GENAI_USE_VERTEXAI="true"
+```
+
+Authenticate ADC:
 
 ```bash
 gcloud auth application-default login
 ```
 
-You can verify that your credentials are set up correctly by printing an access token:
+If live Vertex calls fail unexpectedly, also inspect `GOOGLE_APPLICATION_CREDENTIALS`. A stale path can override normal ADC discovery.
 
-```bash
-gcloud auth application-default print-access-token
+PowerShell:
+
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS
 ```
 
-## Running the Application
+If the value is known to be stale and you intend to use ADC, remove it from the current shell only:
 
-There are two ways to run the Tital agents:
+```powershell
+Remove-Item Env:\GOOGLE_APPLICATION_CREDENTIALS -ErrorAction Ignore
+```
 
-1.  **Interactive `adk run` session:**
-    ```bash
-    npm run adk:run
-    ```
-    This will start an interactive session with the main `agent.ts`.
+See [Runtime Configuration](../execution/runtime-configuration.md) for the full explanation.
 
-2.  **CLI scripts:**
-    ```bash
-    npm run define -- "A film about the moons of Jupiter"
-    ```
-    This will run the `defineFilm` service and output a `FilmBrief` JSON object.
+## Validation before live runs
 
-## Code Formatting and Linting
+Run these first:
 
-This project does not yet have a standardized code formatter or linter. This is an area for future improvement.
+```bash
+npm run typecheck
+npm test
+```
+
+These validation commands are designed to run without live Vertex AI or Parallel MCP calls.
+
+## Current executable entry points
+
+### Baseline ADK agent
+
+```bash
+npm run adk:run
+```
+
+Runs the root `agent.ts` harness.
+
+### Parallel MCP agent
+
+```bash
+npm run parallel:run
+```
+
+Runs `parallel-agent.ts`, which exposes the Parallel-enabled source-discovery agent through ADK.
+
+### Define film brief
+
+```bash
+npm run define -- "A film about the moons of Jupiter"
+```
+
+Runs `src/cli/define.ts` and produces a validated `FilmBrief`.
+
+### Research questions
+
+```bash
+npm run research-questions
+```
+
+Runs `src/cli/researchQuestions.ts`.
+
+## Current development boundary
+
+The current repository is a TypeScript/Node.js MVP. It does not yet include:
+
+```text
+production web UI
+persistent project database
+authentication
+multi-user review queues
+one persisted end-to-end project session
+final video rendering
+```
+
+When developing a new feature, preserve the existing trust boundary:
+
+```text
+model proposes content
+→ Zod validates structure
+→ service validates provenance and upstream approval
+→ application owns IDs/statuses
+→ human review gate
+→ next stage becomes eligible
+```
+
+## Formatting and linting
+
+Tital does not yet have a standardized formatter/linter command in `package.json`. Match the existing TypeScript style and rely on `npm run typecheck` plus the test suite until a formatter/linter is intentionally introduced.

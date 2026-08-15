@@ -2,16 +2,16 @@
 
 Tital is an evidence-governed scientific film direction system for turning a scientific film idea into an auditable production package. It is designed around a simple principle:
 
-> Evidence first, story second.
+> **Evidence → Story, not Story → Evidence.**
 
-Tital is **not** a generic video generator and **not** a general-purpose chatbot. Its job is to preserve scientific provenance, uncertainty, visual integrity, and human review across the path from research to script, scenes, shots, and final production decisions.
+Tital is **not** a generic video generator and **not** a general-purpose chatbot. Its job is to preserve scientific provenance, uncertainty, visual integrity, and human review across the path from research to script, scenes, shots, and production decisions.
 
 ## Core Idea
 
-Tital separates three responsibilities that are often mixed together in AI applications:
+Tital separates responsibilities that are often mixed together in AI applications:
 
 - **Models propose content.** Gemini-based agents generate structured proposals.
-- **Application code governs the workflow.** Deterministic TypeScript services validate provenance, assign IDs/statuses, enforce approval gates, and run the scientific audit.
+- **Application code governs the workflow.** Deterministic TypeScript services validate provenance, assign trusted IDs/statuses, enforce approval gates, run the scientific audit, and build the production package.
 - **Humans approve progression.** The workflow stops at review gates instead of silently auto-approving model output.
 
 The implemented provenance chain is:
@@ -84,10 +84,13 @@ Implemented now:
 
 Important current limits:
 
-- There is **no production UI yet**; the implemented user-facing entry points are CLI/ADK-oriented.
+- There is **no production UI yet**; user-facing entry points are currently CLI/ADK-oriented.
 - There is **no persistent database/state store yet**; MVP workflow state is represented by typed in-memory objects such as `MvpWorkflowState`.
-- There is **not yet one persisted end-to-end CLI command** that automatically drives the whole project from idea to package. The controller and real service adapters exist, but human review gates are intentionally explicit.
+- There is **not yet one persisted end-to-end application session** that drives a project from idea to package across restarts. Human review gates are intentionally explicit.
 - Source discovery initially produces `SourceRecord.status = DISCOVERED`; source review is a distinct step before approved evidence extraction.
+- The current scientific audit is a deterministic MVP rule set, not a complete future scientific-integrity engine.
+
+For a detailed implementation matrix, see [Current Status](./docs/CURRENT_STATUS.md). For planned work, see [Roadmap](./docs/ROADMAP.md).
 
 ## Repository Layout
 
@@ -115,7 +118,7 @@ See [Repository Structure](./docs/architecture/repository-structure.md) for the 
 
 ### Prerequisites
 
-- A recent Node.js runtime compatible with the dependencies in `package.json`.
+- A Node.js version compatible with the repository dependency set. Versions used successfully during development include Node `22.18.0` and `24.13.0`; `package.json` does not currently declare a formal minimum Node version.
 - npm.
 - Google Cloud SDK for live Vertex AI runs.
 - Application Default Credentials (ADC) for live Google model calls.
@@ -128,7 +131,7 @@ npm install
 
 ### Environment
 
-Use `.env.example` as the reference for the required runtime variables. You can set them in your shell or use tooling that loads a local `.env` file.
+`.env.example` is a configuration reference. The current repository does **not** implement one universal project-level dotenv loader, so the safest live-development path is to set the runtime variables in the shell that launches Tital.
 
 Typical Vertex AI configuration:
 
@@ -144,7 +147,7 @@ Authenticate ADC before live Vertex calls:
 gcloud auth application-default login
 ```
 
-If `GOOGLE_APPLICATION_CREDENTIALS` is set, make sure it points to a real credential file. A stale path will override normal ADC discovery and can cause confusing authentication failures.
+If `GOOGLE_APPLICATION_CREDENTIALS` is set, ensure it points to a real credential file. A stale path can override normal ADC discovery and cause confusing authentication failures. See [Runtime Configuration](./docs/execution/runtime-configuration.md).
 
 ## Running the Current Entry Points
 
@@ -154,7 +157,7 @@ Generate a film brief:
 npm run define -- "A film about the discovery of penicillin"
 ```
 
-Generate research questions from the relevant CLI flow:
+Generate research questions:
 
 ```bash
 npm run research-questions
@@ -172,7 +175,7 @@ Run the Parallel MCP agent harness:
 npm run parallel:run
 ```
 
-Live ADK/Gemini runs can incur Vertex AI cost. Unit tests and type checking do not require live Vertex or Parallel calls.
+Live ADK/Gemini runs can consume Vertex AI quota/credits. Unit tests and type checking are designed not to require live Vertex or Parallel calls.
 
 ## Testing
 
@@ -181,11 +184,11 @@ npm run typecheck
 npm test
 ```
 
-Tests use dependency injection/fakes where appropriate so orchestration and provenance rules can be validated without paying for model calls.
+Tests use dependency injection/fakes where appropriate so orchestration and provenance rules can be validated without paid live model calls.
 
 ## Human Review and Statuses
 
-Statuses are model-specific rather than one universal enum. Common states include:
+Statuses are domain-specific rather than one universal enum. Common states include:
 
 ```text
 DRAFT
@@ -204,6 +207,10 @@ DISCOVERED
 Do not assume every generated record begins in `REVIEW_REQUIRED`. The service/domain schema is the source of truth for each record type.
 
 ## Documentation Index
+
+### Project state
+- [Current Status](./docs/CURRENT_STATUS.md)
+- [Roadmap](./docs/ROADMAP.md)
 
 ### Overview
 - [Product Overview](./docs/overview/product-overview.md)

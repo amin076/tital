@@ -1,35 +1,82 @@
 # Contribution Guide
 
-We welcome contributions to the Tital project! This guide provides some tips for getting started.
+Tital is an evidence-governed scientific film direction system. Contributions should preserve the governance model, not just make the code compile.
 
-## Getting Started
+## Getting started
 
-1.  **Fork the repository:** Start by forking the Tital repository on GitHub.
-2.  **Clone your fork:**
-    ```bash
-    git clone https://github.com/YOUR_USERNAME/tital.git
-    cd tital
-    ```
-3.  **Create a new branch:**
-    ```bash
-    git checkout -b my-new-feature
-    ```
+```bash
+git clone https://github.com/amin076/tital.git
+cd tital
+npm install
+npm run typecheck
+npm test
+```
 
-## Making Changes
+Create a focused branch for your change.
 
--   **Follow the existing coding style:** While there is no formal style guide yet, please try to match the style of the existing code.
--   **Write tests for your changes:** If you are adding a new feature or fixing a bug, please add a unit test to cover your changes.
--   **Update the documentation:** If you are making a change that affects the architecture or the user-facing functionality, please update the relevant documentation in the `docs/` directory.
+## Core engineering invariants
 
-## Submitting a Pull Request
+When changing Tital, preserve these rules:
 
-1.  **Push your changes to your fork:**
-    ```bash
-    git push origin my-new-feature
-    ```
-2.  **Create a pull request:** Go to the Tital repository on GitHub and create a new pull request.
-3.  **Provide a clear description of your changes:** In the pull request description, explain what you have changed and why.
+1. **Models propose; application code governs.** LLM output must not directly become trusted domain state.
+2. **Application code owns IDs and statuses.** Do not let a model invent trusted record IDs, approval states, or provider metadata.
+3. **Validate structured output.** Use the appropriate Zod proposal/domain schema and reject malformed model output.
+4. **Validate provenance.** Referenced upstream IDs must exist, be eligible for the current stage, and belong to the correct research question/scene/context.
+5. **Do not bypass human review gates.** Automation should stop when review is required.
+6. **Preserve uncertainty.** Do not silently turn caveated evidence into stronger claims or visuals.
+7. **Never fabricate source provenance.** In particular, `providerSearchId` must represent a real provider-returned ID or `null`; never substitute an application-generated run ID.
+8. **Keep deterministic logic deterministic.** Scientific audit, approval transitions, workflow legality, and package readiness should not be delegated to an LLM when deterministic rules can enforce them.
+9. **No live external calls in ordinary unit tests.** Inject model/tool callers and use fakes for normal validation.
+10. **Document implemented behavior accurately.** Label proposed/future behavior as such.
 
-## Code of Conduct
+## Adding a model-assisted stage
 
-This project does not yet have a formal code of conduct. However, we expect all contributors to treat each other with respect.
+The preferred pattern is:
+
+```text
+validated approved upstream records
+→ deterministic service
+→ narrowly scoped ADK agent
+→ structured proposal
+→ parser + Zod validation
+→ deterministic provenance checks
+→ application-owned ID/status
+→ final domain validation
+→ human review
+```
+
+Add tests for malformed responses, unapproved upstream records, invented IDs, and provenance mismatches before performing a live Vertex test.
+
+## Partner and runtime changes
+
+Tital currently uses Google ADK/Gemini/Vertex AI and Parallel Search MCP. Do not add another AI runtime/framework/API without first checking product architecture and hackathon constraints.
+
+Never commit:
+
+```text
+API keys
+OAuth secrets
+service-account JSON
+access tokens
+private credentials
+.env files containing secrets
+```
+
+## Pull requests
+
+A PR should explain:
+
+- what problem it solves;
+- domain/provenance impact;
+- human-review impact;
+- files changed;
+- tests added/updated;
+- `npm run typecheck` result;
+- `npm test` result;
+- whether any live Vertex/Parallel validation was performed.
+
+If architecture or behavior changes, update the relevant file under `docs/` in the same PR.
+
+## Scope discipline
+
+Tital's MVP is proving a governed path from scientific evidence to film-production decisions. Avoid unrelated infrastructure or decorative agent complexity unless it directly advances that proof.

@@ -1,31 +1,73 @@
 # Testing and Validation
 
-Tital uses `vitest` for unit testing and the TypeScript compiler for static type checking.
+Tital uses `vitest` for automated tests and the TypeScript compiler for static type checking.
 
-## Running Tests
+## Standard no-live validation
 
-To run the full suite of unit tests, use the following command:
-
-```bash
-npm test
-```
-
-This will execute all files in the `tests/` directory that end with `.test.ts`.
-
-## Test Structure
-
-The tests are organized by the service or domain model that they are testing. For example, the tests for the `defineFilm` service are in `tests/defineFilm.test.ts`.
-
-The tests primarily focus on the deterministic logic in the services. They use mocking to isolate the services from the AI agents and other external dependencies.
-
-## Static Type Checking
-
-To perform a static type check of the entire codebase, use the following command:
+Run these after normal code or documentation changes:
 
 ```bash
 npm run typecheck
+npm test
 ```
 
-This will run the TypeScript compiler with the `--noEmit` flag, which checks for type errors without generating any JavaScript files.
+`npm run typecheck` executes `tsc --noEmit`.
 
-The project is configured with `strict` mode enabled in `tsconfig.json`, so the type checking is very thorough.
+`npm test` executes the Vitest suite under `tests/`.
+
+The standard unit-test suite is designed to avoid live Vertex AI and Parallel MCP calls by injecting fake/model callers or testing deterministic services directly. This keeps ordinary validation fast, reproducible, and inexpensive.
+
+## What the tests protect
+
+Current tests cover the governed vertical slice, including areas such as:
+
+- domain/proposal schema validation;
+- model-response JSON parsing;
+- research-question generation boundaries;
+- Parallel source-discovery structure and provider provenance;
+- evidence extraction gates;
+- claim grounding and illegal/invented upstream IDs;
+- human review transitions;
+- script/scene/shot/visual-decision provenance;
+- workflow evaluation and execution-controller behavior;
+- deterministic scientific audit;
+- deterministic production-package readiness;
+- real executor wiring using injected dependencies rather than paid live calls.
+
+When adding a new model-assisted stage, test the service boundary before testing the live model. In particular, tests should prove that malformed model output, invented references, unapproved upstream records, and cross-context provenance mismatches are rejected.
+
+## Live smoke tests
+
+Live model/tool runs are separate from the unit suite. They are useful for verifying the actual runtime path, but should be deliberate because they can consume Google Cloud quota/credits or external-service quota.
+
+Examples of live-capable commands include:
+
+```text
+npm run adk:run
+npm run parallel:run
+npm run define -- "..."
+npm run research-questions
+```
+
+Before a live run, verify the environment and ADC configuration described in [Runtime Configuration](../execution/runtime-configuration.md).
+
+A successful local unit suite does not by itself prove that Vertex AI credentials, network connectivity, or Parallel MCP are currently available. Conversely, a transient external failure should not be hidden by weakening deterministic tests.
+
+## Validation hierarchy
+
+Use this order when changing Tital:
+
+```text
+1. Zod/domain validation
+2. deterministic unit/service tests
+3. TypeScript typecheck
+4. controlled integration test with injected dependencies
+5. minimal live ADK / Vertex / Parallel smoke test when needed
+6. deployed end-to-end validation later
+```
+
+## Scientific quality tests
+
+Tital's product promise requires more than code correctness. Future evaluation should measure scientific-quality behavior such as provenance coverage, unsupported-claim rate, citation correctness, uncertainty preservation, audit precision, and traceability completeness.
+
+Those metrics are not yet a complete automated evaluation framework; they are roadmap items rather than current test-suite claims.
