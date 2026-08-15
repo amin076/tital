@@ -1,23 +1,100 @@
 # Problem and Vision
 
-## The Problem
+## The problem Tital targets
 
-Communicating scientific concepts through film is a powerful tool for education and outreach. However, it is also a process fraught with challenges:
+Scientific films can look convincing while still misrepresenting evidence. The failure is not limited to obviously false statements. A film can also mislead by:
 
-- **Accuracy:** Ensuring that all information presented is accurate and supported by evidence is paramount. Misinformation can have serious consequences.
-- **Complexity:** The process of creating a film, from research to final production, is complex and involves many steps.
-- **Auditability:** In many contexts, it is important to be able to trace the provenance of every claim and creative decision. This is often difficult or impossible with traditional filmmaking workflows.
-- **Collaboration:** Scientific filmmaking often involves collaboration between scientists, writers, and filmmakers. Managing this collaboration effectively can be challenging.
+- presenting a model or reconstruction as if it were a direct observation;
+- presenting a disputed claim as consensus;
+- dropping uncertainty while simplifying narration;
+- using a visual whose geometry, colour, scale, timing, or motion implies more certainty than the evidence supports;
+- introducing a scene or shot whose scientific meaning is no longer traceable to the sources that originally justified it.
 
-## The Vision
+Most AI media tools optimize for generation quality, speed, or storytelling. Tital's product problem is different:
 
-Tital aims to address these challenges by providing a structured and auditable system for scientific film direction. Our vision is to empower scientific communicators to create engaging and accurate films with confidence.
+> How can a filmmaker transform scientific evidence into a compelling production plan without losing the provenance, uncertainty, and scientific meaning that justified the story in the first place?
 
-We believe that by combining the power of AI with a strong governance framework and human oversight, we can create a system that is:
+## Core product responsibility
 
-- **Trustworthy:** All content is backed by a clear and verifiable provenance chain.
-- **Efficient:** The system automates many of the tedious and time-consuming tasks involved in film production.
-- **Collaborative:** Tital provides a shared workspace where scientists, writers, and filmmakers can collaborate effectively.
-- **Accessible:** We aim to make Tital accessible to a broad range of users, from individual creators to large institutions.
+Tital should not merely answer:
 
-Tital is not just about creating films; it's about creating a new standard for scientific communication.
+> Can we generate this scene?
+
+It should also answer:
+
+> Can we scientifically defend what this scene tells the audience?
+
+That is why Tital governs a chain from research through individual filmmaking decisions rather than stopping at search, summarization, or script generation.
+
+## Current MVP vision
+
+The current MVP is designed to prove one governed vertical slice:
+
+```text
+Film idea / brief
+→ research questions
+→ real Partner-backed source discovery
+→ source review
+→ evidence
+→ evidence review
+→ claims
+→ claim review
+→ scientific script lines
+→ script review
+→ scenes
+→ scene review
+→ shots
+→ shot review
+→ visual decisions
+→ visual review
+→ deterministic scientific audit
+→ production package
+```
+
+The intended product value is that every important downstream artifact remains connected to approved upstream scientific records.
+
+## Human review is part of the product
+
+Tital does not treat autonomous progression as a goal by itself. Scientific approval is an explicit responsibility boundary.
+
+Conceptually:
+
+```text
+model proposal
+→ REVIEW_REQUIRED (or domain-specific discovered state)
+→ human approval/rejection
+→ next stage becomes eligible
+```
+
+`SourceRecord` is a notable exception to the simplified pattern: source discovery initially creates `DISCOVERED` records, which are reviewed before approved evidence extraction.
+
+## Current implementation vs future vision
+
+Implemented now:
+
+- TypeScript/Node.js governed domain pipeline;
+- Google ADK + Gemini model-assisted stages;
+- Parallel Search MCP source discovery;
+- human-review transition services;
+- provenance validation;
+- workflow evaluation/execution control;
+- deterministic audit and package construction.
+
+Not implemented yet:
+
+- production web workspace;
+- multi-user collaboration;
+- persistent project database;
+- reviewer identity/history;
+- automatic downstream staleness propagation after upstream edits;
+- production deployment and final video rendering.
+
+These missing layers are future work. They should not be described as current Tital capabilities.
+
+## North Star
+
+A filmmaker should be able to move from a scientific question to a production-ready film plan and, at any point, ask:
+
+> Why are we saying or showing this?
+
+Tital should return a traceable scientific answer through the provenance chain.
