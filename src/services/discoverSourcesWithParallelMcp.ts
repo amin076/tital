@@ -49,20 +49,18 @@ export function assembleMcpSourceRecords(
   options: {
     idFactory?: () => string;
     now?: () => string;
-    discoveryRunId?: string;
   } = {}
 ): SourceRecord[] {
   const validated = ParallelSourceDiscoverySchema.parse(discovery);
   const idFactory = options.idFactory ?? (() => `SRC-${crypto.randomUUID()}`);
   const now = options.now ?? (() => new Date().toISOString());
-  const discoveryRunId = options.discoveryRunId ?? `MCP-${crypto.randomUUID()}`;
 
   return validated.sources.map((candidate) => {
     const source = {
       id: idFactory(),
       researchQuestionId: questionId,
       provider: 'PARALLEL' as const,
-      providerSearchId: discoveryRunId,
+      providerSearchId: validated.providerSearchId,
       url: candidate.url,
       title: candidate.title,
       publishDate: candidate.publishDate,
@@ -113,7 +111,6 @@ export async function discoverSourcesWithParallelMcp(
   options: {
     idFactory?: () => string;
     now?: () => string;
-    discoveryRunId?: string;
   } = {}
 ): Promise<SourceRecord[]> {
   validateResearchQuestionForMcpDiscovery(question);
