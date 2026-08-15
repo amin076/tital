@@ -1,42 +1,175 @@
 # Domain Models
 
-The Tital system is built on a foundation of strongly-typed, validated domain models. These models define the structure of all data in the system and are the building blocks of the provenance chain.
+Tital's governed workflow is built from Zod-validated domain records under `src/domain/`. These records are the application-level source of truth for legal structure, provenance references, and status values.
 
-All domain models are defined as Zod schemas, which provide a single source of truth for both the shape of the data and its validation rules.
+## Implemented provenance chain
 
-## The Provenance Chain
-
-The core of Tital's governance model is the provenance chain, an ordered sequence of domain models that represents the complete, auditable history of a film's creation.
-
-The chain is as follows:
-
-1.  **`FilmBrief`**: The initial high-level plan for the film.
-2.  **`ResearchQuestion`**: A specific question that needs to be answered to create the film.
-3.  **`Source`**: A source of information that can be used to answer a research question.
-4.  **`Evidence`**: A specific piece of information extracted from a source.
-5.  **`Claim`**: A factual statement that is supported by one or more pieces of evidence.
-6.  **`ScriptLine`**: A line of dialogue or narration in the film's script.
-7.  **`Scene`**: A collection of script lines that form a single scene in the film.
-8.  **`Shot`**: A single continuous take of the camera.
-9.  **`VisualDecision`**: A decision about the visual representation of a shot.
-10. **`ScientificAudit`**: An audit of the scientific accuracy of the film.
-11. **`ProductionPackage`**: The final package of assets that is ready for production.
-
-## Zod Schemas
-
-Every domain model has a corresponding Zod schema. For example, the `FilmBrief` schema is defined as:
-
-```typescript
-export const FilmBriefSchema = z.object({
-  id: z.string().min(1, "ID must be a non-empty string"),
-  title: z.string().min(1, "Title must be a non-empty string"),
-  scientificTopic: z.string().min(1, "Scientific topic must be a non-empty string"),
-  // ... and so on
-});
+```text
+FilmBrief
+→ ResearchQuestion
+→ SourceRecord
+→ EvidenceRecord
+→ ClaimRecord
+→ ScriptLineRecord
+→ SceneRecord
+→ ShotRecord
+→ VisualDecisionRecord
+→ ScientificAuditReport
+→ ProductionPackage
 ```
 
-This provides several benefits:
+The names above are the implemented record names. Documentation should avoid shortening them to generic labels such as `Source`, `Evidence`, or `Claim` when discussing code-level behavior.
 
--   **Type Safety:** The schemas are used to generate TypeScript types, ensuring that all data is strongly-typed throughout the application.
--   **Validation:** The schemas are used to validate data at runtime, preventing invalid data from entering the system.
--   **Single Source of Truth:** The Zod schemas are the single source of truth for the shape of the data.
+## Record responsibilities
+
+### `FilmBrief`
+Defines the film's scientific and communication intent: title/topic/question, audience, format, duration, tone, learning goals, scope, constraints, and research requirements.
+
+### `ResearchQuestion`
+Links a focused research question to a `FilmBrief` through `filmBriefId`, with purpose, priority, and review status.
+
+### `SourceRecord`
+Represents a source discovered for a specific research question. The current Parallel-backed implementation records:
+
+- `researchQuestionId`;
+- `provider = "PARALLEL"`;
+- `providerSearchId` when the provider actually returns one;
+- URL/title/date metadata;
+- source excerpts returned during discovery;
+- retrieval time;
+- source review status.
+
+Source discovery initially creates:
+
+```text
+status = DISCOVERED
+```
+
+A source must be reviewed before it is treated as approved upstream material.
+
+### `EvidenceRecord`
+Represents a specific evidence item extracted from an approved source for an approved research question. It preserves:
+
+- `sourceId`;
+- `researchQuestionId`;
+- excerpt;
+- interpretation;
+- strength (`HIGH | MEDIUM | LOW`);
+- uncertainty;
+- review status.
+
+Evidence is created as `REVIEW_REQUIRED`.
+
+### `ClaimRecord`
+Represents a scientific claim grounded in one or more approved evidence records. It includes:
+
+- `researchQuestionId`;
+- `evidenceIds`;
+- claim text;
+- confidence (`HIGH | MEDIUM | LOW`);
+- uncertainty;
+- review status.
+
+The application verifies that referenced evidence IDs exist and belong to the same approved research context.
+
+### `ScriptLineRecord`
+Represents scientific narration/dialogue generated from approved claims. It keeps:
+
+- `researchQuestionId`;
+- `claimIds`;
+- text;
+- `uncertaintyDisclosure`;
+- review/lock status.
+
+### `SceneRecord`
+Represents a directed scene created from approved script lines. It includes:
+
+- `researchQuestionId`;
+- `scriptLineIds`;
+- title;
+- purpose;
+- `visualSummary`;
+- `uncertaintyDisclosure`;
+- review/lock status.
+
+### `ShotRecord`
+Represents a shot derived from an approved scene and approved referenced script lines. It adds filmmaking/scientific-integrity metadata including:
+
+- `sceneId`;
+- `scriptLineIds`;
+- description;
+- `cameraDirection`;
+- `visualIntegrityCategory`;
+- `scientificConstraint`;
+- `uncertaintyDisclosure`;
+- review/lock status.
+
+Current visual-integrity categories are:
+
+```text
+OBSERVATION
+EXPERIMENT
+SIMULATION
+SCIENTIFIC_RECONSTRUCTION
+SCHEMATIC
+ILLUSTRATION
+ANALOGY
+ARTIST_IMPRESSION
+CONCEPTUAL_VISUALIZATION
+```
+
+### `VisualDecisionRecord`
+Represents the visual treatment decision for an approved shot. The implemented record includes:
+
+- `researchQuestionId`;
+- `shotId`;
+- visual category;
+- decision text;
+- scientific constraint;
+- disclosure;
+- risk level (`LOW | MEDIUM | HIGH`);
+- review/lock status.
+
+### `ScientificAuditReport`
+Contains deterministic audit issues plus the final `passed` boolean. Current audit issue codes are defined in `src/domain/scientificAudit.ts`; the schema/service are authoritative because audit coverage will evolve over time.
+
+### `ProductionPackage`
+Aggregates the governed project records and audit result. Package construction is deterministic. A package is only marked ready when the audit passes and the required workflow records are approved/locked according to the implemented builder rules; otherwise it remains blocked.
+
+## Status values are domain-specific
+
+Tital does not use one universal status enum.
+
+Common values include:
+
+```text
+DRAFT
+REVIEW_REQUIRED
+APPROVED
+REJECTED
+LOCKED
+```
+
+`SourceRecord` also uses:
+
+```text
+DISCOVERED
+```
+
+Always inspect the actual Zod schema for the record you are modifying.
+
+## Model proposals vs final records
+
+Many model-assisted stages use a separate proposal schema. The model proposes content, while application code owns trusted metadata.
+
+```text
+LLM proposal
+→ JSON parsing
+→ proposal Zod validation
+→ provenance checks
+→ application-generated ID/status
+→ final domain-schema validation
+→ human review
+```
+
+This separation is fundamental to Tital's architecture: model output is not automatically trusted application state.
