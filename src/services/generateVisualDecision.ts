@@ -28,6 +28,30 @@ export function parseVisualDecisionProposal(rawText: string): VisualDecisionProp
   return parsed.data;
 }
 
+function disclosureLabel(category: VisualDecisionProposal['category']): string {
+  return category
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+export function deriveRequiredVisualDisclosure(
+  shot: ShotRecord,
+  proposal: VisualDecisionProposal
+): string | null {
+  if (proposal.riskLevel === 'LOW' || proposal.disclosure !== null) {
+    return proposal.disclosure;
+  }
+
+  const label = disclosureLabel(proposal.category);
+  if (shot.uncertaintyDisclosure) {
+    return `${label}: ${shot.uncertaintyDisclosure}`;
+  }
+
+  return `${label}: this visual is an evidence-based representation and should not be interpreted as direct observation.`;
+}
+
 export function assembleVisualDecisionRecord(
   shot: ShotRecord,
   proposal: VisualDecisionProposal,
@@ -47,9 +71,7 @@ export function assembleVisualDecisionRecord(
     );
   }
 
-  if (validated.riskLevel !== 'LOW' && validated.disclosure === null) {
-    throw new Error('MEDIUM or HIGH visual-integrity risk requires a viewer-facing disclosure.');
-  }
+  const disclosure = deriveRequiredVisualDisclosure(shot, validated);
 
   const idFactory = options.idFactory ?? (() => `VD-${crypto.randomUUID()}`);
   const record = {
@@ -59,7 +81,7 @@ export function assembleVisualDecisionRecord(
     category: validated.category,
     decision: validated.decision,
     scientificConstraint: validated.scientificConstraint,
-    disclosure: validated.disclosure,
+    disclosure,
     riskLevel: validated.riskLevel,
     status: 'REVIEW_REQUIRED' as const,
   };
