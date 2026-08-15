@@ -76,16 +76,16 @@ Implemented now:
 - Live Parallel Search MCP source discovery through `parallelSourceAgent`.
 - Structured evidence extraction, claim generation, scientific script generation, scene direction, shot direction, and visual-decision generation.
 - Zod validation at model/service boundaries.
-- Explicit human review services and approval gates.
+- Explicit human review services and approval gates, including selective record-level decisions at multi-record gates.
 - Coverage-aware and provenance-connected workflow evaluation.
 - Function-based execution control through `executeNextMvpStep`.
 - Incremental real service wiring through `createRealMvpStepExecutors`.
 - Rejection-aware progression: rejected records remain historical provenance while approved replacements can restore required coverage.
 - Local persisted MVP sessions across CLI invocations/restarts.
-- Local session event history for creation, automation, review decisions, audit, and packaging.
+- Local session event history for creation, automation, exact reviewed record IDs, audit, and packaging.
 - Deterministic scientific audit.
 - Deterministic `ProductionPackage` construction using only the approved, provenance-connected production chain.
-- Unit tests designed to cover domain contracts, service gates, persistence, rejection recovery, provenance validation, orchestration, audit, packaging, and real-executor wiring without live model calls.
+- Unit tests designed to cover domain contracts, service gates, persistence, selective review, rejection recovery, provenance validation, orchestration, audit, packaging, and real-executor wiring without live model calls.
 
 Important current limits:
 
@@ -173,11 +173,18 @@ Inspect status without calling a model:
 npm run mvp -- status <session-id>
 ```
 
-Apply the explicit human decision at the current gate:
+Apply the explicit human decision at the current gate. Without record IDs, the decision applies to every pending record at that gate:
 
 ```bash
 npm run mvp -- review <session-id> approve
 npm run mvp -- review <session-id> reject
+```
+
+For a gate with several candidates, review selected records by ID:
+
+```bash
+npm run mvp -- review <session-id> approve SRC-1 SRC-3
+npm run mvp -- review <session-id> reject SRC-2
 ```
 
 Run the next legal automated stage:
@@ -243,7 +250,7 @@ npm run typecheck
 npm test
 ```
 
-Tests use dependency injection/fakes where appropriate so orchestration, persistence, and provenance rules can be validated without paid live model calls.
+Tests use dependency injection/fakes where appropriate so orchestration, persistence, review selection, and provenance rules can be validated without paid live model calls.
 
 ## Human Review and Statuses
 

@@ -38,12 +38,21 @@ Run the next legal automated stage:
 npm run mvp -- continue <session-id>
 ```
 
-Apply an explicit human decision to all pending records at the current gate:
+Apply a decision to **all** pending records at the current human gate:
 
 ```bash
 npm run mvp -- review <session-id> approve
 npm run mvp -- review <session-id> reject
 ```
+
+Apply a decision selectively to one or more pending current-gate record IDs:
+
+```bash
+npm run mvp -- review <session-id> approve SRC-1 SRC-3
+npm run mvp -- review <session-id> reject SRC-2
+```
+
+Selective review is important for stages such as source discovery where several candidates can be returned and a reviewer may approve only a scientifically acceptable subset. Requested IDs that are not pending at the current gate cause a clear error rather than being silently ignored.
 
 Inspect the complete persisted session:
 
@@ -96,6 +105,12 @@ Pending records on the active chain still stop progression. Rejected terminal re
 Any new automated generation or human review decision clears the stored scientific audit. This prevents an old passing audit from being reused after the governed chain changes.
 
 The deterministic audit runs only on the approved, provenance-connected production chain. Rejected history remains in the session but is excluded from the final production package.
+
+## Event history
+
+Each persisted session records major workflow events. Review events include the exact record IDs acted on, so selective human decisions remain visible in local session history.
+
+This event log is useful for the MVP but is not yet an authenticated or cryptographically signed reviewer audit trail.
 
 ## Cost behavior
 

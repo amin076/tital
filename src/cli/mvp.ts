@@ -9,9 +9,12 @@ function usage(): never {
   npm run mvp -- start "film idea"
   npm run mvp -- status <session-id>
   npm run mvp -- continue <session-id>
-  npm run mvp -- review <session-id> approve|reject
+  npm run mvp -- review <session-id> approve|reject [record-id ...]
   npm run mvp -- show <session-id>
-  npm run mvp -- list`);
+  npm run mvp -- list
+
+Review without record IDs applies the decision to every pending record at the current gate.
+Supplying record IDs allows selective approval/rejection of current-gate records.`);
   process.exit(1);
 }
 
@@ -64,8 +67,11 @@ async function main(): Promise<void> {
   if (command === 'review') {
     const rawDecision = args[1]?.toUpperCase();
     if (rawDecision !== 'APPROVE' && rawDecision !== 'REJECT') usage();
+    const recordIds = args.slice(2);
     const session = await store.load(sessionId);
-    const reviewed = reviewMvpSession(session, rawDecision);
+    const reviewed = reviewMvpSession(session, rawDecision, {
+      recordIds: recordIds.length > 0 ? recordIds : undefined,
+    });
     await store.save(reviewed);
     print(summarizeMvpSession(reviewed));
     return;
