@@ -32,6 +32,11 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
     expect(parseParallelSourceDiscovery(JSON.stringify(discovery))).toEqual(discovery);
   });
 
+  it('accepts fenced JSON from the live Parallel agent', () => {
+    const fenced = '```json\n' + JSON.stringify(discovery) + '\n```';
+    expect(parseParallelSourceDiscovery(fenced)).toEqual(discovery);
+  });
+
   it('rejects malformed JSON before source assembly', () => {
     expect(() => parseParallelSourceDiscovery('{not-json')).toThrow('malformed JSON');
   });
