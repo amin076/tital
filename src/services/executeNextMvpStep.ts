@@ -2,10 +2,10 @@ import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
 import type { ScientificAuditReport } from '../domain/scientificAudit.js';
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import {
-  approvedOnly,
   hasPendingReview,
   missingApprovedCoverage,
   reviewedSetReady,
+  selectApprovedProductionChain,
 } from './mvpWorkflowGuards.js';
 
 export type ExecutionDisposition =
@@ -43,52 +43,34 @@ export async function executeNextMvpStep(
   const evaluation = evaluateMvpWorkflow(state);
 
   if (evaluation.stage === 'COMPLETE') {
-    return {
-      disposition: 'COMPLETE',
-      state,
-      message: 'Production package is ready; no further automated step is allowed.',
-    };
+    return { disposition: 'COMPLETE', state, message: 'Production package is ready; no further automated step is allowed.' };
   }
 
   if (evaluation.stage === 'DEFINE') {
+    return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'FilmBrief requires human approval before automation can continue.' };
+  }
+
+  if (evaluation.stage === 'RESEARCH' && !reviewedSetReady(state.researchQuestions)) {
+    if (hasPendingReview(state.researchQuestions)) {
+      return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Research questions require human review before source discovery.' };
+    }
+    const researchQuestions = await executors.generateResearchQuestions(state);
     return {
-      disposition: 'AWAITING_HUMAN_REVIEW',
-      state,
-      message: 'FilmBrief requires human approval before automation can continue.',
+      disposition: 'EXECUTED_AUTOMATION',
+      state: withInvalidatedAudit({ ...state, researchQuestions }),
+      message: 'Research-question generation executed; human review is now required.',
     };
   }
 
+  const chain = selectApprovedProductionChain(state);
+  const researchQuestionIds = new Set(chain.researchQuestions.map((record) => record.id));
+
   if (evaluation.stage === 'RESEARCH') {
-    if (!reviewedSetReady(state.researchQuestions)) {
-      if (hasPendingReview(state.researchQuestions)) {
-        return {
-          disposition: 'AWAITING_HUMAN_REVIEW',
-          state,
-          message: 'Research questions require human review before source discovery.',
-        };
-      }
-
-      const researchQuestions = await executors.generateResearchQuestions(state);
-      return {
-        disposition: 'EXECUTED_AUTOMATION',
-        state: withInvalidatedAudit({ ...state, researchQuestions }),
-        message: 'Research-question generation executed; human review is now required.',
-      };
-    }
-
-    const researchQuestions = approvedOnly(state.researchQuestions);
-    const researchQuestionIds = new Set(researchQuestions.map((record) => record.id));
     const relevantSources = state.sources.filter((record) => researchQuestionIds.has(record.researchQuestionId));
-
     if (hasPendingReview(relevantSources)) {
-      return {
-        disposition: 'AWAITING_HUMAN_REVIEW',
-        state,
-        message: 'Discovered sources require human review before evidence extraction.',
-      };
+      return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Discovered sources require human review before evidence extraction.' };
     }
-
-    if (missingApprovedCoverage(researchQuestions, relevantSources, (record) => record.researchQuestionId).length > 0) {
+    if (missingApprovedCoverage(chain.researchQuestions, chain.sources, (record) => record.researchQuestionId).length > 0) {
       const sources = await executors.discoverSources(state);
       return {
         disposition: 'EXECUTED_AUTOMATION',
@@ -99,17 +81,12 @@ export async function executeNextMvpStep(
   }
 
   if (evaluation.stage === 'EVIDENCE') {
-    const activeSources = approvedOnly(state.sources).filter((source) =>
-      approvedOnly(state.researchQuestions).some((question) => question.id === source.researchQuestionId)
-    );
-    const activeSourceIds = new Set(activeSources.map((record) => record.id));
-    const relevantEvidence = state.evidence.filter((record) => activeSourceIds.has(record.sourceId));
-
+    const sourceIds = new Set(chain.sources.map((record) => record.id));
+    const relevantEvidence = state.evidence.filter((record) => sourceIds.has(record.sourceId));
     if (hasPendingReview(relevantEvidence)) {
       return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Evidence requires human review before claim generation.' };
     }
-
-    if (missingApprovedCoverage(activeSources, relevantEvidence, (record) => record.sourceId).length > 0) {
+    if (missingApprovedCoverage(chain.sources, chain.evidence, (record) => record.sourceId).length > 0) {
       const evidence = await executors.extractEvidence(state);
       return {
         disposition: 'EXECUTED_AUTOMATION',
@@ -120,15 +97,11 @@ export async function executeNextMvpStep(
   }
 
   if (evaluation.stage === 'CLAIMS') {
-    const questions = approvedOnly(state.researchQuestions);
-    const questionIds = new Set(questions.map((record) => record.id));
-    const relevantClaims = state.claims.filter((record) => questionIds.has(record.researchQuestionId));
-
+    const relevantClaims = state.claims.filter((record) => researchQuestionIds.has(record.researchQuestionId));
     if (hasPendingReview(relevantClaims)) {
       return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Claims require human review before script generation.' };
     }
-
-    if (missingApprovedCoverage(questions, relevantClaims, (record) => record.researchQuestionId).length > 0) {
+    if (missingApprovedCoverage(chain.researchQuestions, chain.claims, (record) => record.researchQuestionId).length > 0) {
       const claims = await executors.generateClaims(state);
       return {
         disposition: 'EXECUTED_AUTOMATION',
@@ -139,15 +112,11 @@ export async function executeNextMvpStep(
   }
 
   if (evaluation.stage === 'SCRIPT') {
-    const questions = approvedOnly(state.researchQuestions);
-    const questionIds = new Set(questions.map((record) => record.id));
-    const relevantScriptLines = state.scriptLines.filter((record) => questionIds.has(record.researchQuestionId));
-
+    const relevantScriptLines = state.scriptLines.filter((record) => researchQuestionIds.has(record.researchQuestionId));
     if (hasPendingReview(relevantScriptLines)) {
       return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Script lines require human review before scene generation.' };
     }
-
-    if (missingApprovedCoverage(questions, relevantScriptLines, (record) => record.researchQuestionId).length > 0) {
+    if (missingApprovedCoverage(chain.researchQuestions, chain.scriptLines, (record) => record.researchQuestionId).length > 0) {
       const scriptLines = await executors.generateScriptLines(state);
       return {
         disposition: 'EXECUTED_AUTOMATION',
@@ -158,15 +127,11 @@ export async function executeNextMvpStep(
   }
 
   if (evaluation.stage === 'SCENES') {
-    const questions = approvedOnly(state.researchQuestions);
-    const questionIds = new Set(questions.map((record) => record.id));
-    const relevantScenes = state.scenes.filter((record) => questionIds.has(record.researchQuestionId));
-
+    const relevantScenes = state.scenes.filter((record) => researchQuestionIds.has(record.researchQuestionId));
     if (hasPendingReview(relevantScenes)) {
       return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Scenes require human review before shot generation.' };
     }
-
-    if (missingApprovedCoverage(questions, relevantScenes, (record) => record.researchQuestionId).length > 0) {
+    if (missingApprovedCoverage(chain.researchQuestions, chain.scenes, (record) => record.researchQuestionId).length > 0) {
       const scenes = await executors.generateScenes(state);
       return {
         disposition: 'EXECUTED_AUTOMATION',
@@ -177,17 +142,12 @@ export async function executeNextMvpStep(
   }
 
   if (evaluation.stage === 'SHOTS') {
-    const questions = approvedOnly(state.researchQuestions);
-    const questionIds = new Set(questions.map((record) => record.id));
-    const scenes = approvedOnly(state.scenes).filter((record) => questionIds.has(record.researchQuestionId));
-    const sceneIds = new Set(scenes.map((record) => record.id));
+    const sceneIds = new Set(chain.scenes.map((record) => record.id));
     const relevantShots = state.shots.filter((record) => sceneIds.has(record.sceneId));
-
     if (hasPendingReview(relevantShots)) {
       return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Shots require human review before visual decisions.' };
     }
-
-    if (missingApprovedCoverage(scenes, relevantShots, (record) => record.sceneId).length > 0) {
+    if (missingApprovedCoverage(chain.scenes, chain.shots, (record) => record.sceneId).length > 0) {
       const shots = await executors.generateShots(state);
       return {
         disposition: 'EXECUTED_AUTOMATION',
@@ -198,17 +158,12 @@ export async function executeNextMvpStep(
   }
 
   if (evaluation.stage === 'VISUAL_DECISIONS') {
-    const scenes = approvedOnly(state.scenes);
-    const sceneIds = new Set(scenes.map((record) => record.id));
-    const shots = approvedOnly(state.shots).filter((record) => sceneIds.has(record.sceneId));
-    const shotIds = new Set(shots.map((record) => record.id));
+    const shotIds = new Set(chain.shots.map((record) => record.id));
     const relevantVisualDecisions = state.visualDecisions.filter((record) => shotIds.has(record.shotId));
-
     if (hasPendingReview(relevantVisualDecisions)) {
       return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Visual decisions require human review before audit.' };
     }
-
-    if (missingApprovedCoverage(shots, relevantVisualDecisions, (record) => record.shotId).length > 0) {
+    if (missingApprovedCoverage(chain.shots, chain.visualDecisions, (record) => record.shotId).length > 0) {
       const visualDecisions = await executors.generateVisualDecisions(state);
       return {
         disposition: 'EXECUTED_AUTOMATION',
@@ -224,22 +179,11 @@ export async function executeNextMvpStep(
       return {
         disposition: 'AUDIT_EXECUTED',
         state: { ...state, audit },
-        message: audit.passed
-          ? 'Scientific audit passed.'
-          : 'Scientific audit found issues that must be resolved before packaging.',
+        message: audit.passed ? 'Scientific audit passed.' : 'Scientific audit found issues that must be resolved before packaging.',
       };
     }
-
-    return {
-      disposition: 'AWAITING_HUMAN_REVIEW',
-      state,
-      message: 'Audit issues must be resolved before automation can continue.',
-    };
+    return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Audit issues must be resolved before automation can continue.' };
   }
 
-  return {
-    disposition: 'AWAITING_HUMAN_REVIEW',
-    state,
-    message: evaluation.nextAction,
-  };
+  return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: evaluation.nextAction };
 }

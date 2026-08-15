@@ -10,7 +10,6 @@ import { generateShots } from './generateShots.js';
 import { generateVisualDecision } from './generateVisualDecision.js';
 import { runScientificAudit } from './runScientificAudit.js';
 import {
-  approvedOnly,
   missingApprovedCoverage,
   selectApprovedProductionChain,
 } from './mvpWorkflowGuards.js';
@@ -43,7 +42,7 @@ function questionFor(
   state: MvpWorkflowState,
   researchQuestionId: string
 ): MvpWorkflowState['researchQuestions'][number] {
-  const question = approvedOnly(state.researchQuestions).find(
+  const question = selectApprovedProductionChain(state).researchQuestions.find(
     (candidate) => candidate.id === researchQuestionId
   );
   if (!question) {
@@ -62,10 +61,10 @@ export function createRealMvpStepExecutors(
     },
 
     discoverSources: async (state) => {
-      const approvedQuestions = approvedOnly(state.researchQuestions);
+      const chain = selectApprovedProductionChain(state);
       const missingQuestions = missingApprovedCoverage(
-        approvedQuestions,
-        state.sources,
+        chain.researchQuestions,
+        chain.sources,
         (record) => record.researchQuestionId
       );
       const discovered: MvpWorkflowState['sources'] = [];
@@ -76,120 +75,99 @@ export function createRealMvpStepExecutors(
     },
 
     extractEvidence: async (state) => {
-      const approvedQuestionIds = new Set(approvedOnly(state.researchQuestions).map((record) => record.id));
-      const approvedSources = approvedOnly(state.sources).filter((record) =>
-        approvedQuestionIds.has(record.researchQuestionId)
-      );
+      const chain = selectApprovedProductionChain(state);
       const missingSources = missingApprovedCoverage(
-        approvedSources,
-        state.evidence,
+        chain.sources,
+        chain.evidence,
         (record) => record.sourceId
       );
       const records: MvpWorkflowState['evidence'] = [];
       for (const source of missingSources) {
-        const question = questionFor(state, source.researchQuestionId);
-        records.push(...(await services.extractEvidence(source, question)));
+        records.push(...(await services.extractEvidence(source, questionFor(state, source.researchQuestionId))));
       }
       return [...state.evidence, ...records];
     },
 
     generateClaims: async (state) => {
-      const approvedQuestions = approvedOnly(state.researchQuestions);
+      const chain = selectApprovedProductionChain(state);
       const missingQuestions = missingApprovedCoverage(
-        approvedQuestions,
-        state.claims,
+        chain.researchQuestions,
+        chain.claims,
         (record) => record.researchQuestionId
       );
-      const approvedEvidence = approvedOnly(state.evidence);
       const records: MvpWorkflowState['claims'] = [];
       for (const question of missingQuestions) {
-        const evidence = approvedEvidence.filter(
-          (record) => record.researchQuestionId === question.id
-        );
+        const evidence = chain.evidence.filter((record) => record.researchQuestionId === question.id);
         records.push(...(await services.generateClaims(evidence, question)));
       }
       return [...state.claims, ...records];
     },
 
     generateScriptLines: async (state) => {
-      const approvedQuestions = approvedOnly(state.researchQuestions);
+      const chain = selectApprovedProductionChain(state);
       const missingQuestions = missingApprovedCoverage(
-        approvedQuestions,
-        state.scriptLines,
+        chain.researchQuestions,
+        chain.scriptLines,
         (record) => record.researchQuestionId
       );
-      const approvedClaims = approvedOnly(state.claims);
       const records: MvpWorkflowState['scriptLines'] = [];
       for (const question of missingQuestions) {
-        const claims = approvedClaims.filter(
-          (record) => record.researchQuestionId === question.id
-        );
+        const claims = chain.claims.filter((record) => record.researchQuestionId === question.id);
         records.push(...(await services.generateScriptLines(claims, question)));
       }
       return [...state.scriptLines, ...records];
     },
 
     generateScenes: async (state) => {
-      const approvedQuestions = approvedOnly(state.researchQuestions);
+      const chain = selectApprovedProductionChain(state);
       const missingQuestions = missingApprovedCoverage(
-        approvedQuestions,
-        state.scenes,
+        chain.researchQuestions,
+        chain.scenes,
         (record) => record.researchQuestionId
       );
-      const approvedScriptLines = approvedOnly(state.scriptLines);
       const records: MvpWorkflowState['scenes'] = [];
       for (const question of missingQuestions) {
-        const scriptLines = approvedScriptLines.filter(
-          (record) => record.researchQuestionId === question.id
-        );
+        const scriptLines = chain.scriptLines.filter((record) => record.researchQuestionId === question.id);
         records.push(...(await services.generateScenes(scriptLines, question)));
       }
       return [...state.scenes, ...records];
     },
 
     generateShots: async (state) => {
-      const approvedQuestionIds = new Set(approvedOnly(state.researchQuestions).map((record) => record.id));
-      const approvedScenes = approvedOnly(state.scenes).filter((record) =>
-        approvedQuestionIds.has(record.researchQuestionId)
-      );
-      const missingScenes = missingApprovedCoverage(
-        approvedScenes,
-        state.shots,
-        (record) => record.sceneId
-      );
-      const approvedScriptLines = approvedOnly(state.scriptLines);
+      const chain = selectApprovedProductionChain(state);
+      const missingScenes = missingApprovedCoverage(chain.scenes, chain.shots, (record) => record.sceneId);
       const records: MvpWorkflowState['shots'] = [];
       for (const scene of missingScenes) {
-        const question = questionFor(state, scene.researchQuestionId);
         const sceneScriptLineIds = new Set(scene.scriptLineIds);
-        const scriptLines = approvedScriptLines.filter((record) =>
-          sceneScriptLineIds.has(record.id)
-        );
-        records.push(...(await services.generateShots(scene, scriptLines, question)));
+        const scriptLines = chain.scriptLines.filter((record) => sceneScriptLineIds.has(record.id));
+        records.push(...(await services.generateShots(scene, scriptLines, questionFor(state, scene.researchQuestionId))));
       }
       return [...state.shots, ...records];
     },
 
     generateVisualDecisions: async (state) => {
-      const approvedSceneIds = new Set(approvedOnly(state.scenes).map((record) => record.id));
-      const approvedShots = approvedOnly(state.shots).filter((record) =>
-        approvedSceneIds.has(record.sceneId)
-      );
+      const chain = selectApprovedProductionChain(state);
       const missingShots = missingApprovedCoverage(
-        approvedShots,
-        state.visualDecisions,
+        chain.shots,
+        chain.visualDecisions,
         (record) => record.shotId
       );
       const records: MvpWorkflowState['visualDecisions'] = [];
-      for (const shot of missingShots) {
-        records.push(await services.generateVisualDecision(shot));
-      }
+      for (const shot of missingShots) records.push(await services.generateVisualDecision(shot));
       return [...state.visualDecisions, ...records];
     },
 
     runAudit: (state) => {
       const chain = selectApprovedProductionChain(state);
-      return services.runScientificAudit(chain);
+      return services.runScientificAudit({
+        sources: chain.sources,
+        evidence: chain.evidence,
+        claims: chain.claims,
+        scriptLines: chain.scriptLines,
+        scenes: chain.scenes,
+        shots: chain.shots,
+        visualDecisions: chain.visualDecisions,
+      });
     },
   };
 }

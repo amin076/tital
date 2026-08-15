@@ -61,9 +61,9 @@ export interface ApprovedProductionChain {
 }
 
 /**
- * Select only the approved/locked, provenance-connected production chain.
- * Rejected and pending records remain in the persisted session history, but are
- * not included in the production package or deterministic scientific audit.
+ * Select only approved/locked records that are connected all the way back to
+ * approved upstream provenance. This prevents an approved-but-orphaned record
+ * from satisfying coverage after an upstream record was rejected or replaced.
  */
 export function selectApprovedProductionChain(
   state: MvpWorkflowState
@@ -137,84 +137,72 @@ function relevantForParentIds<T>(
 }
 
 /**
- * Returns true only when the complete active workflow has approved coverage and
- * no unresolved review records on that active chain. Rejected historical
- * records are allowed and remain auditable in the session history.
+ * Returns true only when the complete active workflow has approved,
+ * provenance-connected coverage and no unresolved human-review records on the
+ * active chain. Rejected historical records are terminal and remain persisted.
  */
 export function isProductionWorkflowReady(state: MvpWorkflowState): boolean {
   if (!isApprovedRecord(state.filmBrief)) return false;
   if (!reviewedSetReady(state.researchQuestions)) return false;
 
-  const researchQuestions = approvedOnly(state.researchQuestions);
-  const researchQuestionIds = new Set(researchQuestions.map((record) => record.id));
+  const approvedQuestions = approvedOnly(state.researchQuestions);
+  const questionIds = new Set(approvedQuestions.map((record) => record.id));
 
-  const sources = relevantForParentIds(
+  const relevantSources = relevantForParentIds(
     state.sources,
-    researchQuestionIds,
+    questionIds,
     (record) => record.researchQuestionId
   );
-  if (hasPendingReview(sources)) return false;
-  if (missingApprovedCoverage(researchQuestions, sources, (record) => record.researchQuestionId).length > 0) {
-    return false;
-  }
+  if (hasPendingReview(relevantSources)) return false;
 
-  const approvedSources = approvedOnly(sources);
+  const approvedSources = approvedOnly(relevantSources);
   const sourceIds = new Set(approvedSources.map((record) => record.id));
-  const evidence = relevantForParentIds(state.evidence, sourceIds, (record) => record.sourceId);
-  if (hasPendingReview(evidence)) return false;
-  if (missingApprovedCoverage(approvedSources, evidence, (record) => record.sourceId).length > 0) {
-    return false;
-  }
+  const relevantEvidence = relevantForParentIds(state.evidence, sourceIds, (record) => record.sourceId);
+  if (hasPendingReview(relevantEvidence)) return false;
 
-  const claims = relevantForParentIds(
+  const relevantClaims = relevantForParentIds(
     state.claims,
-    researchQuestionIds,
+    questionIds,
     (record) => record.researchQuestionId
   );
-  if (hasPendingReview(claims)) return false;
-  if (missingApprovedCoverage(researchQuestions, claims, (record) => record.researchQuestionId).length > 0) {
-    return false;
-  }
+  if (hasPendingReview(relevantClaims)) return false;
 
-  const scriptLines = relevantForParentIds(
+  const relevantScriptLines = relevantForParentIds(
     state.scriptLines,
-    researchQuestionIds,
+    questionIds,
     (record) => record.researchQuestionId
   );
-  if (hasPendingReview(scriptLines)) return false;
-  if (missingApprovedCoverage(researchQuestions, scriptLines, (record) => record.researchQuestionId).length > 0) {
-    return false;
-  }
+  if (hasPendingReview(relevantScriptLines)) return false;
 
-  const scenes = relevantForParentIds(
+  const relevantScenes = relevantForParentIds(
     state.scenes,
-    researchQuestionIds,
+    questionIds,
     (record) => record.researchQuestionId
   );
-  if (hasPendingReview(scenes)) return false;
-  if (missingApprovedCoverage(researchQuestions, scenes, (record) => record.researchQuestionId).length > 0) {
-    return false;
-  }
+  if (hasPendingReview(relevantScenes)) return false;
 
-  const approvedScenes = approvedOnly(scenes);
+  const approvedScenes = approvedOnly(relevantScenes);
   const sceneIds = new Set(approvedScenes.map((record) => record.id));
-  const shots = relevantForParentIds(state.shots, sceneIds, (record) => record.sceneId);
-  if (hasPendingReview(shots)) return false;
-  if (missingApprovedCoverage(approvedScenes, shots, (record) => record.sceneId).length > 0) {
-    return false;
-  }
+  const relevantShots = relevantForParentIds(state.shots, sceneIds, (record) => record.sceneId);
+  if (hasPendingReview(relevantShots)) return false;
 
-  const approvedShots = approvedOnly(shots);
+  const approvedShots = approvedOnly(relevantShots);
   const shotIds = new Set(approvedShots.map((record) => record.id));
-  const visualDecisions = relevantForParentIds(
+  const relevantVisualDecisions = relevantForParentIds(
     state.visualDecisions,
     shotIds,
     (record) => record.shotId
   );
-  if (hasPendingReview(visualDecisions)) return false;
-  if (missingApprovedCoverage(approvedShots, visualDecisions, (record) => record.shotId).length > 0) {
-    return false;
-  }
+  if (hasPendingReview(relevantVisualDecisions)) return false;
+
+  const chain = selectApprovedProductionChain(state);
+  if (missingApprovedCoverage(chain.researchQuestions, chain.sources, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(chain.sources, chain.evidence, (record) => record.sourceId).length > 0) return false;
+  if (missingApprovedCoverage(chain.researchQuestions, chain.claims, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(chain.researchQuestions, chain.scriptLines, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(chain.researchQuestions, chain.scenes, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(chain.scenes, chain.shots, (record) => record.sceneId).length > 0) return false;
+  if (missingApprovedCoverage(chain.shots, chain.visualDecisions, (record) => record.shotId).length > 0) return false;
 
   return true;
 }
