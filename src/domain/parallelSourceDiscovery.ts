@@ -8,6 +8,7 @@ export const ParallelSourceCandidateSchema = z.object({
 });
 
 export const ParallelSourceDiscoverySchema = z.object({
+  providerSearchId: z.string().min(1).nullable(),
   sources: z.array(ParallelSourceCandidateSchema).min(1).max(8),
 });
 
