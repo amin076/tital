@@ -80,12 +80,14 @@ Implemented now:
 - Coverage-aware and provenance-connected workflow evaluation.
 - Function-based execution control through `executeNextMvpStep`.
 - Incremental real service wiring through `createRealMvpStepExecutors`.
-- Rejection-aware progression: rejected records remain historical provenance while approved replacements can restore required coverage.
+- Rejection-aware progression: rejected records remain historical provenance while approved coverage can still progress the workflow.
 - Local persisted MVP sessions across CLI invocations/restarts.
 - Local session event history for creation, automation, exact reviewed record IDs, audit, and packaging.
 - Deterministic scientific audit.
 - Deterministic `ProductionPackage` construction using only the approved, provenance-connected production chain.
-- Unit tests designed to cover domain contracts, service gates, persistence, selective review, rejection recovery, provenance validation, orchestration, audit, packaging, and real-executor wiring without live model calls.
+- A deterministic fallback that preserves the requirement for viewer-facing disclosure when a model omits disclosure on a medium/high visual-integrity risk proposal.
+- Limited load-time normalization for a known legacy Evidence uncertainty representation without weakening strict validation for new Evidence.
+- Unit tests designed to cover domain contracts, service gates, persistence, selective review, rejection recovery, provenance validation, orchestration, audit, packaging, real-executor wiring, and visual-disclosure governance without live model calls.
 
 Important current limits:
 
@@ -94,8 +96,75 @@ Important current limits:
 - Review events do not yet include authenticated reviewer identity/signature.
 - Upstream edits do not yet automatically propagate a formal `STALE` status through all downstream records.
 - The current scientific audit is a deterministic MVP rule set, not the complete future scientific-integrity engine.
+- Evidence extraction currently works from approved source records/search excerpts rather than a dedicated full-content retrieval stage for every source.
 
 For a detailed implementation matrix, see [Current Status](./docs/CURRENT_STATUS.md). For planned work, see [Roadmap](./docs/ROADMAP.md).
+
+## Live End-to-End MVP Validation
+
+On **2026-08-15**, the persisted MVP completed its first live end-to-end scientific-film workflow using the evidence for Europa's subsurface ocean as the test project.
+
+The run exercised:
+
+```text
+Film idea
+→ FilmBrief
+→ Research Questions
+→ real Parallel MCP source discovery
+→ Source review
+→ Evidence review
+→ Claim review
+→ Script review
+→ Scene review
+→ Shot review
+→ Visual Decision review
+→ Scientific Audit
+→ Production Package
+```
+
+Final state:
+
+```text
+stage: COMPLETE
+productionPackageStatus: READY_FOR_PRODUCTION
+blockedBy: []
+```
+
+Approved/rejected record counts at completion:
+
+```text
+ResearchQuestions  APPROVED 1 / REJECTED 5
+Sources            APPROVED 4 / REJECTED 4
+Evidence           APPROVED 5 / REJECTED 6
+Claims             APPROVED 5 / REJECTED 1
+ScriptLines        APPROVED 4
+Scenes             APPROVED 2
+Shots              APPROVED 5 / REJECTED 2
+VisualDecisions    APPROVED 5
+```
+
+This was a manual CLI-driven live validation, not a deployed UI test. It proves that the current governed vertical slice can reach a production package while making real Gemini/Vertex AI and Parallel MCP runtime calls and stopping for explicit human decisions between automated stages.
+
+See [MVP End-to-End Validation](./docs/MVP_E2E_VALIDATION.md).
+
+## Next Major Milestone: Web UI
+
+The next major product milestone is a minimal React/TypeScript UI around the existing governed workflow.
+
+The UI should **not** duplicate workflow rules in frontend code. It should expose the existing persisted-session services and state machine so the user can:
+
+```text
+see current project stage
+inspect pending records
+approve/reject selected records
+continue/regenerate
+trace script/scene/shot decisions back to claims/evidence/sources
+see uncertainty and scientific constraints
+review audit findings
+open the Production Package
+```
+
+The completed Europa run showed that CLI review and copied JSON are now the main usability bottleneck for further serious testing.
 
 ## Repository Layout
 
@@ -250,7 +319,7 @@ npm run typecheck
 npm test
 ```
 
-Tests use dependency injection/fakes where appropriate so orchestration, persistence, review selection, and provenance rules can be validated without paid live model calls.
+Tests use dependency injection/fakes where appropriate so orchestration, persistence, review selection, provenance rules, and deterministic governance can be validated without paid live model calls.
 
 ## Human Review and Statuses
 
@@ -278,6 +347,7 @@ Do not assume every generated record begins in `REVIEW_REQUIRED`. The service/do
 
 ### Project state
 - [Current Status](./docs/CURRENT_STATUS.md)
+- [MVP End-to-End Validation](./docs/MVP_E2E_VALIDATION.md)
 - [Roadmap](./docs/ROADMAP.md)
 
 ### Overview

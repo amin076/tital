@@ -1,10 +1,12 @@
 # Tital Roadmap
 
+Status date: **2026-08-15**
+
 This document describes recommended next development work. It is **not** a list of capabilities that already exist. For current implementation status, see [CURRENT_STATUS.md](CURRENT_STATUS.md).
 
-## Completed MVP foundation — persisted governed project session
+## Completed foundation — governed end-to-end MVP core
 
-The earlier highest-priority orchestration goal is now implemented in the codebase:
+The core persisted workflow is now implemented and has completed a live end-to-end Europa validation:
 
 ```text
 create project session
@@ -13,15 +15,75 @@ create project session
 → persist generated records
 → stop at a human gate
 → accept explicit approve/reject
-→ recover missing coverage after rejection
+→ retain rejected history
 → continue from stored state
 → run deterministic audit
 → build ProductionPackage
+→ COMPLETE / READY_FOR_PRODUCTION
 ```
 
-The implementation deliberately does not auto-approve model output. Local persistence is an MVP JSON store, not the final production database architecture.
+The live test used real Gemini/Vertex AI generation and real Parallel Search MCP source discovery. The implementation deliberately does not auto-approve model output. Local persistence remains an MVP JSON store, not a production database architecture.
 
-## Priority 1 — strengthen source-to-evidence verification
+See [MVP End-to-End Validation](MVP_E2E_VALIDATION.md).
+
+## Priority 1 — minimal product UI
+
+The next major milestone is a small React/TypeScript interface around the already-working persisted workflow.
+
+This priority moved ahead of further backend expansion because the completed Europa test showed that CLI review, copied JSON, and manual record-ID commands are now the main usability bottleneck.
+
+The first UI should expose:
+
+```text
+Project / current gate
+Define
+Research Questions
+Sources
+Evidence / Claims
+Script
+Scenes / Shots
+Visual Decisions
+Audit
+Package
+```
+
+Required interactions:
+
+```text
+Approve
+Reject
+Continue
+Regenerate when coverage is missing
+Inspect source/evidence/claim provenance
+Inspect uncertainty and scientific constraints
+Inspect audit findings
+Open final Production Package
+```
+
+The most important experience is provenance navigation: a user should be able to move from a script line, scene, shot, or visual decision backward to claims, evidence, and sources.
+
+The UI must call the existing governed services/state machine rather than re-implementing business rules in the frontend.
+
+### UI milestone definition of done
+
+A user should be able to repeat the current Europa workflow without manually copying JSON or typing record IDs into review commands.
+
+At minimum:
+
+```text
+open/list persisted projects
+see current stage and blockers
+inspect pending records
+select one or more records
+approve/reject visibly
+continue the workflow
+see generation/runtime errors
+trace provenance backward
+inspect audit result
+inspect final package status
+```
+
+## Priority 2 — strengthen source-to-evidence verification
 
 Current Parallel integration uses Search MCP for source discovery and preserves source excerpts/provider provenance. A stronger evidence workflow should add controlled source-content retrieval for approved sources where appropriate.
 
@@ -39,38 +101,22 @@ Parallel web_search
 
 Before implementation, verify the current Parallel MCP tool contract and usage limits. Do not store full copyrighted documents unnecessarily.
 
-## Priority 2 — minimal product UI
+This work should follow the first usable UI unless the absence of full-content retrieval blocks the hackathon demo's scientific credibility.
 
-Add a small React/TypeScript interface around the persisted workflow rather than creating a generic dashboard.
+## Priority 3 — deterministic uncertainty and visual-constraint governance
 
-The first UI should expose:
+The Europa run exposed two high-value audit gaps:
 
 ```text
-Project / current gate
-Define
-Research
-Evidence / Claims
-Script
-Scenes / Shots
-Visual Decisions
-Audit
-Package
+UNCERTAINTY_DROPPED
+SCIENTIFIC_CONSTRAINT_VIOLATION
 ```
 
-The most important interaction is provenance navigation: a user should be able to move from a script line/shot backward to claims, evidence, and sources. Review actions must remain explicit and visible.
+These should not be implemented as naive text-field inheritance rules.
 
-## Priority 3 — persistence hardening
+For example, a Claim may legitimately reference an Evidence record containing uncertainty about an interpretation while making only a direct observational statement. The uncertainty rule therefore needs to consider whether the downstream proposition depends on the uncertain inference.
 
-The local JSON session store is sufficient for the MVP/developer workflow. Before multi-user or deployed production use, define a stronger persistence contract for:
-
-- schema/session versioning and migrations;
-- project ownership and reviewer identity;
-- concurrency/optimistic locking;
-- transactional state + event updates;
-- cloud/database storage;
-- backup/export/import behavior.
-
-Do not replace the simple store with a large abstraction until the web UI and single-project workflow requirements are clear.
+Likewise, VisualDecision constraint checking should detect meaningful weakening or contradiction of the approved Shot constraint rather than only comparing categories.
 
 ## Priority 4 — dependency invalidation / staleness
 
@@ -88,18 +134,20 @@ Source/Evidence changed
 
 Start with deterministic dependency invalidation before designing a large knowledge-graph system.
 
-## Priority 5 — expand Scientific Audit
+## Priority 5 — persistence hardening
 
-The current deterministic audit should remain the base. Candidate future rules include:
+The local JSON session store is sufficient for the MVP/developer workflow. Before multi-user or deployed production use, define a stronger persistence contract for:
 
-- uncertainty/caveat lost downstream;
-- scientific constraint weakened between Shot and VisualDecision;
-- stronger cross-record research-question consistency checks;
-- contradictory evidence unresolved before a claim is approved;
-- representation-specific disclosure requirements;
-- provenance coverage metrics.
+- schema/session versioning and migrations;
+- project ownership and reviewer identity;
+- concurrency/optimistic locking;
+- transactional state + event updates;
+- cloud/database storage;
+- backup/export/import behavior.
 
-Do not claim these checks until they are implemented and tested.
+A known legacy Evidence uncertainty representation is already normalized on load, but this is not yet a general migration framework.
+
+Do not replace the simple store with a large abstraction until the web UI and deployment requirements are clear.
 
 ## Priority 6 — scientific status and contradiction model
 
@@ -109,14 +157,14 @@ A future schema iteration can explore categories such as observation, experiment
 
 ## Priority 7 — deployment and hackathon demo
 
-Once the persisted vertical slice is locally green:
+After the minimal UI can drive the existing governed vertical slice:
 
-1. wrap the workflow with the minimal UI or a polished demo-facing CLI path;
-2. deploy the runnable application using the chosen Google Cloud path;
-3. verify Gemini/Google Cloud use in the deployed runtime;
-4. verify real Parallel MCP use in the deployed/demo runtime;
+1. deploy the runnable application using the chosen Google Cloud path;
+2. verify Gemini/Google Cloud use in the deployed runtime;
+3. verify real Parallel MCP use in the deployed/demo runtime;
+4. preserve visible provenance and human-gate behavior in the deployed UI;
 5. capture enough runtime evidence for judging/submission;
-6. create the three-minute demonstration around one scientific film project;
+6. create the three-minute demonstration around the validated Europa-style scientific-film journey;
 7. complete Devpost submission materials.
 
 ## Explicitly deferred
