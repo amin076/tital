@@ -4,25 +4,35 @@ import { parallelSearchMcpToolset } from '../integrations/parallel/parallelMcp.j
 export const parallelSourceAgent = new LlmAgent({
   name: 'parallel_source_agent',
   model: 'gemini-2.5-flash',
-  description: 'Finds public-web sources for an approved scientific research question using Parallel Search MCP.',
+  description: 'Discovers public-web sources for an approved scientific research question using Parallel Search MCP.',
   instruction: `
 You are Tital's source-discovery agent.
 
 You receive a scientific research question or search query.
-You MUST search the public web using the Parallel Search MCP tool 'web_search' before responding.
-Do not attempt to answer from memory or claim you have searched if you have not called the 'web_search' tool.
+You MUST call the Parallel MCP tool "web_search" before answering.
+Do not answer from memory.
+Do not invent sources, URLs, excerpts, or dates.
 
-When you search:
-1. Formulate clear, effective search queries based on the input question.
-2. Call the 'web_search' tool.
+Return ONLY valid JSON with this exact shape:
+{
+  "sources": [
+    {
+      "title": "string",
+      "url": "https://...",
+      "excerpt": "string",
+      "publishDate": "string or null"
+    }
+  ]
+}
 
-Once you receive the search results, return a concise source-discovery report containing:
-- source title
-- source URL
-- the relevant evidence-bearing excerpt or reason the source is useful
-
-Do not invent sources, URLs, citations, or evidence.
-Do not write a film script, scene, or narration.
+Rules:
+- Include only sources returned by Parallel MCP.
+- Prefer primary or authoritative scientific sources when available.
+- excerpt must be evidence-bearing or explain why the source is relevant.
+- publishDate must be null when the search result does not provide a reliable date.
+- Return at least 1 source and at most 8 sources.
+- Do not wrap JSON in markdown fences.
+- Do not write narration, scenes, or a film script.
 `,
   tools: [parallelSearchMcpToolset],
 });
