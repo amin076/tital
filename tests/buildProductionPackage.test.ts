@@ -87,9 +87,9 @@ describe('buildProductionPackage', () => {
     expect(result.audit.passed).toBe(true);
   });
 
-  it('blocks packaging when the scientific audit finds broken provenance', () => {
+  it('blocks packaging when the scientific audit finds an issue on the active production chain', () => {
     const input = makeInput();
-    input.claims[0]!.evidenceIds = ['EV-missing'];
+    input.visualDecisions[0]!.category = 'ILLUSTRATION';
 
     const result = buildProductionPackage(input, {
       now: () => '2026-08-15T07:00:00.000Z',
@@ -98,6 +98,20 @@ describe('buildProductionPackage', () => {
 
     expect(result.status).toBe('BLOCKED');
     expect(result.audit.passed).toBe(false);
-    expect(result.audit.issues.some((issue) => issue.code === 'UNSUPPORTED_CLAIM')).toBe(true);
+    expect(result.audit.issues.some((issue) => issue.code === 'VISUAL_CATEGORY_MISMATCH')).toBe(true);
+  });
+
+  it('blocks packaging when an approved record is disconnected from the provenance-connected chain', () => {
+    const input = makeInput();
+    input.claims[0]!.evidenceIds = ['EV-missing'];
+
+    const result = buildProductionPackage(input, {
+      now: () => '2026-08-15T07:00:00.000Z',
+      auditIdFactory: () => 'AUD-orphan',
+    });
+
+    expect(result.status).toBe('BLOCKED');
+    expect(result.audit.passed).toBe(true);
+    expect(result.claims).toHaveLength(0);
   });
 });
