@@ -68,21 +68,22 @@ export function FinalResultsPanel({
   const [reportError, setReportError] = useState<string | null>(null);
 
   if (!productionPackage) return null;
+  const pkg = productionPackage;
 
   const sections: Array<[string, RecordKind, GateRecord[]]> = [
-    ['Research Questions', 'researchQuestion', productionPackage.researchQuestions],
-    ['Sources', 'source', productionPackage.sources],
-    ['Evidence', 'evidence', productionPackage.evidence],
-    ['Claims', 'claim', productionPackage.claims],
-    ['Scientific Script', 'scriptLine', productionPackage.scriptLines],
-    ['Scenes', 'scene', productionPackage.scenes],
-    ['Shots', 'shot', productionPackage.shots],
-    ['Visual Decisions', 'visualDecision', productionPackage.visualDecisions],
+    ['Research Questions', 'researchQuestion', pkg.researchQuestions],
+    ['Sources', 'source', pkg.sources],
+    ['Evidence', 'evidence', pkg.evidence],
+    ['Claims', 'claim', pkg.claims],
+    ['Scientific Script', 'scriptLine', pkg.scriptLines],
+    ['Scenes', 'scene', pkg.scenes],
+    ['Shots', 'shot', pkg.shots],
+    ['Visual Decisions', 'visualDecision', pkg.visualDecisions],
   ];
 
   function handlePrint(): void {
     setReportError(null);
-    if (!printProductionReport(productionPackage)) {
+    if (!printProductionReport(pkg)) {
       setReportError(
         'The browser blocked the report window. Allow pop-ups for this local Tital page and try again.'
       );
@@ -105,7 +106,7 @@ export function FinalResultsPanel({
           </Typography>
           <Typography variant="h5">Production Package</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Generated {new Date(productionPackage.generatedAt).toLocaleString()}
+            Generated {new Date(pkg.generatedAt).toLocaleString()}
           </Typography>
         </Box>
         <Stack
@@ -115,9 +116,9 @@ export function FinalResultsPanel({
           sx={{ alignItems: 'center', flexWrap: 'wrap' }}
         >
           <Chip
-            label={productionPackage.status}
+            label={pkg.status}
             color={
-              productionPackage.status === 'READY_FOR_PRODUCTION'
+              pkg.status === 'READY_FOR_PRODUCTION'
                 ? 'success'
                 : 'warning'
             }
@@ -127,13 +128,13 @@ export function FinalResultsPanel({
           </Button>
           <Button
             variant="outlined"
-            onClick={() => downloadTextReport(productionPackage)}
+            onClick={() => downloadTextReport(pkg)}
           >
             Download text
           </Button>
           <Button
             variant="text"
-            onClick={() => downloadJsonPackage(productionPackage)}
+            onClick={() => downloadJsonPackage(pkg)}
           >
             Download JSON
           </Button>
@@ -147,12 +148,12 @@ export function FinalResultsPanel({
       )}
 
       <Alert
-        severity={productionPackage.audit.passed ? 'success' : 'error'}
+        severity={pkg.audit.passed ? 'success' : 'error'}
         sx={{ mt: 2 }}
       >
-        Scientific audit {productionPackage.audit.passed ? 'passed' : 'did not pass'} with{' '}
-        {productionPackage.audit.issues.length} issue
-        {productionPackage.audit.issues.length === 1 ? '' : 's'}.
+        Scientific audit {pkg.audit.passed ? 'passed' : 'did not pass'} with{' '}
+        {pkg.audit.issues.length} issue
+        {pkg.audit.issues.length === 1 ? '' : 's'}.
       </Alert>
 
       <Box
@@ -183,7 +184,7 @@ export function FinalResultsPanel({
         </AccordionSummary>
         <AccordionDetails>
           <ReadableRecord
-            record={productionPackage.filmBrief}
+            record={pkg.filmBrief}
             kind="filmBrief"
             showId={false}
           />
@@ -213,11 +214,11 @@ export function FinalResultsPanel({
           <Typography sx={{ fontWeight: 700 }}>Scientific Audit</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {productionPackage.audit.issues.length === 0 ? (
+          {pkg.audit.issues.length === 0 ? (
             <Alert severity="success">No audit issues were reported.</Alert>
           ) : (
             <Stack spacing={1}>
-              {productionPackage.audit.issues.map((issue) => (
+              {pkg.audit.issues.map((issue) => (
                 <Alert
                   key={issue.id}
                   severity={
