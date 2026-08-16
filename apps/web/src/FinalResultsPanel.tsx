@@ -12,54 +12,47 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { useState } from 'react';
 import type { GateRecord, ProductionPackage } from './api';
+import { ReadableRecord, type RecordKind } from './ReadableRecord';
+import {
+  downloadJsonPackage,
+  downloadTextReport,
+  printProductionReport,
+} from './reportExport';
 
-function valueAsString(record: GateRecord, key: string): string | null {
-  const value = record[key];
-  return typeof value === 'string' && value.trim() ? value : null;
-}
-
-function recordTitle(record: GateRecord): string {
-  return (
-    valueAsString(record, 'title') ??
-    valueAsString(record, 'question') ??
-    valueAsString(record, 'text') ??
-    valueAsString(record, 'description') ??
-    valueAsString(record, 'decision') ??
-    valueAsString(record, 'excerpt') ??
-    record.id
-  );
-}
-
-function RecordList({ records }: { records: GateRecord[] }) {
+function RecordList({
+  records,
+  kind,
+}: {
+  records: GateRecord[];
+  kind: RecordKind;
+}) {
   if (records.length === 0) {
-    return <Typography color="text.secondary">No approved records in this section.</Typography>;
+    return (
+      <Typography color="text.secondary">
+        No approved records in this section.
+      </Typography>
+    );
   }
 
   return (
-    <Stack spacing={1}>
-      {records.map((record) => (
+    <Stack spacing={1.25}>
+      {records.map((record, index) => (
         <Card key={record.id} variant="outlined">
           <CardContent sx={{ '&:last-child': { pb: 2 } }}>
-            <Typography sx={{ fontWeight: 700 }}>{recordTitle(record)}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {record.id}
-            </Typography>
-            <Box
-              component="pre"
-              sx={{
-                mt: 1,
-                mb: 0,
-                p: 1.25,
-                borderRadius: 1,
-                bgcolor: 'grey.100',
-                fontSize: 12,
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-              }}
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 0.5 }}
             >
-              {JSON.stringify(record, null, 2)}
-            </Box>
+              {kind === 'scriptLine'
+                ? `Script line ${index + 1}`
+                : kind === 'visualDecision'
+                  ? `Visual decision ${index + 1}`
+                  : `${kind.replace(/([A-Z])/g, ' $1')} ${index + 1}`}
+            </Typography>
+            <ReadableRecord record={record} kind={kind} showId={false} />
           </CardContent>
         </Card>
       ))}
@@ -67,42 +60,44 @@ function RecordList({ records }: { records: GateRecord[] }) {
   );
 }
 
-function downloadPackage(pkg: ProductionPackage): void {
-  const blob = new Blob([JSON.stringify(pkg, null, 2)], {
-    type: 'application/json',
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `tital-production-package-${pkg.generatedAt.replace(/[:.]/g, '-')}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 export function FinalResultsPanel({
   productionPackage,
 }: {
   productionPackage: ProductionPackage | null;
 }) {
+  const [reportError, setReportError] = useState<string | null>(null);
+
   if (!productionPackage) return null;
 
-  const sections: Array<[string, GateRecord[]]> = [
-    ['Research Questions', productionPackage.researchQuestions],
-    ['Sources', productionPackage.sources],
-    ['Evidence', productionPackage.evidence],
-    ['Claims', productionPackage.claims],
-    ['Scientific Script', productionPackage.scriptLines],
-    ['Scenes', productionPackage.scenes],
-    ['Shots', productionPackage.shots],
-    ['Visual Decisions', productionPackage.visualDecisions],
+  const sections: Array<[string, RecordKind, GateRecord[]]> = [
+    ['Research Questions', 'researchQuestion', productionPackage.researchQuestions],
+    ['Sources', 'source', productionPackage.sources],
+    ['Evidence', 'evidence', productionPackage.evidence],
+    ['Claims', 'claim', productionPackage.claims],
+    ['Scientific Script', 'scriptLine', productionPackage.scriptLines],
+    ['Scenes', 'scene', productionPackage.scenes],
+    ['Shots', 'shot', productionPackage.shots],
+    ['Visual Decisions', 'visualDecision', productionPackage.visualDecisions],
   ];
+
+  function handlePrint(): void {
+    setReportError(null);
+    if (!printProductionReport(productionPackage)) {
+      setReportError(
+        'The browser blocked the report window. Allow pop-ups for this local Tital page and try again.'
+      );
+    }
+  }
 
   return (
     <Paper variant="outlined" sx={{ p: 2.5 }}>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         spacing={2}
-        sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' } }}
+        sx={{
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', md: 'center' },
+        }}
       >
         <Box>
           <Typography variant="overline" color="text.secondary">
@@ -113,23 +108,51 @@ export function FinalResultsPanel({
             Generated {new Date(productionPackage.generatedAt).toLocaleString()}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+        >
           <Chip
             label={productionPackage.status}
-            color={productionPackage.status === 'READY_FOR_PRODUCTION' ? 'success' : 'warning'}
+            color={
+              productionPackage.status === 'READY_FOR_PRODUCTION'
+                ? 'success'
+                : 'warning'
+            }
           />
-          <Button variant="outlined" onClick={() => downloadPackage(productionPackage)}>
+          <Button variant="contained" onClick={handlePrint}>
+            Print / Save PDF
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => downloadTextReport(productionPackage)}
+          >
+            Download text
+          </Button>
+          <Button
+            variant="text"
+            onClick={() => downloadJsonPackage(productionPackage)}
+          >
             Download JSON
           </Button>
         </Stack>
       </Stack>
+
+      {reportError && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          {reportError}
+        </Alert>
+      )}
 
       <Alert
         severity={productionPackage.audit.passed ? 'success' : 'error'}
         sx={{ mt: 2 }}
       >
         Scientific audit {productionPackage.audit.passed ? 'passed' : 'did not pass'} with{' '}
-        {productionPackage.audit.issues.length} issue{productionPackage.audit.issues.length === 1 ? '' : 's'}.
+        {productionPackage.audit.issues.length} issue
+        {productionPackage.audit.issues.length === 1 ? '' : 's'}.
       </Alert>
 
       <Box
@@ -140,7 +163,7 @@ export function FinalResultsPanel({
           mt: 2,
         }}
       >
-        {sections.map(([label, records]) => (
+        {sections.map(([label, , records]) => (
           <Card key={label} variant="outlined">
             <CardContent sx={{ '&:last-child': { pb: 2 } }}>
               <Typography variant="body2" color="text.secondary">
@@ -159,20 +182,28 @@ export function FinalResultsPanel({
           <Typography sx={{ fontWeight: 700 }}>Film Brief</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <RecordList records={[productionPackage.filmBrief]} />
+          <ReadableRecord
+            record={productionPackage.filmBrief}
+            kind="filmBrief"
+            showId={false}
+          />
         </AccordionDetails>
       </Accordion>
 
-      {sections.map(([label, records]) => (
+      {sections.map(([label, kind, records]) => (
         <Accordion key={label}>
           <AccordionSummary>
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ alignItems: 'center' }}
+            >
               <Typography sx={{ fontWeight: 700 }}>{label}</Typography>
               <Chip size="small" label={records.length} variant="outlined" />
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
-            <RecordList records={records} />
+            <RecordList records={records} kind={kind} />
           </AccordionDetails>
         </Accordion>
       ))}
@@ -189,10 +220,16 @@ export function FinalResultsPanel({
               {productionPackage.audit.issues.map((issue) => (
                 <Alert
                   key={issue.id}
-                  severity={issue.severity === 'HIGH' ? 'error' : issue.severity === 'MEDIUM' ? 'warning' : 'info'}
+                  severity={
+                    issue.severity === 'HIGH'
+                      ? 'error'
+                      : issue.severity === 'MEDIUM'
+                        ? 'warning'
+                        : 'info'
+                  }
                 >
                   <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                    {issue.code} · {issue.recordType} · {issue.recordId}
+                    {issue.code} · {issue.recordType}
                   </Typography>
                   <Typography variant="body2">{issue.message}</Typography>
                 </Alert>
