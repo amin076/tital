@@ -1,6 +1,8 @@
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import { getCurrentMvpReviewGate } from './getCurrentMvpReviewGate.js';
+import { getMvpWorkflowInsights } from './getMvpWorkflowInsights.js';
+import { selectApprovedProductionChain } from './mvpWorkflowGuards.js';
 import { summarizeMvpSession } from './summarizeMvpSession.js';
 
 export type MvpContinueMode =
@@ -71,7 +73,11 @@ export function getMvpSessionView(session: MvpSession) {
     rawIdea: validated.rawIdea,
     gate: getCurrentMvpReviewGate(validated.state),
     continueAction: continueActionFor(validated),
-    recentEvents: validated.events.slice(-8).reverse(),
+    workflowInsights: getMvpWorkflowInsights(validated.state),
+    approvedChain: selectApprovedProductionChain(validated.state),
+    audit: validated.state.audit,
+    productionPackage: validated.productionPackage,
+    recentEvents: validated.events.slice(-20).reverse(),
   };
 }
 
