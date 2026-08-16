@@ -1,9 +1,15 @@
 # Workflow Architecture
 
-Tital has two related but different structures that should not be confused:
+Status date: **2026-08-17**
 
-1. the **provenance chain**, which explains how scientific meaning is traced from evidence to production decisions; and
-2. the **execution stage machine**, which explains what the application is allowed to do next.
+Tital has two related but different structures that must not be confused:
+
+1. the **provenance chain**, which explains why a scientific statement or visual decision exists; and
+2. the **execution stage machine**, which determines what the application is allowed to do next.
+
+A third concept now matters operationally:
+
+3. **approved-chain coverage**, which determines whether a stage has enough approved, provenance-connected children to progress.
 
 ## Provenance Chain
 
@@ -18,17 +24,17 @@ graph LR
     SC[SceneRecord]
     SH[ShotRecord]
     VD[VisualDecisionRecord]
-    AU[ScientificAuditReport]
+    AU[Governance / Provenance Audit]
     PP[ProductionPackage]
 
     FB --> RQ --> SR --> ER --> CR --> SL --> SC --> SH --> VD --> AU --> PP
 ```
 
-The core idea is that a downstream statement or visual choice should be explainable through its upstream records rather than being generated as an untraceable creative assertion.
+The core product promise is that a downstream statement or visual choice can be traced back through approved scientific context rather than existing as an untraceable creative assertion.
 
 ## Execution Stage Machine
 
-The current MVP workflow evaluator uses these stages:
+The persisted MVP uses these stages:
 
 ```text
 DEFINE
@@ -43,8 +49,6 @@ DEFINE
 → PACKAGE
 → COMPLETE
 ```
-
-Conceptually:
 
 ```mermaid
 graph TD
@@ -63,34 +67,107 @@ graph TD
     D --> R --> E --> C --> S --> SC --> SH --> V --> A --> P --> X
 ```
 
-`evaluateMvpWorkflow` determines the current stage from `MvpWorkflowState`. `executeNextMvpStep` uses that evaluation to decide whether to run automation, wait for review, run the audit, or stop as complete.
+`evaluateMvpWorkflow` derives the current stage from persisted state. `executeNextMvpStep` decides whether the next legal action is automation, human review, audit, package construction, or completion. `advanceMvpSession` applies the legal next step to a persisted project session.
+
+## Persisted Session Loop
+
+The current product supports a real durable local session loop:
+
+```text
+create project
+→ persist FilmBrief proposal
+→ human review
+→ persist decision
+→ continue
+→ generate next eligible proposals
+→ persist
+→ human review
+→ ...
+→ audit
+→ package
+→ COMPLETE
+```
+
+The React UI drives this same session/application layer through the local HTTP API. The CLI remains an alternate development/inspection surface.
 
 ## Human Review Gates
 
-The stage diagram is not an unconditional automatic pipeline. Between most model-assisted stages, Tital inserts an explicit approval boundary.
+The stage machine is not an unconditional automatic pipeline.
 
 ```mermaid
 graph LR
     A[Approved upstream records]
-    M[Agent/service generates proposal]
-    R[Record requires review]
+    M[Agent/service generates proposals]
+    R[Pending review]
     H{Human decision}
     OK[APPROVED]
     NO[REJECTED]
-    N[Next stage eligible]
+    N[Coverage evaluation]
 
     A --> M --> R --> H
     H -->|approve| OK --> N
-    H -->|reject| NO
+    H -->|reject| NO --> N
 ```
 
-The execution controller does not auto-approve records for the sake of completing a demo.
+The execution controller never auto-approves generated content just to reach `COMPLETE`.
+
+## Approved-Chain Coverage
+
+A stage does not advance merely because the application has generated a certain number of records.
+
+The relevant condition is whether all required **approved parents** have at least one eligible **approved, provenance-connected child**.
+
+Conceptual examples:
+
+```text
+ResearchQuestion → Source
+Source           → Evidence
+ResearchQuestion → Claim
+ResearchQuestion → ScriptLine
+ResearchQuestion → Scene
+Scene            → Shot
+Shot             → VisualDecision
+```
+
+This means:
+
+```text
+count ≠ coverage
+```
+
+Example:
+
+```text
+18 approved Sources
+19 approved Evidence records
+```
+
+is still insufficient if those 19 Evidence records cover only 17 of the 18 approved Sources.
+
+The web UI now exposes these coverage ratios directly so users can understand why a stage is complete or incomplete.
+
+## Rejection Recovery
+
+Rejected records remain persisted as history. They are not deleted and are not silently restored.
+
+If a rejection leaves an approved parent uncovered, the next automated continuation can generate replacement proposals for the uncovered parent(s).
+
+Example:
+
+```text
+approved Source
+→ Evidence proposal rejected
+→ Source has no approved Evidence coverage
+→ continue
+→ generate replacement Evidence proposal for that Source
+→ human review again
+```
+
+This recovery behavior was exercised repeatedly during the Black-hole web E2E run.
 
 ## Source Discovery Is a Special Case
 
-Source discovery has a different initial state from many downstream generated records.
-
-Parallel discovery creates:
+Parallel discovery initially creates:
 
 ```text
 SourceRecord.status = DISCOVERED
@@ -105,18 +182,20 @@ APPROVED
 REJECTED
 ```
 
-Approved sources are required before evidence extraction can proceed. Therefore, do not simplify the whole workflow to a universal `REVIEW_REQUIRED → APPROVED` pattern.
+Approved source records are required before Evidence extraction can proceed.
 
-## Model-Assisted vs Deterministic Stages
+Source discovery is currently backed by real Parallel Search MCP. A future post-MVP step will add controlled approved-source content retrieval before Evidence extraction.
 
-Model-assisted work includes:
+## Model-Assisted vs Deterministic Responsibilities
+
+Model-assisted proposal generation includes:
 
 ```text
-Film brief proposal
+Film brief
 Research questions
-Source discovery via Gemini + Parallel MCP
-Evidence proposals
-Claim proposals
+Source discovery through Gemini + Parallel MCP
+Evidence
+Claims
 Script lines
 Scenes
 Shots
@@ -127,40 +206,83 @@ Deterministic application responsibilities include:
 
 ```text
 schema validation
-ID creation
+trusted ID creation
+trusted parent/provenance assignment
 status assignment
-provenance validation
 human-review transitions
+coverage calculation
 workflow-stage evaluation
 execution control
-scientific audit
+audit
 production-package construction
+session persistence
 ```
 
-This division is deliberate: the model creates candidate content; application code decides whether that content can become trusted workflow state.
+The Black-hole run exposed two reliability defects caused by asking Gemini to echo trusted IDs. Those paths were corrected so Shot `sceneId` and VisualDecision `shotId` are owned by application code.
 
 ## Multi-Record Routing
 
-The real MVP executor adapter does more than call one generic agent repeatedly. It routes records according to provenance:
+The real executor adapter routes records according to provenance rather than applying a generic global generator:
 
-- source discovery runs per approved research question;
-- evidence extraction runs per source with the matching research question;
-- claim, script, and scene generation group records by `researchQuestionId`;
-- shot generation uses each approved scene and the approved script lines referenced by that scene;
-- visual decisions are generated per approved shot.
+- source discovery runs per approved ResearchQuestion;
+- evidence extraction runs per approved Source with its matching ResearchQuestion;
+- claim/script/scene generation groups inputs by `researchQuestionId`;
+- shot generation uses each approved Scene plus its approved referenced ScriptLines;
+- visual decisions are generated per approved Shot.
 
-This routing prevents downstream records from accidentally mixing unrelated research-question chains.
+This prevents unrelated chains from satisfying each other's coverage accidentally.
 
 ## Audit and Package
 
-The scientific audit is deterministic. It checks implemented integrity rules such as broken provenance, unapproved upstream records, unsupported claims, visual-category mismatches, and missing visual disclosures.
+When all governed visual coverage is complete, the workflow reaches `AUDIT`.
 
-The production package is also constructed deterministically. It becomes production-ready only when the package service's workflow and audit conditions are satisfied.
+The deterministic audit checks implemented governance/provenance rules such as:
 
-The current execution-controller contract includes the audit step. Final package construction is implemented as a separate deterministic service rather than an LLM agent.
+```text
+BROKEN_PROVENANCE
+UNAPPROVED_UPSTREAM_RECORD
+UNSUPPORTED_CLAIM
+VISUAL_CATEGORY_MISMATCH
+MISSING_VISUAL_DISCLOSURE
+```
 
-## Current Execution Limitation
+Human-facing output describes this accurately as a **Governance & provenance audit**. It does not independently certify scientific truth.
 
-The repository contains the workflow evaluator, execution controller, real runtime adapters, review functions, audit, and package builder. It does **not** yet contain a durable project store or one persisted end-to-end user command that carries a project through every review cycle from raw idea to package.
+If the audit passes, deterministic package construction selects only the approved, provenance-connected production chain and creates the final `ProductionPackage`.
 
-That application shell is future work; the governed workflow core already exists.
+Final state:
+
+```text
+stage: COMPLETE
+productionPackageStatus: READY_FOR_PRODUCTION
+```
+
+The web UI then exposes readable final results, traceability, and JSON/text/PDF-oriented exports.
+
+## Current Editing Limitation
+
+The persisted workflow can recover from rejection during generation/review, but it does not yet implement a complete post-approval editing and staleness lifecycle.
+
+Future behavior should support:
+
+```text
+approved upstream record edited/replaced
+→ dependent downstream records become STALE (or equivalent)
+→ prior audit/package invalidated
+→ affected coverage regenerated
+→ human review required again
+```
+
+This is a post-MVP priority after the cloud deployment foundation.
+
+## Current Deployment Limitation
+
+The persisted application shell now exists and is web-driven, but it is still local:
+
+```text
+Web: 127.0.0.1:5173
+API: 127.0.0.1:8787
+Store: .tital/sessions/*.json
+```
+
+The next major milestone is a hosted deployment with durable cloud sessions while preserving the same deterministic workflow and human-gate semantics.
