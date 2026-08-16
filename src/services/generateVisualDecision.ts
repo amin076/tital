@@ -59,12 +59,6 @@ export function assembleVisualDecisionRecord(
 ): VisualDecisionRecord {
   const validated = VisualDecisionProposalSchema.parse(proposal);
 
-  if (validated.shotId !== shot.id) {
-    throw new Error(
-      `Visual decision proposal shotId mismatch: expected "${shot.id}", received "${validated.shotId}".`
-    );
-  }
-
   if (validated.category !== shot.visualIntegrityCategory) {
     throw new Error(
       `Visual integrity category mismatch: approved shot is "${shot.visualIntegrityCategory}", proposal is "${validated.category}".`
@@ -102,7 +96,7 @@ export async function callVisualDecisionAgent(shot: ShotRecord): Promise<VisualD
     const run = runner.runEphemeral({
       userId: 'system',
       newMessage: {
-        parts: [{ text: `Create one governed visual decision for this approved ShotRecord.\n\n${JSON.stringify(shot, null, 2)}` }],
+        parts: [{ text: `Create one governed visual decision for this approved ShotRecord. The application already owns and will attach the trusted shotId; do not copy or return it.\n\n${JSON.stringify(shot, null, 2)}` }],
       },
     });
 
