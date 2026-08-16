@@ -21,6 +21,9 @@ import {
   printProductionReport,
 } from './reportExport';
 
+const AUDIT_SCOPE_NOTE =
+  'This audit checks provenance links, upstream approvals, visual-category consistency, and required disclosures. It does not independently validate the scientific truth or authority of content that a human approved.';
+
 function RecordList({
   records,
   kind,
@@ -117,25 +120,15 @@ export function FinalResultsPanel({
         >
           <Chip
             label={pkg.status}
-            color={
-              pkg.status === 'READY_FOR_PRODUCTION'
-                ? 'success'
-                : 'warning'
-            }
+            color={pkg.status === 'READY_FOR_PRODUCTION' ? 'success' : 'warning'}
           />
           <Button variant="contained" onClick={handlePrint}>
             Print / Save PDF
           </Button>
-          <Button
-            variant="outlined"
-            onClick={() => downloadTextReport(pkg)}
-          >
+          <Button variant="outlined" onClick={() => downloadTextReport(pkg)}>
             Download text
           </Button>
-          <Button
-            variant="text"
-            onClick={() => downloadJsonPackage(pkg)}
-          >
+          <Button variant="text" onClick={() => downloadJsonPackage(pkg)}>
             Download JSON
           </Button>
         </Stack>
@@ -147,13 +140,22 @@ export function FinalResultsPanel({
         </Alert>
       )}
 
-      <Alert
-        severity={pkg.audit.passed ? 'success' : 'error'}
-        sx={{ mt: 2 }}
-      >
-        Scientific audit {pkg.audit.passed ? 'passed' : 'did not pass'} with{' '}
-        {pkg.audit.issues.length} issue
-        {pkg.audit.issues.length === 1 ? '' : 's'}.
+      <Alert severity="info" sx={{ mt: 2 }}>
+        For a clean PDF in Chrome or Edge, open <strong>More settings</strong> in
+        the print dialog and turn off <strong>Headers and footers</strong>.
+        Browsers do not allow a web app to change that print setting for you.
+      </Alert>
+
+      <Alert severity={pkg.audit.passed ? 'success' : 'error'} sx={{ mt: 1.5 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          Governance &amp; provenance audit{' '}
+          {pkg.audit.passed ? 'passed' : 'did not pass'} with{' '}
+          {pkg.audit.issues.length} issue
+          {pkg.audit.issues.length === 1 ? '' : 's'}.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.5 }}>
+          {AUDIT_SCOPE_NOTE}
+        </Typography>
       </Alert>
 
       <Box
@@ -194,11 +196,7 @@ export function FinalResultsPanel({
       {sections.map(([label, kind, records]) => (
         <Accordion key={label}>
           <AccordionSummary>
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ alignItems: 'center' }}
-            >
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <Typography sx={{ fontWeight: 700 }}>{label}</Typography>
               <Chip size="small" label={records.length} variant="outlined" />
             </Stack>
@@ -211,11 +209,18 @@ export function FinalResultsPanel({
 
       <Accordion>
         <AccordionSummary>
-          <Typography sx={{ fontWeight: 700 }}>Scientific Audit</Typography>
+          <Typography sx={{ fontWeight: 700 }}>
+            Governance &amp; Provenance Audit
+          </Typography>
         </AccordionSummary>
         <AccordionDetails>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {AUDIT_SCOPE_NOTE}
+          </Typography>
           {pkg.audit.issues.length === 0 ? (
-            <Alert severity="success">No audit issues were reported.</Alert>
+            <Alert severity="success">
+              No governance/provenance integrity issues were reported.
+            </Alert>
           ) : (
             <Stack spacing={1}>
               {pkg.audit.issues.map((issue) => (
