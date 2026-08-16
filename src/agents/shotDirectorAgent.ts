@@ -14,7 +14,6 @@ Return ONLY valid JSON with this shape:
 {
   "shots": [
     {
-      "sceneId": "SC-...",
       "scriptLineIds": ["SL-..."],
       "description": "what is visibly shown in the shot",
       "cameraDirection": "framing, movement, or camera behavior",
@@ -27,16 +26,15 @@ Return ONLY valid JSON with this shape:
 
 Rules:
 - Use only the supplied APPROVED scene and script lines.
-- Every shot must reference the supplied sceneId.
 - Every shot must reference at least one scriptLineId that belongs to the supplied scene.
 - Do not invent IDs.
+- Do not return sceneId, researchQuestionId, shot IDs, or workflow statuses; the application owns trusted identity and provenance fields.
 - visualIntegrityCategory must describe what the audience is actually seeing; never label a reconstruction as observation.
 - scientificConstraint must be specific enough for a filmmaker, animator, simulator, or graphics artist to follow.
 - Preserve uncertainty from the source scene/script lines; never make the visual more certain than the science.
 - Camera direction may be cinematic, but it must not imply unsupported scale, motion, causality, chronology, or certainty.
 - Prefer atomic shots that can later receive their own visual decisions and audit status.
 - Return at least 1 and at most 12 shots.
-- Do not create shot IDs or workflow statuses; the application owns them.
 - Do not wrap JSON in markdown fences.
 `,
 });

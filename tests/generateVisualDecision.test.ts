@@ -21,7 +21,6 @@ const approvedShot: ShotRecord = {
 };
 
 const proposal = {
-  shotId: approvedShot.id,
   category: 'SCIENTIFIC_RECONSTRUCTION' as const,
   decision: 'Show a labeled cutaway reconstruction of Europa with an ice shell above a subsurface liquid layer.',
   scientificConstraint: approvedShot.scientificConstraint,
@@ -40,12 +39,6 @@ describe('Approved Shot → Visual Decision governed generation', () => {
       generateVisualDecision({ ...approvedShot, status: 'REVIEW_REQUIRED' }, modelCaller)
     ).rejects.toThrow('not approved');
     expect(modelCaller).not.toHaveBeenCalled();
-  });
-
-  it('rejects proposals for another shot', () => {
-    expect(() =>
-      assembleVisualDecisionRecord(approvedShot, { ...proposal, shotId: 'SH-other' })
-    ).toThrow('shotId mismatch');
   });
 
   it('rejects category drift from an approved shot', () => {
@@ -102,5 +95,13 @@ describe('Approved Shot → Visual Decision governed generation', () => {
       riskLevel: 'MEDIUM',
       status: 'REVIEW_REQUIRED',
     });
+  });
+
+  it('does not require the model to echo the trusted shotId', () => {
+    const record = assembleVisualDecisionRecord(approvedShot, proposal, {
+      idFactory: () => 'VD-app-owned-shot-id',
+    });
+
+    expect(record.shotId).toBe(approvedShot.id);
   });
 });

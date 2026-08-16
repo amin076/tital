@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { VisualIntegrityCategorySchema } from './shotRecord.js';
 
 export const ShotProposalSchema = z.object({
-  sceneId: z.string().min(1),
   scriptLineIds: z.array(z.string().min(1)).min(1),
   description: z.string().min(1),
   cameraDirection: z.string().min(1),

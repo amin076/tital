@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { VisualIntegrityCategorySchema } from './shotRecord.js';
 
 export const VisualDecisionProposalSchema = z.object({
-  shotId: z.string().min(1),
   category: VisualIntegrityCategorySchema,
   decision: z.string().min(1),
   scientificConstraint: z.string().min(1),

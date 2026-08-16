@@ -43,7 +43,6 @@ const scene: SceneRecord = {
 const proposals = {
   shots: [
     {
-      sceneId: scene.id,
       scriptLineIds: ['SL-europa'],
       description: 'Europa fills frame, then transitions to a clearly labeled cutaway reconstruction beneath the surface.',
       cameraDirection: 'Slow push toward the surface followed by a controlled cutaway reveal.',
@@ -55,13 +54,21 @@ const proposals = {
 };
 
 describe('Approved Scene → Shot governed generation', () => {
-  it('parses valid shot proposals', () => {
+  it('parses valid shot proposals without application-owned scene identity', () => {
     expect(parseShotProposalList(JSON.stringify(proposals))).toEqual(proposals);
   });
 
   it('accepts fenced JSON returned by the model', () => {
     const fenced = '```json\n' + JSON.stringify(proposals) + '\n```';
     expect(parseShotProposalList(fenced)).toEqual(proposals);
+  });
+
+  it('rejects model output that tries to include an application-owned sceneId', () => {
+    const withSceneId = {
+      shots: [{ ...proposals.shots[0], sceneId: 'SC-invented' }],
+    };
+    expect(() => parseShotProposalList(JSON.stringify(withSceneId))).not.toThrow();
+    expect(parseShotProposalList(JSON.stringify(withSceneId))).toEqual(proposals);
   });
 
   it('rejects non-approved scenes before model invocation', async () => {
@@ -86,18 +93,6 @@ describe('Approved Scene → Shot governed generation', () => {
         { idFactory: () => 'SH-fixed' }
       )
     ).toThrow('not present in the approved scene');
-  });
-
-  it('rejects a shot pointing at another scene', () => {
-    expect(() =>
-      assembleShotRecords(
-        scene,
-        {
-          shots: [{ ...proposals.shots[0], sceneId: 'SC-other' }],
-        },
-        { idFactory: () => 'SH-fixed' }
-      )
-    ).toThrow('sceneId mismatch');
   });
 
   it('assembles application-owned ShotRecords in REVIEW_REQUIRED state', () => {
