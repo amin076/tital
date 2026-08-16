@@ -1,19 +1,25 @@
 # Repository Structure
 
-This document describes the tracked structure of the current Tital MVP and the responsibility of each major area.
+Status date: **2026-08-17**
+
+This document describes the tracked structure of the current Tital governed web MVP and the responsibility of each major area.
 
 ```mermaid
 graph TD
     ROOT[Tital repository]
-    ROOT --> A[agent.ts]
-    ROOT --> PA[parallel-agent.ts]
+    ROOT --> APP[apps/]
     ROOT --> SRC[src/]
     ROOT --> T[tests/]
     ROOT --> D[docs/]
+    ROOT --> A[agent.ts]
+    ROOT --> PA[parallel-agent.ts]
     ROOT --> PKG[package.json / tsconfig.json]
     ROOT --> ENV[.env.example]
 
+    APP --> WEB[web/\nReact + Vite + MUI]
+
     SRC --> AG[agents/]
+    SRC --> API[api/]
     SRC --> CLI[cli/]
     SRC --> DOM[domain/]
     SRC --> INT[integrations/]
@@ -34,36 +40,94 @@ Entry point for running the Parallel-enabled source-discovery agent through ADK 
 
 ### `package.json`
 
-Defines dependencies and scripts including:
+Defines the current runtime/development dependencies and scripts, including:
 
 ```text
+typecheck
+typecheck:core
+typecheck:web
+test
+web:dev
+web:build
+api:dev
+mvp
 adk:run
 parallel:run
 define
 research-questions
-mvp
-typecheck
-test
 ```
 
 ### `.env.example`
 
-Documents expected Google Cloud / Vertex AI environment variables. It is a configuration reference; the repository should not be assumed to contain a custom `.env` loader unless one is explicitly added.
+Documents expected Google Cloud / Vertex AI environment variables. It is a configuration reference; the repository does not currently depend on one universal project-level dotenv loader.
+
+## `apps/web/`
+
+The human-facing React application.
+
+Current responsibilities include:
+
+- create a new scientific-film project;
+- list/open persisted sessions;
+- show current workflow state and next action;
+- render readable pending records;
+- selective approve/reject;
+- run governed Continue actions through the API;
+- show approved-chain progress/coverage;
+- render final ProductionPackage content;
+- show provenance/traceability;
+- export JSON and readable text;
+- open the styled print/save-PDF report.
+
+The frontend consumes session/application views. It must not become the owner of workflow eligibility or scientific governance rules.
+
+## `src/api/`
+
+Contains the small Node HTTP adapter used by the web UI.
+
+Current API routes include:
+
+```text
+GET  /api/health
+GET  /api/sessions
+POST /api/sessions
+GET  /api/sessions/:id
+POST /api/sessions/:id/review
+POST /api/sessions/:id/continue
+```
+
+The API validates requests, loads/saves sessions, and calls existing governed services. It is intentionally thin.
 
 ## `src/agents/`
 
-Contains specialized Google ADK `LlmAgent` definitions. Agents propose structured content; they do not own trusted application IDs, approval state, or workflow progression.
+Contains specialized Google ADK `LlmAgent` definitions.
+
+Agents propose structured scientific/creative content; they do not own trusted application IDs, approval state, or workflow progression.
+
+Current agents cover:
+
+```text
+Define
+Research Questions
+Parallel Source Discovery
+Evidence
+Claims
+Scientific Script
+Scenes
+Shots
+Visual Decisions
+```
 
 ## `src/domain/`
 
 Contains Zod schemas and TypeScript types for:
 
-- final workflow records;
+- final governed records;
 - model proposal payloads;
-- scientific-audit structures;
+- audit structures;
 - production-package structures;
 - MVP workflow state;
-- persisted MVP session/event structures.
+- persisted session/event structures.
 
 The domain layer is the schema-level source of truth for legal fields and status values.
 
@@ -87,55 +151,81 @@ generateVisualDecision
 
 These validate upstream state, call agents where necessary, validate model output, enforce provenance, create application-owned records, and assign statuses.
 
-### Review services
+### Review / session services
 
-Record-specific review services implement explicit transitions. The persisted workflow also adds:
+Examples:
 
 ```text
 reviewCurrentMvpGate.ts
 reviewMvpSession.ts
+createMvpSession.ts
+advanceMvpSession.ts
+getMvpSessionView.ts
+summarizeMvpSession.ts
+getMvpWorkflowInsights.ts
 ```
 
-### Workflow/orchestration services
+These connect explicit human decisions to the persisted workflow and provide UI/API-facing read models.
+
+### Workflow / orchestration services
 
 ```text
 mvpWorkflowGuards.ts
 evaluateMvpWorkflow.ts
 executeNextMvpStep.ts
 createRealMvpStepExecutors.ts
-createMvpSession.ts
-advanceMvpSession.ts
-summarizeMvpSession.ts
 ```
 
-These form the function-based execution controller, provenance/coverage rules, real runtime wiring, and persisted session lifecycle.
+These implement coverage/provenance rules, stage evaluation, deterministic execution control, and real runtime wiring.
 
-### Deterministic integrity/finalization services
+### Deterministic integrity / finalization services
 
 ```text
 runScientificAudit.ts
 buildProductionPackage.ts
+selectApprovedProductionChain.ts
 ```
 
-These are intentionally deterministic rather than LLM agents.
+These are application-owned deterministic services rather than LLM agents.
 
 ## `src/persistence/`
 
-Contains the MVP persistence adapter:
+Contains the current local MVP persistence adapter:
 
 ```text
 jsonMvpSessionStore.ts
 ```
 
-The default local store writes schema-validated sessions to `.tital/sessions/` using temporary file + rename behavior. It is a local MVP store, not a production database abstraction.
+Default location:
+
+```text
+.tital/sessions/<session-id>.json
+```
+
+The store validates sessions on read/write and uses temporary-write + rename behavior. It is not yet a cloud database implementation.
 
 ## `src/integrations/`
 
-Contains external integration configuration. The current important integration is Parallel Search MCP, which is provided to the source-discovery agent through ADK's MCP tooling.
+Contains external integration configuration.
+
+The current important partner integration is Parallel Search MCP, provided to `parallelSourceAgent` through ADK's MCP tooling.
 
 ## `src/cli/`
 
-Contains command-line entry points for direct workflow operations. `mvp.ts` is the persisted governed-session interface and supports start/status/continue/review/show/list commands.
+Contains direct/developer workflow commands.
+
+`mvp.ts` supports persisted-session operations such as:
+
+```text
+start
+status
+continue
+review
+show
+list
+```
+
+The CLI remains useful for debugging and scripted inspection even though the primary demonstrated product flow is now the web UI.
 
 ## `src/utils/`
 
@@ -143,23 +233,25 @@ Contains shared utilities such as model-response JSON parsing.
 
 ## `tests/`
 
-Mirrors the domain and service architecture with unit tests for:
+Tests cover areas including:
 
 - schema validation;
-- provenance constraints;
-- human-review gates;
 - proposal parsing;
-- injected model callers;
-- Parallel discovery assembly;
-- scientific audit;
-- production packaging;
-- workflow evaluation/control;
-- incremental real executor wiring;
-- local session persistence;
+- provenance constraints;
+- human-review transitions;
+- coverage-based progression;
 - rejection recovery;
-- provenance-connected coverage.
+- agent/service assembly with injected callers;
+- Parallel discovery assembly;
+- audit behavior;
+- production packaging;
+- session persistence and migration;
+- execution control;
+- real executor wiring;
+- Shot / VisualDecision trusted parent-ID behavior;
+- workflow insights used by the UI.
 
-Tests should prefer dependency injection and deterministic fixtures so normal development does not require paid Vertex AI execution.
+Normal tests should remain deterministic and avoid paid/live Vertex AI or Parallel calls.
 
 ## `docs/`
 
@@ -169,6 +261,9 @@ Documentation is grouped by purpose:
 docs/
 ├─ CURRENT_STATUS.md
 ├─ ROADMAP.md
+├─ PROJECT_HANDOFF.md
+├─ MVP_E2E_VALIDATION.md
+├─ POST_MVP_REVIEW.md
 ├─ overview/
 ├─ architecture/
 ├─ domain/
@@ -179,13 +274,9 @@ docs/
 
 ## Local runtime state
 
-The default persisted session directory is:
+Local runtime/project data under `.tital/` is gitignored and is not tracked application source.
 
-```text
-.tital/
-```
-
-It is gitignored and is not part of the tracked application architecture.
+Build output under `apps/web/dist/` is generated output rather than source-of-truth application code.
 
 ## Dependency direction
 
@@ -193,12 +284,15 @@ The intended dependency direction is approximately:
 
 ```mermaid
 graph LR
-    CLI[Entry points] --> S[Services]
-    CLI --> PERS[Persistence]
-    S --> D[Domain schemas]
+    WEB[Web UI] --> API[HTTP API]
+    API --> S[Application / Session Services]
+    API --> PERS[Persistence]
+    CLI[CLI] --> S
+    CLI --> PERS
+    S --> D[Domain Schemas]
     S --> A[Agents]
     S --> PERS
-    A --> I[External AI / MCP integrations]
+    A --> I[Gemini / Parallel MCP]
     S --> U[Utilities]
     PERS --> D
     T[Tests] --> S
@@ -206,4 +300,4 @@ graph LR
     T --> PERS
 ```
 
-Domain schemas should remain independent of agent execution. Agents should not become owners of workflow state. Persistence should remain an application boundary rather than leaking file-system concerns into domain records.
+Domain schemas should remain independent of agent execution. Agents should not own workflow state. The UI should not duplicate workflow governance. Persistence should remain an application boundary rather than leaking storage details into domain records.
