@@ -76,6 +76,13 @@ export function listSessions(): Promise<SessionSummary[]> {
   return request<SessionSummary[]>('/api/sessions');
 }
 
+export function createSession(rawIdea: string): Promise<SessionView> {
+  return request<SessionView>('/api/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ rawIdea }),
+  });
+}
+
 export function getSession(sessionId: string): Promise<SessionView> {
   return request<SessionView>(
     `/api/sessions/${encodeURIComponent(sessionId)}`
