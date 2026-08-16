@@ -175,7 +175,12 @@ function CountsGrid({ summary }: { summary: SessionSummary }) {
             <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 700 }}>
               {countTotal(statuses)}
             </Typography>
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+            <Stack
+              direction="row"
+              spacing={0.75}
+              useFlexGap
+              sx={{ mt: 1, flexWrap: 'wrap' }}
+            >
               {Object.entries(statuses).map(([status, count]) => (
                 <Chip
                   key={status}
@@ -224,8 +229,10 @@ function ReviewGatePanel({
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        sx={{
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+        }}
       >
         <Box>
           <Typography variant="overline" color="text.secondary">
@@ -248,17 +255,23 @@ function ReviewGatePanel({
             }}
           >
             <CardContent sx={{ '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" spacing={1.25} alignItems="flex-start">
+              <Stack
+                direction="row"
+                spacing={1.25}
+                sx={{ alignItems: 'flex-start' }}
+              >
                 <Checkbox
                   checked={selectedIds.has(record.id)}
                   onChange={() => onToggle(record.id)}
-                  inputProps={{ 'aria-label': `Select ${record.id}` }}
+                  slotProps={{
+                    input: { 'aria-label': `Select ${record.id}` },
+                  }}
                 />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}
-                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}
                   >
                     <Typography sx={{ fontWeight: 700, flex: 1 }}>
                       {recordTitle(record)}
@@ -530,8 +543,10 @@ export function App() {
                   <Stack
                     direction={{ xs: 'column', md: 'row' }}
                     spacing={2}
-                    justifyContent="space-between"
-                    alignItems={{ xs: 'flex-start', md: 'center' }}
+                    sx={{
+                      justifyContent: 'space-between',
+                      alignItems: { xs: 'flex-start', md: 'center' },
+                    }}
                   >
                     <Box>
                       <Typography variant="h4">{view.summary.title}</Typography>
@@ -560,9 +575,8 @@ export function App() {
                     <Stack
                       direction="row"
                       spacing={0.75}
-                      flexWrap="wrap"
                       useFlexGap
-                      sx={{ mt: 1.5 }}
+                      sx={{ mt: 1.5, flexWrap: 'wrap' }}
                     >
                       {view.summary.blockedBy.map((blocker) => (
                         <Chip
@@ -642,7 +656,7 @@ export function App() {
                         <Stack
                           direction={{ xs: 'column', sm: 'row' }}
                           spacing={1}
-                          alignItems={{ xs: 'flex-start', sm: 'center' }}
+                          sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}
                         >
                           <Chip size="small" label={event.type} variant="outlined" />
                           <Typography variant="body2" sx={{ flex: 1 }}>
