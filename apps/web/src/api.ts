@@ -43,11 +43,77 @@ export interface SessionEvent {
   message: string;
 }
 
+export interface WorkflowStepInsight {
+  stage: string;
+  label: string;
+  status: 'COMPLETE' | 'CURRENT' | 'UPCOMING';
+}
+
+export interface CoverageInsight {
+  key: string;
+  label: string;
+  parentLabel: string;
+  childLabel: string;
+  covered: number;
+  total: number;
+  complete: boolean;
+  missingParentIds: string[];
+}
+
+export interface WorkflowInsights {
+  stage: string;
+  blockedBy: string[];
+  steps: WorkflowStepInsight[];
+  coverage: CoverageInsight[];
+}
+
+export interface ApprovedChain {
+  researchQuestions: GateRecord[];
+  sources: GateRecord[];
+  evidence: GateRecord[];
+  claims: GateRecord[];
+  scriptLines: GateRecord[];
+  scenes: GateRecord[];
+  shots: GateRecord[];
+  visualDecisions: GateRecord[];
+}
+
+export interface ScientificAudit {
+  passed: boolean;
+  issues: Array<{
+    id: string;
+    code: string;
+    severity: string;
+    recordType: string;
+    recordId: string;
+    message: string;
+  }>;
+}
+
+export interface ProductionPackage {
+  filmBrief: GateRecord;
+  researchQuestions: GateRecord[];
+  sources: GateRecord[];
+  evidence: GateRecord[];
+  claims: GateRecord[];
+  scriptLines: GateRecord[];
+  scenes: GateRecord[];
+  shots: GateRecord[];
+  visualDecisions: GateRecord[];
+  audit: ScientificAudit;
+  generatedAt: string;
+  status: 'BLOCKED' | 'READY_FOR_PRODUCTION';
+}
+
 export interface SessionView {
   summary: SessionSummary;
   rawIdea: string;
   gate: ReviewGate | null;
   continueAction: ContinueAction;
+  workflowInsights: WorkflowInsights;
+  approvedChain: ApprovedChain;
+  audit: ScientificAudit | null;
+  productionPackage: ProductionPackage | null;
   recentEvents: SessionEvent[];
 }
 
