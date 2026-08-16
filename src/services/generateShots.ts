@@ -84,12 +84,6 @@ export function assembleShotRecords(
   const idFactory = options.idFactory ?? (() => `SH-${crypto.randomUUID()}`);
 
   return validated.shots.map((proposal) => {
-    if (proposal.sceneId !== scene.id) {
-      throw new Error(
-        `Shot proposal sceneId mismatch: expected "${scene.id}", received "${proposal.sceneId}".`
-      );
-    }
-
     const uniqueScriptLineIds = [...new Set(proposal.scriptLineIds)];
     for (const scriptLineId of uniqueScriptLineIds) {
       if (!allowedScriptLineIds.has(scriptLineId)) {
