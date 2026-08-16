@@ -4,12 +4,17 @@
   "description": "Evidence-governed scientific film director",
   "main": "agent.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run typecheck:core && npm run typecheck:web",
+    "typecheck:core": "tsc --noEmit",
+    "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
     "adk:run": "adk run agent.ts",
     "parallel:run": "adk run parallel-agent.ts",
     "define": "tsx src/cli/define.ts",
     "research-questions": "tsx src/cli/researchQuestions.ts",
     "mvp": "tsx src/cli/mvp.ts",
+    "api:dev": "tsx src/api/server.ts",
+    "web:dev": "vite --config apps/web/vite.config.ts",
+    "web:build": "vite build --config apps/web/vite.config.ts",
     "test": "vitest run",
     "test:run": "vitest run"
   },
@@ -26,14 +31,23 @@
   "homepage": "https://github.com/amin076/tital#readme",
   "type": "module",
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@google/adk": "^1.6.0",
+    "@mui/material": "^9.2.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@google/adk-devtools": "^1.6.0",
     "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.4",
     "tsx": "^4.23.10",
     "typescript": "^7.0.2",
+    "vite": "^8.2.0",
     "vitest": "^4.1.10"
   }
 }
