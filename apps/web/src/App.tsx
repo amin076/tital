@@ -1,4 +1,7 @@
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   AppBar,
   Box,
@@ -17,9 +20,6 @@ import {
   Stack,
   Toolbar,
   Typography,
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   type ChipProps,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,6 +32,7 @@ import {
   type SessionSummary,
   type SessionView,
 } from './api';
+import { NewProjectPanel } from './NewProjectPanel';
 
 const COUNT_LABELS: Record<string, string> = {
   researchQuestions: 'Research Questions',
@@ -69,7 +70,7 @@ function recordTitle(record: GateRecord): string {
 }
 
 function recordDetail(record: GateRecord): string | null {
-  const candidates = [
+  for (const key of [
     'purpose',
     'interpretation',
     'visualSummary',
@@ -77,13 +78,10 @@ function recordDetail(record: GateRecord): string | null {
     'uncertainty',
     'uncertaintyDisclosure',
     'excerpt',
-  ];
-
-  for (const key of candidates) {
+  ]) {
     const value = valueAsString(record, key);
     if (value && value !== recordTitle(record)) return value;
   }
-
   return null;
 }
 
@@ -111,9 +109,7 @@ function SessionList({
       <Divider />
       {sessions.length === 0 ? (
         <Box sx={{ p: 2 }}>
-          <Typography color="text.secondary">
-            No persisted Tital sessions were found.
-          </Typography>
+          <Typography color="text.secondary">No persisted Tital sessions were found.</Typography>
         </Box>
       ) : (
         <List disablePadding>
@@ -127,23 +123,9 @@ function SessionList({
               <ListItemText
                 primary={session.title}
                 secondary={
-                  <Stack
-                    component="span"
-                    direction="row"
-                    spacing={1}
-                    sx={{ mt: 0.75, alignItems: 'center' }}
-                  >
-                    <Chip
-                      component="span"
-                      size="small"
-                      label={session.stage}
-                      variant="outlined"
-                    />
-                    <Typography
-                      component="span"
-                      variant="caption"
-                      color="text.secondary"
-                    >
+                  <Stack component="span" direction="row" spacing={1} sx={{ mt: 0.75, alignItems: 'center' }}>
+                    <Chip component="span" size="small" label={session.stage} variant="outlined" />
+                    <Typography component="span" variant="caption" color="text.secondary">
                       {new Date(session.updatedAt).toLocaleString()}
                     </Typography>
                   </Stack>
@@ -159,13 +141,7 @@ function SessionList({
 
 function CountsGrid({ summary }: { summary: SessionSummary }) {
   return (
-    <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-        gap: 1.5,
-      }}
-    >
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 1.5 }}>
       {Object.entries(summary.counts).map(([key, statuses]) => (
         <Card key={key} variant="outlined">
           <CardContent sx={{ '&:last-child': { pb: 2 } }}>
@@ -175,20 +151,9 @@ function CountsGrid({ summary }: { summary: SessionSummary }) {
             <Typography variant="h5" sx={{ mt: 0.5, fontWeight: 700 }}>
               {countTotal(statuses)}
             </Typography>
-            <Stack
-              direction="row"
-              spacing={0.75}
-              useFlexGap
-              sx={{ mt: 1, flexWrap: 'wrap' }}
-            >
+            <Stack direction="row" spacing={0.75} useFlexGap sx={{ mt: 1, flexWrap: 'wrap' }}>
               {Object.entries(statuses).map(([status, count]) => (
-                <Chip
-                  key={status}
-                  size="small"
-                  label={`${status} ${count}`}
-                  color={statusColor(status)}
-                  variant="outlined"
-                />
+                <Chip key={status} size="small" label={`${status} ${count}`} color={statusColor(status)} variant="outlined" />
               ))}
             </Stack>
           </CardContent>
@@ -229,15 +194,10 @@ function ReviewGatePanel({
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1}
-        sx={{
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-        }}
+        sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}
       >
         <Box>
-          <Typography variant="overline" color="text.secondary">
-            Human review gate
-          </Typography>
+          <Typography variant="overline" color="text.secondary">Human review gate</Typography>
           <Typography variant="h6">{gate.recordType}</Typography>
         </Box>
         <Chip label={`${gate.records.length} pending`} color="warning" />
@@ -248,24 +208,14 @@ function ReviewGatePanel({
           <Card
             key={record.id}
             variant="outlined"
-            sx={{
-              borderColor: selectedIds.has(record.id)
-                ? 'primary.main'
-                : 'divider',
-            }}
+            sx={{ borderColor: selectedIds.has(record.id) ? 'primary.main' : 'divider' }}
           >
             <CardContent sx={{ '&:last-child': { pb: 2 } }}>
-              <Stack
-                direction="row"
-                spacing={1.25}
-                sx={{ alignItems: 'flex-start' }}
-              >
+              <Stack direction="row" spacing={1.25} sx={{ alignItems: 'flex-start' }}>
                 <Checkbox
                   checked={selectedIds.has(record.id)}
                   onChange={() => onToggle(record.id)}
-                  slotProps={{
-                    input: { 'aria-label': `Select ${record.id}` },
-                  }}
+                  slotProps={{ input: { 'aria-label': `Select ${record.id}` } }}
                 />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <Stack
@@ -273,55 +223,30 @@ function ReviewGatePanel({
                     spacing={1}
                     sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}
                   >
-                    <Typography sx={{ fontWeight: 700, flex: 1 }}>
-                      {recordTitle(record)}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      label={record.status}
-                      color={statusColor(record.status)}
-                      variant="outlined"
-                    />
+                    <Typography sx={{ fontWeight: 700, flex: 1 }}>{recordTitle(record)}</Typography>
+                    <Chip size="small" label={record.status} color={statusColor(record.status)} variant="outlined" />
                   </Stack>
 
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mt: 0.5 }}
-                  >
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                     {record.id}
                   </Typography>
 
                   {recordDetail(record) && (
-                    <Typography color="text.secondary" sx={{ mt: 1 }}>
-                      {recordDetail(record)}
-                    </Typography>
+                    <Typography color="text.secondary" sx={{ mt: 1 }}>{recordDetail(record)}</Typography>
                   )}
 
                   <Accordion
                     disableGutters
                     elevation={0}
-                    sx={{
-                      mt: 1,
-                      '&::before': { display: 'none' },
-                      backgroundColor: 'transparent',
-                    }}
+                    sx={{ mt: 1, '&::before': { display: 'none' }, backgroundColor: 'transparent' }}
                   >
                     <AccordionSummary sx={{ px: 0, minHeight: 36 }}>
-                      <Typography variant="body2" color="primary">
-                        Inspect structured record
-                      </Typography>
+                      <Typography variant="body2" color="primary">Inspect structured record</Typography>
                     </AccordionSummary>
                     <AccordionDetails sx={{ px: 0, pt: 0 }}>
                       <Box
                         component="pre"
-                        sx={{
-                          p: 1.5,
-                          borderRadius: 1,
-                          bgcolor: 'grey.100',
-                          fontSize: 12,
-                          overflow: 'auto',
-                        }}
+                        sx={{ p: 1.5, borderRadius: 1, bgcolor: 'grey.100', fontSize: 12, overflow: 'auto' }}
                       >
                         {JSON.stringify(record, null, 2)}
                       </Box>
@@ -335,7 +260,6 @@ function ReviewGatePanel({
       </Stack>
 
       <Divider sx={{ my: 2 }} />
-
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
         <Button
           variant="contained"
@@ -367,9 +291,7 @@ export function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<SessionView | null>(null);
-  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(
-    () => new Set()
-  );
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -377,9 +299,7 @@ export function App() {
     const next = await listSessions();
     setSessions(next);
     setSelectedId((current) => {
-      if (current && next.some((session) => session.sessionId === current)) {
-        return current;
-      }
+      if (current && next.some((session) => session.sessionId === current)) return current;
       return next[0]?.sessionId ?? null;
     });
   }, []);
@@ -393,9 +313,7 @@ export function App() {
   useEffect(() => {
     setBusy(true);
     refreshSessions()
-      .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : String(cause));
-      })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
       .finally(() => setBusy(false));
   }, [refreshSessions]);
 
@@ -408,18 +326,12 @@ export function App() {
     setBusy(true);
     setError(null);
     refreshSelectedSession(selectedId)
-      .catch((cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : String(cause));
-      })
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
       .finally(() => setBusy(false));
   }, [refreshSelectedSession, selectedId]);
 
   const selectedCount = selectedRecordIds.size;
-
-  const canContinue = useMemo(
-    () => Boolean(view?.continueAction.enabled),
-    [view]
-  );
+  const canContinue = useMemo(() => Boolean(view?.continueAction.enabled), [view]);
 
   function toggleRecord(id: string): void {
     setSelectedRecordIds((current) => {
@@ -432,15 +344,10 @@ export function App() {
 
   async function runReview(decision: 'APPROVE' | 'REJECT'): Promise<void> {
     if (!selectedId || selectedCount === 0) return;
-
     setBusy(true);
     setError(null);
     try {
-      const nextView = await reviewSession(
-        selectedId,
-        decision,
-        Array.from(selectedRecordIds)
-      );
+      const nextView = await reviewSession(selectedId, decision, Array.from(selectedRecordIds));
       setView(nextView);
       setSelectedRecordIds(new Set());
       await refreshSessions();
@@ -453,7 +360,6 @@ export function App() {
 
   async function runContinue(): Promise<void> {
     if (!selectedId || !canContinue) return;
-
     setBusy(true);
     setError(null);
     try {
@@ -481,6 +387,13 @@ export function App() {
     }
   }
 
+  async function handleProjectCreated(nextView: SessionView): Promise<void> {
+    setView(nextView);
+    setSelectedId(nextView.summary.sessionId);
+    setSelectedRecordIds(new Set());
+    await refreshSessions();
+  }
+
   return (
     <>
       <AppBar position="static" elevation={0}>
@@ -491,18 +404,19 @@ export function App() {
               Evidence-Governed Scientific Film Director
             </Typography>
           </Box>
-          <Button color="inherit" onClick={refreshAll} disabled={busy}>
-            Refresh
-          </Button>
+          <Button color="inherit" onClick={refreshAll} disabled={busy}>Refresh</Button>
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+        <NewProjectPanel
+          busy={busy}
+          onCreated={handleProjectCreated}
+          onBusyChange={setBusy}
+          onError={setError}
+        />
 
         <Box
           sx={{
@@ -510,31 +424,21 @@ export function App() {
             gridTemplateColumns: { xs: '1fr', lg: '300px minmax(0, 1fr)' },
             gap: 2.5,
             alignItems: 'start',
+            mt: 2.5,
           }}
         >
-          <SessionList
-            sessions={sessions}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+          <SessionList sessions={sessions} selectedId={selectedId} onSelect={setSelectedId} />
 
           <Stack spacing={2}>
             {busy && !view ? (
-              <Paper
-                variant="outlined"
-                sx={{
-                  minHeight: 240,
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
+              <Paper variant="outlined" sx={{ minHeight: 240, display: 'grid', placeItems: 'center' }}>
                 <CircularProgress />
               </Paper>
             ) : !view ? (
               <Paper variant="outlined" sx={{ p: 3 }}>
                 <Typography variant="h6">No session selected</Typography>
                 <Typography color="text.secondary" sx={{ mt: 1 }}>
-                  Start or persist a Tital MVP session with the existing CLI, then refresh this page.
+                  Create a new project above or select a persisted Tital session.
                 </Typography>
               </Paper>
             ) : (
@@ -543,56 +447,29 @@ export function App() {
                   <Stack
                     direction={{ xs: 'column', md: 'row' }}
                     spacing={2}
-                    sx={{
-                      justifyContent: 'space-between',
-                      alignItems: { xs: 'flex-start', md: 'center' },
-                    }}
+                    sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' } }}
                   >
                     <Box>
                       <Typography variant="h4">{view.summary.title}</Typography>
-                      <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                        {view.rawIdea}
-                      </Typography>
+                      <Typography color="text.secondary" sx={{ mt: 0.75 }}>{view.rawIdea}</Typography>
                     </Box>
-                    <Chip
-                      label={view.summary.stage}
-                      color={
-                        view.summary.stage === 'COMPLETE' ? 'success' : 'primary'
-                      }
-                    />
+                    <Chip label={view.summary.stage} color={view.summary.stage === 'COMPLETE' ? 'success' : 'primary'} />
                   </Stack>
 
                   <Divider sx={{ my: 2 }} />
-
-                  <Typography variant="overline" color="text.secondary">
-                    Next action
-                  </Typography>
-                  <Typography sx={{ fontWeight: 600 }}>
-                    {view.summary.nextAction}
-                  </Typography>
+                  <Typography variant="overline" color="text.secondary">Next action</Typography>
+                  <Typography sx={{ fontWeight: 600 }}>{view.summary.nextAction}</Typography>
 
                   {view.summary.blockedBy.length > 0 && (
-                    <Stack
-                      direction="row"
-                      spacing={0.75}
-                      useFlexGap
-                      sx={{ mt: 1.5, flexWrap: 'wrap' }}
-                    >
+                    <Stack direction="row" spacing={0.75} useFlexGap sx={{ mt: 1.5, flexWrap: 'wrap' }}>
                       {view.summary.blockedBy.map((blocker) => (
-                        <Chip
-                          key={blocker}
-                          label={blocker}
-                          size="small"
-                          color="warning"
-                          variant="outlined"
-                        />
+                        <Chip key={blocker} label={blocker} size="small" color="warning" variant="outlined" />
                       ))}
                     </Stack>
                   )}
                 </Paper>
 
                 <CountsGrid summary={view.summary} />
-
                 <ReviewGatePanel
                   view={view}
                   selectedIds={selectedRecordIds}
@@ -615,35 +492,17 @@ export function App() {
                   >
                     {view.continueAction.message}
                   </Alert>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    sx={{ mt: 2 }}
-                  >
-                    <Button
-                      variant="contained"
-                      disabled={!canContinue || busy}
-                      onClick={runContinue}
-                    >
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 2 }}>
+                    <Button variant="contained" disabled={!canContinue || busy} onClick={runContinue}>
                       {busy ? 'Working…' : 'Continue'}
                     </Button>
                     {view.gate && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ alignSelf: 'center' }}
-                      >
+                      <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
                         Review the current gate before continuing.
                       </Typography>
                     )}
                     {view.summary.stage === 'COMPLETE' && (
-                      <Chip
-                        label={
-                          view.summary.productionPackageStatus ??
-                          'Workflow complete'
-                        }
-                        color="success"
-                      />
+                      <Chip label={view.summary.productionPackageStatus ?? 'Workflow complete'} color="success" />
                     )}
                   </Stack>
                 </Paper>
@@ -659,9 +518,7 @@ export function App() {
                           sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}
                         >
                           <Chip size="small" label={event.type} variant="outlined" />
-                          <Typography variant="body2" sx={{ flex: 1 }}>
-                            {event.message}
-                          </Typography>
+                          <Typography variant="body2" sx={{ flex: 1 }}>{event.message}</Typography>
                           <Typography variant="caption" color="text.secondary">
                             {new Date(event.at).toLocaleString()}
                           </Typography>
