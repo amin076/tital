@@ -2,9 +2,14 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { z } from 'zod';
 import { JsonMvpSessionStore } from '../persistence/jsonMvpSessionStore.js';
 import { advanceMvpSession } from '../services/advanceMvpSession.js';
+import { createMvpSession } from '../services/createMvpSession.js';
 import { getMvpSessionView } from '../services/getMvpSessionView.js';
 import { reviewMvpSession } from '../services/reviewMvpSession.js';
 import { summarizeMvpSession } from '../services/summarizeMvpSession.js';
+
+const CreateSessionRequestSchema = z.object({
+  rawIdea: z.string().trim().min(1).max(5000),
+});
 
 const ReviewRequestSchema = z.object({
   decision: z.enum(['APPROVE', 'REJECT']),
@@ -110,6 +115,14 @@ async function handleRequest(
   if (request.method === 'GET' && url.pathname === '/api/sessions') {
     const sessions = await store.list();
     sendJson(response, 200, sessions.map(summarizeMvpSession));
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/sessions') {
+    const body = CreateSessionRequestSchema.parse(await readJson(request));
+    const session = await createMvpSession(body.rawIdea);
+    await store.save(session);
+    sendJson(response, 201, getMvpSessionView(session));
     return;
   }
 
