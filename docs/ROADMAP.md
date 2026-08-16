@@ -1,187 +1,311 @@
 # Tital Roadmap
 
-Status date: **2026-08-15**
+Status date: **2026-08-17**
 
-This document describes recommended next development work. It is **not** a list of capabilities that already exist. For current implementation status, see [CURRENT_STATUS.md](CURRENT_STATUS.md).
+This roadmap starts from the repository state after PR #10, where the governed React web UI, final production-package view, workflow coverage display, traceability, and readable exports are implemented and live-validated.
 
-## Completed foundation — governed end-to-end MVP core
+For implementation truth, see [CURRENT_STATUS.md](CURRENT_STATUS.md).
 
-The core persisted workflow is now implemented and has completed a live end-to-end Europa validation:
+## Completed foundation
+
+Tital has completed two important product milestones.
+
+### Governed end-to-end workflow core
+
+Implemented and live-validated:
 
 ```text
-create project session
-→ persist state locally
-→ execute the next legal automated stage
-→ persist generated records
-→ stop at a human gate
-→ accept explicit approve/reject
-→ retain rejected history
-→ continue from stored state
-→ run deterministic audit
-→ build ProductionPackage
-→ COMPLETE / READY_FOR_PRODUCTION
+film idea
+→ FilmBrief
+→ Research Questions
+→ Parallel source discovery
+→ Evidence
+→ Claims
+→ Script
+→ Scenes
+→ Shots
+→ Visual Decisions
+→ deterministic governance/provenance audit
+→ Production Package
+→ COMPLETE
 ```
 
-The live test used real Gemini/Vertex AI generation and real Parallel Search MCP source discovery. The implementation deliberately does not auto-approve model output. Local persistence remains an MVP JSON store, not a production database architecture.
+### Governed web UI
 
-See [MVP End-to-End Validation](MVP_E2E_VALIDATION.md).
-
-## Priority 1 — minimal product UI
-
-The next major milestone is a small React/TypeScript interface around the already-working persisted workflow.
-
-This priority moved ahead of further backend expansion because the completed Europa test showed that CLI review, copied JSON, and manual record-ID commands are now the main usability bottleneck.
-
-The first UI should expose:
+Implemented and live-validated:
 
 ```text
-Project / current gate
-Define
-Research Questions
-Sources
-Evidence / Claims
-Script
-Scenes / Shots
-Visual Decisions
-Audit
-Package
+create persisted project
+open/list sessions
+inspect current stage and blockers
+approve/reject selected records
+continue / recover missing approved coverage
+see workflow progress and coverage
+inspect readable records
+trace approved provenance chain
+inspect final package
+export JSON
+export readable text
+print/save styled PDF
 ```
 
-Required interactions:
+The Black-hole web run completed the full workflow and produced a final package and styled PDF report.
+
+---
+
+## Priority 0 — documentation truth reset
+
+Status: **in progress in `docs/post-mvp-status`**
+
+Repository documentation must describe the product that now exists, not the pre-UI CLI state.
+
+Update:
 
 ```text
-Approve
-Reject
-Continue
-Regenerate when coverage is missing
-Inspect source/evidence/claim provenance
-Inspect uncertainty and scientific constraints
-Inspect audit findings
-Open final Production Package
+README.md
+docs/CURRENT_STATUS.md
+docs/ROADMAP.md
+docs/PROJECT_HANDOFF.md
+docs/architecture/system-architecture.md
+docs/architecture/workflow-architecture.md
 ```
 
-The most important experience is provenance navigation: a user should be able to move from a script line, scene, shot, or visual decision backward to claims, evidence, and sources.
-
-The UI must call the existing governed services/state machine rather than re-implementing business rules in the frontend.
-
-### UI milestone definition of done
-
-A user should be able to repeat the current Europa workflow without manually copying JSON or typing record IDs into review commands.
-
-At minimum:
+Record the Black-hole UI validation and clearly separate:
 
 ```text
-open/list persisted projects
-see current stage and blockers
-inspect pending records
-select one or more records
-approve/reject visibly
-continue the workflow
-see generation/runtime errors
-trace provenance backward
-inspect audit result
-inspect final package status
+scientific truth verification
+from
+governance/provenance integrity verification
 ```
 
-## Priority 2 — strengthen source-to-evidence verification
+This is a small prerequisite, not the next major product feature.
 
-Current Parallel integration uses Search MCP for source discovery and preserves source excerpts/provider provenance. A stronger evidence workflow should add controlled source-content retrieval for approved sources where appropriate.
+---
 
-Candidate direction:
+## Priority 1 — Cloud Deployment Foundation
+
+This is the next major engineering milestone.
+
+### Goal
+
+Make the existing governed product accessible as a hosted application without weakening the current trust boundaries.
+
+Target outcome:
 
 ```text
-Parallel web_search
+public hosted Tital URL
+        ↓
+hosted React UI
+        ↓
+hosted Node API
+        ↓
+existing application/session services
+        ↓
+durable cloud session store
+        ↓
+Gemini / Vertex AI
++ Parallel MCP
+```
+
+### Work items
+
+1. Define a production runtime contract for the Node API.
+2. Add health/readiness behavior suitable for deployment.
+3. Containerize or otherwise package the current Node + web application for the selected Google Cloud path.
+4. Add environment/secrets handling appropriate for deployed Vertex AI and partner integrations.
+5. Introduce a session-store interface without changing workflow semantics.
+6. Add a cloud-durable implementation while keeping `JsonMvpSessionStore` for local development/tests.
+7. Deploy a first non-production hosted environment.
+8. Run one complete hosted E2E project with real Gemini and Parallel MCP.
+9. Capture deployment/runtime evidence for hackathon submission.
+
+### Non-goals for this milestone
+
+Do not expand into:
+
+```text
+billing
+enterprise authentication
+large multi-tenant architecture
+complex permissions
+video rendering
+mobile apps
+```
+
+The goal is a reliable judge-testable hosted vertical slice.
+
+---
+
+## Priority 2 — Full-source verification before Evidence
+
+Current source discovery uses Parallel Search MCP and preserves search excerpts/provider provenance. Evidence extraction currently works from approved `SourceRecord` excerpts.
+
+Strengthen the workflow to separate discovery from verification:
+
+```text
+Research Question
+→ Parallel web_search
 → SourceRecord DISCOVERED
 → human source approval
-→ Parallel web_fetch / approved content retrieval
-→ validated source content
+→ controlled source-content retrieval / web_fetch
+→ validated retrieved source content
 → Evidence Extraction Agent
 → EvidenceRecord REVIEW_REQUIRED
 ```
 
-Before implementation, verify the current Parallel MCP tool contract and usage limits. Do not store full copyrighted documents unnecessarily.
+### Design requirements
 
-This work should follow the first usable UI unless the absence of full-content retrieval blocks the hackathon demo's scientific credibility.
+- Fetch only approved sources.
+- Preserve retrieval provenance and timestamp.
+- Do not store unnecessary full copyrighted documents.
+- Prefer extractive, evidence-bearing content needed by the approved research question.
+- Preserve the original source URL and provider provenance.
+- Make retrieval failure visible rather than silently falling back to invented content.
+- Keep human evidence review explicit.
 
-## Priority 3 — deterministic uncertainty and visual-constraint governance
+### Likely source metadata additions
 
-The Europa run exposed two high-value audit gaps:
+Evaluate a minimal set such as:
+
+```text
+sourceType
+publisher / institution
+authors when available
+DOI when available
+primary / secondary classification
+retrieval provenance
+```
+
+Avoid building a large academic ontology before the concrete verification workflow needs it.
+
+---
+
+## Priority 3 — Edit / Regenerate / Staleness
+
+The current UI is excellent for review and progression but does not yet support a complete editing lifecycle after approved upstream content changes.
+
+Desired behavior:
+
+```text
+approved Evidence / Claim / Script / Scene changes
+→ determine dependent downstream records
+→ mark affected records stale
+→ invalidate prior audit/package
+→ regenerate only affected coverage
+→ require human review again
+```
+
+Start with deterministic dependency invalidation. Do not introduce a large graph platform unless simple provenance relationships prove insufficient.
+
+Useful first cases:
+
+1. Replace an approved Claim.
+2. Edit/regenerate one ScriptLine.
+3. Regenerate one Scene or Shot.
+4. Show exactly which downstream records became stale.
+5. Preserve old versions/history rather than silently overwriting trusted decisions.
+
+---
+
+## Priority 4 — Scientific governance expansion
+
+The current deterministic audit correctly checks implemented governance rules, but it is not a scientific truth engine.
+
+High-value next rules:
 
 ```text
 UNCERTAINTY_DROPPED
 SCIENTIFIC_CONSTRAINT_VIOLATION
 ```
 
-These should not be implemented as naive text-field inheritance rules.
+### `UNCERTAINTY_DROPPED`
 
-For example, a Claim may legitimately reference an Evidence record containing uncertainty about an interpretation while making only a direct observational statement. The uncertainty rule therefore needs to consider whether the downstream proposition depends on the uncertain inference.
+Must be proposition-aware. A downstream statement should not be required to copy every upstream caveat if the caveat is irrelevant to the proposition being made.
 
-Likewise, VisualDecision constraint checking should detect meaningful weakening or contradiction of the approved Shot constraint rather than only comparing categories.
+### `SCIENTIFIC_CONSTRAINT_VIOLATION`
 
-## Priority 4 — dependency invalidation / staleness
+Should detect meaningful weakening or contradiction of approved shot/visual constraints, not merely string inequality.
 
-The current session layer invalidates the stored audit after new generation/review decisions, but it does not yet propagate formal downstream staleness after an approved upstream record is edited/replaced.
+Keep the audit deterministic wherever a rule can be expressed deterministically. Use model assistance only where semantic interpretation is truly required, and keep any model-based audit result behind explicit labeling/validation.
 
-Future behavior should support relationships such as:
+---
+
+## Priority 5 — persistence hardening and reviewer identity
+
+After the first hosted vertical slice is stable, strengthen project persistence and review accountability.
+
+Candidate capabilities:
 
 ```text
-Source/Evidence changed
-→ Claim potentially stale
-→ ScriptLine potentially stale
-→ Scene/Shot/VisualDecision potentially stale
-→ Audit required again
+schema/session versioning
+formal migrations
+project ownership
+reviewer identity
+review timestamps / rationale
+optimistic locking
+transactional state + event updates
+backup/export/import
 ```
 
-Start with deterministic dependency invalidation before designing a large knowledge-graph system.
+Do not treat authenticated identity as cryptographic scientific endorsement. Keep the distinction between "who approved" and "scientifically true" explicit.
 
-## Priority 5 — persistence hardening
+---
 
-The local JSON session store is sufficient for the MVP/developer workflow. Before multi-user or deployed production use, define a stronger persistence contract for:
+## Priority 6 — scientific-status / contradiction model
 
-- schema/session versioning and migrations;
-- project ownership and reviewer identity;
-- concurrency/optimistic locking;
-- transactional state + event updates;
-- cloud/database storage;
-- backup/export/import behavior.
+The long-term product vision benefits from richer epistemic status such as:
 
-A known legacy Evidence uncertainty representation is already normalized on load, but this is not yet a general migration framework.
+```text
+observation
+measurement
+experiment
+theoretical prediction
+model-dependent inference
+strong inference
+consensus
+debate
+hypothesis
+analogy
+```
 
-Do not replace the simple store with a large abstraction until the web UI and deployment requirements are clear.
+This should be designed only after stronger source retrieval and editing/staleness workflows exist, because the ontology will affect schemas, migrations, audit rules, UI, and production exports.
 
-## Priority 6 — scientific status and contradiction model
+---
 
-The product vision includes richer epistemic status and contradiction handling. The current `ClaimRecord` is intentionally smaller.
+## Priority 7 — Hackathon deployment and submission hardening
 
-A future schema iteration can explore categories such as observation, experiment, strong inference, model-dependent inference, theoretical prediction, consensus, debate, hypothesis, or analogy—but only after the ontology is designed and migration implications are understood.
+Before final submission:
 
-## Priority 7 — deployment and hackathon demo
+1. Host the application on the selected Google Cloud path.
+2. Verify deployed Gemini / Vertex AI behavior.
+3. Verify deployed Parallel MCP behavior.
+4. Run and record a hosted end-to-end scientific-film project.
+5. Keep provenance and human review visible in the demo.
+6. Prepare a short demo narrative around one strong scientific example.
+7. Capture the differentiator: **"Why are we saying or showing this?"**
+8. Keep the distinction between governance audit and independent scientific peer review explicit.
+9. Finalize repository documentation and reproducible run instructions.
+10. Prepare submission text, screenshots, architecture diagram, and demo video.
 
-After the minimal UI can drive the existing governed vertical slice:
-
-1. deploy the runnable application using the chosen Google Cloud path;
-2. verify Gemini/Google Cloud use in the deployed runtime;
-3. verify real Parallel MCP use in the deployed/demo runtime;
-4. preserve visible provenance and human-gate behavior in the deployed UI;
-5. capture enough runtime evidence for judging/submission;
-6. create the three-minute demonstration around the validated Europa-style scientific-film journey;
-7. complete Devpost submission materials.
+---
 
 ## Explicitly deferred
 
-Unless required to prove the core workflow, do not prioritize:
+Unless required to prove the core product, do not prioritize:
 
 ```text
-advanced authentication/billing
-mobile apps
-large multi-tenant architecture
-video rendering engine
+large video-generation stack
 3D editor
-general production-management suite
-custom ML models
+mobile apps
+billing
+advanced multi-tenancy
+custom foundation models
 large knowledge-graph infrastructure
 many decorative agents
+general-purpose production-management suite
 ```
+
+Tital's advantage is not the number of agents. It is the governed chain from scientific evidence to film decisions.
 
 ## Guiding question
 
@@ -189,4 +313,4 @@ For every roadmap item ask:
 
 > Does this make it easier for a filmmaker to transform scientific evidence into a scientifically defensible film decision while preserving traceability?
 
-If not, it is probably not an MVP priority.
+If not, it is probably not a near-term Tital priority.
