@@ -1,8 +1,10 @@
 # Tital Project Handoff
 
-Status date: **2026-08-15**
+Status date: **2026-08-17**
 
-This is the current repository-level handoff for Tital. It is intentionally shorter and more operational than the earlier long-form planning handoff. For implementation truth, always reconcile this document with the repository, [CURRENT_STATUS.md](CURRENT_STATUS.md), and recent validation evidence.
+This is the current operational handoff for Tital after PR #10 merged the governed React web UI, final production-package view, workflow coverage display, provenance traceability, and readable exports.
+
+For implementation truth, reconcile this document with the repository, [CURRENT_STATUS.md](CURRENT_STATUS.md), [ROADMAP.md](ROADMAP.md), and [POST_MVP_REVIEW.md](POST_MVP_REVIEW.md).
 
 ## Product definition
 
@@ -20,9 +22,9 @@ North Star:
 
 Tital is not intended to be a generic AI video generator, generic research chatbot, or generic storyboard tool.
 
-## Product workflow
+## Product phases
 
-The five user-facing product phases remain:
+The five user-facing phases remain:
 
 ```text
 1. DEFINE
@@ -32,7 +34,7 @@ The five user-facing product phases remain:
 5. AUDIT & PACKAGE
 ```
 
-The implemented record chain is more granular:
+The implemented record chain is:
 
 ```text
 FilmBrief
@@ -44,7 +46,7 @@ FilmBrief
 → SceneRecord
 → ShotRecord
 → VisualDecisionRecord
-→ ScientificAuditReport
+→ Governance / provenance audit
 → ProductionPackage
 ```
 
@@ -54,83 +56,100 @@ The central engineering boundary is:
 
 ```text
 Model proposes
-→ service validates
-→ application assigns trusted IDs/provenance/status
+→ deterministic service validates
+→ application assigns trusted IDs / provenance / status
 → human reviews
 → next stage becomes eligible
 ```
 
-Models must not silently control workflow status, trusted IDs, or provenance relationships.
+Models do not silently control workflow status, trusted IDs, provenance relationships, or human approval.
 
-Human review states are domain-specific, but common statuses include:
-
-```text
-DRAFT
-REVIEW_REQUIRED
-APPROVED
-REJECTED
-LOCKED
-```
-
-Upstream approval matters. Approved but disconnected/orphaned downstream records do not satisfy provenance coverage.
+This boundary was strengthened during the Black-hole UI run: `sceneId` for Shot records and `shotId` for VisualDecision records are now assigned by application code rather than echoed by Gemini.
 
 ## Current technical architecture
 
-Current runtime stack:
+Current stack:
 
 ```text
 TypeScript / Node.js
+React 19
+Vite
+MUI
 Google ADK
 Gemini 2.5 Flash
 Vertex AI
 Parallel Search MCP
 Zod
-local JSON persisted MVP sessions
-Vitest / TypeScript typecheck
+Vitest
+local JSON persisted sessions
+small local Node HTTP API
 ```
 
-Runtime concept:
+Current runtime concept:
 
 ```text
-User / CLI today
+User / Reviewer
+→ React Web UI
+→ local Node API adapter
 → persisted MVP session
 → execution controller
 → workflow evaluator
 → real service executors
 → Google ADK agents
 → Gemini / Vertex AI
-→ Parallel MCP where source discovery is required
+→ Parallel MCP for source discovery
 → validated application-owned records
 → human gate
-→ deterministic audit
+→ deterministic governance/provenance audit
 → ProductionPackage
 ```
 
-The current interface is CLI-oriented. A production React/web UI is not yet implemented.
+The CLI remains available for development and inspection, but the main demonstrated product interaction is now the web UI.
+
+## Implemented web UI
+
+The merged web milestone supports:
+
+```text
+create project from a raw scientific-film idea
+list/open persisted projects
+see current stage and next action
+see counts and approval/rejection status
+inspect human-readable pending records
+select one or many pending records
+approve/reject
+continue the governed workflow
+recover missing approved coverage after rejection
+see full stage progress
+see approved-chain coverage ratios
+inspect final Production Package
+trace source/evidence → claim → script → scene → shot → visual decision
+export JSON
+export text
+print/save styled PDF
+```
+
+JSON remains the canonical machine-readable output. Human-facing UI and reports intentionally present readable structured content instead of JSON dumps.
 
 ## Parallel integration
 
-The current Partner path is real runtime use of Parallel Search MCP for source discovery.
+The current partner path is real runtime use of Parallel Search MCP for source discovery.
 
-The live integration has used the Search MCP tools to find sources and preserve provider provenance in `SourceRecord` data.
+`parallelSourceAgent` is required to call Parallel `web_search` before returning source candidates. The application preserves provider provenance including `providerSearchId` when present.
 
-Important limitation:
-
-The evidence pipeline currently operates on approved source records/search excerpts. Tital does not yet perform a dedicated full-content retrieval/verification step for every approved source.
-
-Do not conflate:
+Current limitation:
 
 ```text
 source discovery
+≠
+full source verification
 ```
 
-with:
+Evidence extraction currently operates from approved `SourceRecord` search excerpts. Tital does not yet perform a dedicated full-content retrieval step for every approved source.
 
-```text
-evidence verification
-```
+The next scientific-strengthening milestone should introduce controlled approved-source retrieval before evidence extraction.
 
-## Persisted MVP sessions
+## Persisted sessions
 
 Default local storage:
 
@@ -138,7 +157,9 @@ Default local storage:
 .tital/sessions/<session-id>.json
 ```
 
-Supported CLI actions:
+The local store validates the complete session schema on load/save and uses temporary-write-plus-rename behavior.
+
+CLI actions remain available:
 
 ```text
 start
@@ -149,94 +170,59 @@ show
 list
 ```
 
-The persisted state machine is intentionally human-gated and rejection-aware. Rejected records stay in history instead of being deleted.
+The web UI uses the same underlying governed session/application services through a small HTTP adapter; it does not re-implement workflow rules in React.
 
-## First complete live end-to-end validation
+## Live end-to-end validation history
 
-On 2026-08-15, the Europa scientific-film test completed the full current MVP path.
+### Europa — 2026-08-15
 
-Final state:
+The first complete persisted MVP run used the Europa subsurface-ocean evidence question.
 
-```text
-stage: COMPLETE
-productionPackageStatus: READY_FOR_PRODUCTION
-blockedBy: []
-```
+It validated the backend workflow, real Gemini/Vertex calls, real Parallel MCP source discovery, explicit human review, rejection-aware progression, deterministic audit, and final production package.
 
-Final counts:
-
-```text
-ResearchQuestions  APPROVED 1 / REJECTED 5
-Sources            APPROVED 4 / REJECTED 4
-Evidence           APPROVED 5 / REJECTED 6
-Claims             APPROVED 5 / REJECTED 1
-ScriptLines        APPROVED 4
-Scenes             APPROVED 2
-Shots              APPROVED 5 / REJECTED 2
-VisualDecisions    APPROVED 5
-```
-
-The run used real Gemini/Vertex AI automated generation and real Parallel MCP source discovery, with explicit human review gates between stages.
+This run was CLI-driven.
 
 Detailed report: [MVP_E2E_VALIDATION.md](MVP_E2E_VALIDATION.md).
 
-## Scientific-governance lessons from the Europa run
+### Black-hole web run — 2026-08-16
 
-### Evidence uncertainty
+The second complete end-to-end project was driven through the React web UI:
 
-Evidence generation was hardened so semantic-null strings such as `"null"`, `"None"`, `"N/A"`, or similar placeholders are not accepted as meaningful uncertainty values.
+> **Unveiling the Invisible: How We Know Black Holes Exist**
 
-Inference should be described as inference. Proxy/indirect measurements must not be upgraded into direct observation without source support.
-
-### Uncertainty propagation
-
-The run showed both successful uncertainty propagation and a failure case.
-
-Successful path:
+Final approved production-chain counts:
 
 ```text
-Evidence uncertainty
-→ Claim uncertainty
-→ Script uncertaintyDisclosure
-→ Scene uncertaintyDisclosure
+Research Questions   4
+Sources             18
+Evidence            24
+Claims              10
+Script Lines        12
+Scenes               8
+Shots               14
+Visual Decisions    14
 ```
 
-A separate rejected Claim demonstrated that downstream content can still drop an upstream caveat while remaining superficially plausible.
-
-Future deterministic audit candidate:
+The run validated:
 
 ```text
-UNCERTAINTY_DROPPED
+web project creation
+human review UI
+selective approve/reject
+rejection recovery
+coverage-based progression
+complete governed workflow
+final results UI
+traceability UI
+JSON / text export
+styled PDF report
 ```
 
-This rule must be proposition-aware, not a naive requirement to copy every uncertainty field into every downstream record.
+The run intentionally used non-expert/random approve/reject choices in places to exercise workflow behavior. It must not be presented as a scientific expert validation of the resulting Black-hole content.
 
-### Visual scientific integrity
+## Audit terminology
 
-Shots and VisualDecisions distinguish representation types such as:
-
-```text
-SCIENTIFIC_RECONSTRUCTION
-CONCEPTUAL_VISUALIZATION
-```
-
-Medium/high visual-integrity risk requires a viewer-facing disclosure.
-
-A live failure exposed that the model could return `disclosure: null` while choosing medium/high risk. The application now preserves the governance requirement and supplies a deterministic fallback disclosure instead of dead-ending solely because that field was omitted.
-
-### Visual constraint governance gap
-
-The system preserves `scientificConstraint` fields, but deterministic semantic detection of constraint weakening/violation is not yet implemented.
-
-Future audit candidate:
-
-```text
-SCIENTIFIC_CONSTRAINT_VIOLATION
-```
-
-## Current deterministic audit
-
-The implemented audit currently includes repository-defined issue types such as:
+The deterministic audit checks governance/provenance conditions such as:
 
 ```text
 BROKEN_PROVENANCE
@@ -246,142 +232,86 @@ MISSING_VISUAL_DISCLOSURE
 UNSUPPORTED_CLAIM
 ```
 
-Do not claim that Tital already detects every scientific caveat loss, contradiction, or visual semantic error.
+Final human-facing output should call this a:
 
-## Known persistence boundary
+> **Governance & provenance audit**
 
-The local JSON store is an MVP persistence layer, not a production database.
+It does not independently prove the scientific truth, source authority, or expert quality of every human-approved record.
 
-Implemented:
-
-```text
-schema validation on load/save
-local durable session files
-event history
-temporary-write + rename behavior
-narrow compatibility normalization for one legacy Evidence uncertainty format
-```
-
-Not implemented:
+Future high-value rules include:
 
 ```text
-authenticated reviewer identity
-multi-user collaboration
-transactional cloud database
-formal versioned migration framework
-concurrent editing semantics
-cloud backup/synchronization
+UNCERTAINTY_DROPPED
+SCIENTIFIC_CONSTRAINT_VIOLATION
 ```
 
-## Immediate next milestone: Tital web UI
+## Current important limitations
 
-The backend vertical slice is now complete enough that the main testing bottleneck is CLI usability.
+### Local-only deployment
 
-The next mission is to build a minimal React/TypeScript UI around the existing persisted workflow.
+The current web app and API are local development surfaces. No public hosted deployment exists yet.
 
-The UI must not bypass or duplicate governance rules.
-
-Minimum UI capabilities:
+Default endpoints:
 
 ```text
-list/open persisted projects
-show current stage, next action, blockers
-show pending records at the current human gate
-select records
-Approve / Reject
-Continue / Regenerate
-show when an action triggers a live paid/runtime call
-trace provenance backward:
-  VisualDecision → Shot → Scene → ScriptLine → Claim → Evidence → Source
-show uncertainty and scientific constraints
-show audit findings
-show final ProductionPackage status/content
+Web: http://127.0.0.1:5173/
+API: http://127.0.0.1:8787/
 ```
 
-The goal is to reproduce the Europa workflow without copying JSON or manually typing record IDs.
+### Local JSON persistence
 
-## UI architecture guidance
+The current store is appropriate for MVP/local development, not cloud concurrency or multi-user production.
 
-Prefer a thin interface over existing application services.
-
-Do not move business rules into React components.
-
-A sensible boundary is:
+Missing:
 
 ```text
-React UI
-→ local/API adapter
-→ existing persisted-session/application services
-→ execution controller
-→ existing agents/integrations
+cloud-durable storage
+formal schema migrations
+optimistic locking / concurrency
+transactional state + event persistence
+authenticated ownership
+reviewer identity
+backup / restore policy
 ```
 
-Before choosing the exact server/API shape, inspect the current repository and define the smallest interface needed by the UI.
+### No general edit/staleness lifecycle
 
-## After the first UI
+Tital can create, review, reject, recover coverage, audit, and package. It does not yet provide a full edit/replace workflow that deterministically marks dependent downstream records stale.
 
-Next likely priorities:
+### No final video rendering
 
-1. controlled full-source retrieval before Evidence extraction;
-2. deterministic uncertainty-loss and visual-constraint audit rules;
-3. downstream staleness propagation after approved upstream edits;
-4. persistence/cloud hardening only as required by deployment;
-5. Google Cloud deployment;
-6. judge-facing three-minute demo and submission packaging.
+Tital currently produces a governed production package. It does not render the final video or replace a video-generation/rendering platform.
 
-## Cost discipline
+## Immediate next milestone
 
-Do not use live Vertex calls for ordinary coding/debugging/tests when deterministic local validation is enough.
+The minimal governed web UI milestone is complete.
+
+Next major milestone:
+
+> **Cloud Deployment Foundation**
+
+Target:
 
 ```text
-npm run typecheck
-npm test
+public hosted URL
+→ hosted UI and API
+→ durable cloud sessions
+→ Vertex AI / Gemini works in deployed runtime
+→ Parallel MCP works in deployed runtime
+→ one complete hosted end-to-end run
 ```
 
-should remain the normal development validation path.
+After hosted deployment, the next highest-value scientific improvement is approved-source full-content retrieval / verification before Evidence extraction.
 
-Commands such as `status`, `show`, `review`, and `list` are local/deterministic.
+## Development rules to preserve
 
-Live `start`/relevant `continue` stages should be deliberate because they can consume Vertex AI quota/credits.
-
-## Current known environment
-
-Google Cloud project:
-
-```text
-scientific-film-director-agent
-```
-
-Typical runtime environment:
-
-```text
-GOOGLE_CLOUD_PROJECT=scientific-film-director-agent
-GOOGLE_CLOUD_LOCATION=global
-GOOGLE_GENAI_USE_VERTEXAI=true
-```
-
-Authentication uses Google Application Default Credentials.
-
-A stale `GOOGLE_APPLICATION_CREDENTIALS` path previously caused Vertex failures; do not reintroduce a dead file path that overrides ADC.
-
-## Development constraints
-
-- Keep Tital standalone from pre-hackathon projects.
-- Do not add unrelated AI runtime providers.
-- Preserve real Google/Gemini/Google Cloud runtime use.
-- Preserve real Parallel runtime use for the selected Partner path.
-- Do not fabricate sources, provider IDs, test results, audit findings, or implementation status.
-- Keep the implementation small enough that judges can understand the architecture quickly.
-- Do not build video rendering, 3D editing, billing, large multi-tenant systems, or decorative agent complexity before the core UI/deployment/demo path is complete.
-
-## Source-of-truth documents
-
-Use these documents together:
-
-- [README.md](../README.md) — project entry point and developer usage.
-- [CURRENT_STATUS.md](CURRENT_STATUS.md) — factual implementation status.
-- [MVP_E2E_VALIDATION.md](MVP_E2E_VALIDATION.md) — live Europa validation evidence.
-- [ROADMAP.md](ROADMAP.md) — next work, not current implementation.
-- architecture/domain/execution documents under `docs/` — detailed subsystem design.
-
-When documents conflict with code, inspect the repository and update the documentation rather than assuming the older prose is correct.
+1. Models propose; application code governs trusted state.
+2. Never let model output silently approve itself.
+3. Keep application-owned IDs and provenance out of model trust.
+4. Preserve rejected records as history.
+5. Progress by approved provenance-connected coverage, not arbitrary counts.
+6. Keep JSON canonical for machines and readable views for humans.
+7. Keep audit claims narrower than actual implemented checks.
+8. Avoid unnecessary live Gemini/Parallel calls in tests.
+9. Add deterministic tests before paid/live runtime validation.
+10. Prefer the smallest product step that strengthens the evidence-to-film chain.
