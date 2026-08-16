@@ -1,7 +1,4 @@
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   AppBar,
   Box,
@@ -28,13 +25,16 @@ import {
   getSession,
   listSessions,
   reviewSession,
-  type GateRecord,
   type SessionSummary,
   type SessionView,
 } from './api';
 import { FinalResultsPanel } from './FinalResultsPanel';
 import { NewProjectPanel } from './NewProjectPanel';
 import { ProvenancePanel } from './ProvenancePanel';
+import {
+  ReadableRecord,
+  recordKindFromGateType,
+} from './ReadableRecord';
 import { WorkflowInsightsPanel } from './WorkflowInsightsPanel';
 
 const COUNT_LABELS: Record<string, string> = {
@@ -53,39 +53,6 @@ function statusColor(status: string): ChipProps['color'] {
   if (status === 'REJECTED') return 'error';
   if (status === 'REVIEW_REQUIRED' || status === 'DISCOVERED') return 'warning';
   return 'default';
-}
-
-function valueAsString(record: GateRecord, key: string): string | null {
-  const value = record[key];
-  return typeof value === 'string' && value.trim() ? value : null;
-}
-
-function recordTitle(record: GateRecord): string {
-  return (
-    valueAsString(record, 'title') ??
-    valueAsString(record, 'question') ??
-    valueAsString(record, 'text') ??
-    valueAsString(record, 'description') ??
-    valueAsString(record, 'decision') ??
-    valueAsString(record, 'excerpt') ??
-    record.id
-  );
-}
-
-function recordDetail(record: GateRecord): string | null {
-  for (const key of [
-    'purpose',
-    'interpretation',
-    'visualSummary',
-    'scientificConstraint',
-    'uncertainty',
-    'uncertaintyDisclosure',
-    'excerpt',
-  ]) {
-    const value = valueAsString(record, key);
-    if (value && value !== recordTitle(record)) return value;
-  }
-  return null;
 }
 
 function countTotal(counts: Record<string, number>): number {
@@ -225,7 +192,10 @@ function ReviewGatePanel({
     );
   }
 
-  const allSelected = gate.records.length > 0 && gate.records.every((record) => selectedIds.has(record.id));
+  const allSelected =
+    gate.records.length > 0 &&
+    gate.records.every((record) => selectedIds.has(record.id));
+  const kind = recordKindFromGateType(gate.recordType);
 
   return (
     <Paper variant="outlined" sx={{ p: 2.5 }}>
@@ -242,6 +212,9 @@ function ReviewGatePanel({
             Human review gate
           </Typography>
           <Typography variant="h6">{gate.recordType}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Review the readable scientific content below. Machine-readable JSON remains in the persisted session and API, not in the review surface.
+          </Typography>
         </Box>
         <Chip label={`${gate.records.length} pending`} color="warning" />
       </Stack>
@@ -251,9 +224,11 @@ function ReviewGatePanel({
           size="small"
           variant="text"
           disabled={busy || allSelected}
-          onClick={() => gate.records.forEach((record) => {
-            if (!selectedIds.has(record.id)) onToggle(record.id);
-          })}
+          onClick={() =>
+            gate.records.forEach((record) => {
+              if (!selectedIds.has(record.id)) onToggle(record.id);
+            })
+          }
         >
           Select all pending
         </Button>
@@ -292,65 +267,7 @@ function ReviewGatePanel({
                   }}
                 />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}
-                  >
-                    <Typography sx={{ fontWeight: 700, flex: 1 }}>
-                      {recordTitle(record)}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      label={record.status}
-                      color={statusColor(record.status)}
-                      variant="outlined"
-                    />
-                  </Stack>
-
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mt: 0.5 }}
-                  >
-                    {record.id}
-                  </Typography>
-
-                  {recordDetail(record) && (
-                    <Typography color="text.secondary" sx={{ mt: 1 }}>
-                      {recordDetail(record)}
-                    </Typography>
-                  )}
-
-                  <Accordion
-                    disableGutters
-                    elevation={0}
-                    sx={{
-                      mt: 1,
-                      '&::before': { display: 'none' },
-                      backgroundColor: 'transparent',
-                    }}
-                  >
-                    <AccordionSummary sx={{ px: 0, minHeight: 36 }}>
-                      <Typography variant="body2" color="primary">
-                        Inspect structured record
-                      </Typography>
-                    </AccordionSummary>
-                    <AccordionDetails sx={{ px: 0, pt: 0 }}>
-                      <Box
-                        component="pre"
-                        sx={{
-                          p: 1.5,
-                          borderRadius: 1,
-                          bgcolor: 'grey.100',
-                          fontSize: 12,
-                          overflow: 'auto',
-                        }}
-                      >
-                        {JSON.stringify(record, null, 2)}
-                      </Box>
-                    </AccordionDetails>
-                  </Accordion>
+                  <ReadableRecord record={record} kind={kind} showId />
                 </Box>
               </Stack>
             </CardContent>
@@ -632,60 +549,55 @@ export function App() {
                 <FinalResultsPanel productionPackage={view.productionPackage} />
                 <ProvenancePanel chain={view.approvedChain} />
 
-                <ReviewGatePanel
-                  view={view}
-                  selectedIds={selectedRecordIds}
-                  onToggle={toggleRecord}
-                  onReview={runReview}
-                  busy={busy}
-                />
+                {view.summary.stage !== 'COMPLETE' && (
+                  <>
+                    <ReviewGatePanel
+                      view={view}
+                      selectedIds={selectedRecordIds}
+                      onToggle={toggleRecord}
+                      onReview={runReview}
+                      busy={busy}
+                    />
 
-                <Paper variant="outlined" sx={{ p: 2.5 }}>
-                  <Typography variant="h6">Continue workflow</Typography>
-                  <Alert
-                    severity={
-                      view.continueAction.mode === 'LIVE_RUNTIME'
-                        ? 'warning'
-                        : view.continueAction.enabled
-                          ? 'info'
-                          : 'success'
-                    }
-                    sx={{ mt: 1.5 }}
-                  >
-                    {view.continueAction.message}
-                  </Alert>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={1}
-                    sx={{ mt: 2 }}
-                  >
-                    <Button
-                      variant="contained"
-                      disabled={!canContinue || busy}
-                      onClick={runContinue}
-                    >
-                      {busy ? 'Working…' : 'Continue'}
-                    </Button>
-                    {view.gate && (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ alignSelf: 'center' }}
-                      >
-                        Review the current gate before continuing.
-                      </Typography>
-                    )}
-                    {view.summary.stage === 'COMPLETE' && (
-                      <Chip
-                        label={
-                          view.summary.productionPackageStatus ??
-                          'Workflow complete'
+                    <Paper variant="outlined" sx={{ p: 2.5 }}>
+                      <Typography variant="h6">Continue workflow</Typography>
+                      <Alert
+                        severity={
+                          view.continueAction.mode === 'LIVE_RUNTIME'
+                            ? 'warning'
+                            : view.continueAction.enabled
+                              ? 'info'
+                              : 'success'
                         }
-                        color="success"
-                      />
-                    )}
-                  </Stack>
-                </Paper>
+                        sx={{ mt: 1.5 }}
+                      >
+                        {view.continueAction.message}
+                      </Alert>
+                      <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        sx={{ mt: 2 }}
+                      >
+                        <Button
+                          variant="contained"
+                          disabled={!canContinue || busy}
+                          onClick={runContinue}
+                        >
+                          {busy ? 'Working…' : 'Continue'}
+                        </Button>
+                        {view.gate && (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ alignSelf: 'center' }}
+                          >
+                            Review the current gate before continuing.
+                          </Typography>
+                        )}
+                      </Stack>
+                    </Paper>
+                  </>
+                )}
 
                 <Paper variant="outlined" sx={{ p: 2.5 }}>
                   <Typography variant="h6">Recent session events</Typography>
