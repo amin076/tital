@@ -13,7 +13,7 @@ New scientific film idea
 → workflow progress and blocker visibility
 → approved-chain coverage visibility
 → final human-readable Production Package
-→ scientific audit result
+→ governance / provenance audit result
 → provenance / traceability view
 → human-readable text report
 → print-ready / Save-as-PDF report
@@ -57,15 +57,32 @@ When a package exists, the UI shows readable, styled sections for:
 - scenes and visual summaries
 - shots, camera direction, scientific constraints, and uncertainty
 - visual decisions, risk level, scientific constraints, and viewer disclosures
-- scientific audit result and issues
+- governance / provenance audit result and issues
 
 The final-results area intentionally separates human-readable presentation from machine-readable data.
 
 Exports:
 
-- **Print / Save PDF** opens a dedicated A4 print report with typography, color accents, summary metrics, cards, tables, audit status, and print page-break rules. The browser's native print dialog is used to save the styled report as PDF, so no PDF runtime dependency is required.
+- **Print / Save PDF** opens a dedicated A4 print report with typography, color accents, summary metrics, cards, tables, audit status, and print page-break rules. Long source/evidence/shot/visual-decision cards may flow across pages to reduce unnecessary blank space, while compact records and disclosures are kept together where practical. The browser's native print dialog is used to save the styled report as PDF, so no PDF runtime dependency is required.
 - **Download text** exports a clean plain-text production report for reading, archiving, or downstream editing.
 - **Download JSON** preserves the canonical machine-readable Production Package for APIs, agents, workflow continuation, and downstream tools.
+
+For clean Chrome/Edge PDF output, turn off **Headers and footers** under the browser print dialog's **More settings**. Browsers do not allow a web application to change that user print preference. Tital also assigns the print popup a meaningful same-origin report URL so that, if browser headers/footers remain enabled, `about:blank` is not used as the footer URL.
+
+### Audit semantics
+
+The existing domain object remains `ScientificAuditReport`, but the human-facing UI/report labels it **Governance & provenance audit** because that is what the current deterministic audit actually establishes.
+
+It checks:
+
+- broken provenance references
+- approved records depending on unapproved upstream records
+- unsupported claims caused by missing/unapproved evidence
+- scene / shot / script-line provenance integrity
+- shot / visual-decision category consistency
+- required disclosures for medium/high-risk visual decisions
+
+A passed audit does **not** independently establish that every human-approved source is authoritative or that every approved scientific statement is true. Human approval decisions remain part of the governance model.
 
 ### UI-3B — Workflow clarity and coverage
 
