@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 export const ClaimProposalSchema = z.object({
   text: z.string().min(1, 'Claim text must be a non-empty string'),
-  evidenceIds: z.array(z.string().min(1)).min(1, 'Claim must reference at least one evidence record'),
+  evidenceNumbers: z
+    .array(z.number().int().positive())
+    .min(1, 'Claim must reference at least one supplied evidence item'),
   confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   uncertainty: z.string().min(1).nullable(),
 });
