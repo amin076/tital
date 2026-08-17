@@ -58,12 +58,22 @@ export async function authenticateRequest(
 
   ensureAdminApp(config.projectId);
   try {
-    const decoded = await getAuth().verifyIdToken(token, true);
+    // Standard backend verification validates signature, issuer, audience,
+    // expiration, and token shape. Revocation checking is intentionally not
+    // enabled here because checkRevoked=true performs an additional Firebase
+    // Auth backend lookup for every request and requires broader runtime API
+    // access than is needed for the hackathon judge session flow.
+    const decoded = await getAuth().verifyIdToken(token);
     return {
       uid: decoded.uid,
       email: typeof decoded.email === 'string' ? decoded.email : null,
     };
-  } catch {
+  } catch (error: unknown) {
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code ?? 'unknown')
+        : 'unknown';
+    console.warn(`Firebase ID token verification failed (${code}).`);
     return null;
   }
 }
