@@ -15,13 +15,11 @@ export function validateEvidenceForClaims(
   if (!parsedQuestion.success) {
     throw new Error(`Invalid ResearchQuestion schema: ${parsedQuestion.error.message}`);
   }
-
   if (question.status !== 'APPROVED') {
     throw new Error(
       `ResearchQuestion is not approved: claim generation requires APPROVED status, current status is "${question.status}".`
     );
   }
-
   if (evidenceRecords.length === 0) {
     throw new Error('Claim generation requires at least one approved EvidenceRecord.');
   }
@@ -32,19 +30,16 @@ export function validateEvidenceForClaims(
     if (!parsedEvidence.success) {
       throw new Error(`Invalid EvidenceRecord schema: ${parsedEvidence.error.message}`);
     }
-
     if (evidence.status !== 'APPROVED') {
       throw new Error(
         `EvidenceRecord is not approved: claim generation requires APPROVED status for "${evidence.id}", current status is "${evidence.status}".`
       );
     }
-
     if (evidence.researchQuestionId !== question.id) {
       throw new Error(
         `EvidenceRecord researchQuestionId mismatch for "${evidence.id}": expected "${question.id}", received "${evidence.researchQuestionId}".`
       );
     }
-
     if (seenIds.has(evidence.id)) {
       throw new Error(`Duplicate EvidenceRecord id supplied for claim generation: "${evidence.id}".`);
     }
@@ -68,23 +63,24 @@ export function assembleClaimRecords(
   options: { idFactory?: () => string } = {}
 ): ClaimRecord[] {
   const validated = ClaimProposalListSchema.parse(proposals);
-  const approvedEvidenceIds = new Set(evidenceRecords.map((evidence) => evidence.id));
   const idFactory = options.idFactory ?? (() => `CL-${crypto.randomUUID()}`);
 
   return validated.claims.map((proposal) => {
-    const uniqueEvidenceIds = [...new Set(proposal.evidenceIds)];
-    for (const evidenceId of uniqueEvidenceIds) {
-      if (!approvedEvidenceIds.has(evidenceId)) {
+    const uniqueEvidenceNumbers = [...new Set(proposal.evidenceNumbers)];
+    const evidenceIds = uniqueEvidenceNumbers.map((evidenceNumber) => {
+      const evidence = evidenceRecords[evidenceNumber - 1];
+      if (!evidence) {
         throw new Error(
-          `Claim proposal references evidence that was not supplied as approved evidence: "${evidenceId}".`
+          `Claim proposal references evidence number outside the supplied approved evidence: ${evidenceNumber}.`
         );
       }
-    }
+      return evidence.id;
+    });
 
     const record = {
       id: idFactory(),
       researchQuestionId: question.id,
-      evidenceIds: uniqueEvidenceIds,
+      evidenceIds,
       text: proposal.text,
       confidence: proposal.confidence,
       uncertainty: proposal.uncertainty,
@@ -95,7 +91,6 @@ export function assembleClaimRecords(
     if (!parsed.success) {
       throw new Error(`Final ClaimRecord validation failed: ${parsed.error.message}`);
     }
-
     return parsed.data;
   });
 }
@@ -106,6 +101,13 @@ export async function callClaimGenerationAgent(
 ): Promise<ClaimProposalList> {
   const runner = new InMemoryRunner({ agent: claimGenerationAgent });
   let responseText = '';
+  const numberedEvidence = evidenceRecords.map((evidence, index) => ({
+    evidenceNumber: index + 1,
+    excerpt: evidence.excerpt,
+    interpretation: evidence.interpretation,
+    strength: evidence.strength,
+    uncertainty: evidence.uncertainty,
+  }));
 
   try {
     const run = runner.runEphemeral({
@@ -113,15 +115,12 @@ export async function callClaimGenerationAgent(
       newMessage: {
         parts: [
           {
-            text: `Generate scientific claims for this approved research question using ONLY the supplied approved evidence records.\n\nResearchQuestion:\n${JSON.stringify(question, null, 2)}\n\nApproved EvidenceRecords:\n${JSON.stringify(evidenceRecords, null, 2)}`,
+            text: `Generate scientific claims for this approved research question using ONLY the supplied numbered approved evidence.\n\nResearchQuestion:\n${question.question}\n\nApproved numbered evidence:\n${JSON.stringify(numberedEvidence, null, 2)}`,
           },
         ],
       },
     });
-
-    for await (const event of run) {
-      responseText += stringifyContent(event);
-    }
+    for await (const event of run) responseText += stringifyContent(event);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Claim ADK/model invocation failure: ${message}`);
