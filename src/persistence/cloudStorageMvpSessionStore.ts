@@ -64,8 +64,8 @@ export class CloudStorageMvpSessionStore implements MvpSessionStore {
 
     await file.save(`${JSON.stringify(validated, null, 2)}\n`, {
       resumable: false,
-      contentType: 'application/json; charset=utf-8',
       metadata: {
+        contentType: 'application/json; charset=utf-8',
         cacheControl: 'no-store',
       },
     });
