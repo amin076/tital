@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { z } from 'zod';
-import { JsonMvpSessionStore } from '../persistence/jsonMvpSessionStore.js';
+import { createMvpSessionStore } from '../persistence/createMvpSessionStore.js';
 import { advanceMvpSession } from '../services/advanceMvpSession.js';
 import { createMvpSession } from '../services/createMvpSession.js';
 import { getMvpSessionView } from '../services/getMvpSessionView.js';
@@ -19,7 +19,7 @@ const ReviewRequestSchema = z.object({
 });
 
 const config = resolveTitalServerConfig();
-const store = new JsonMvpSessionStore();
+const store = createMvpSessionStore();
 
 class HttpError extends Error {
   constructor(
@@ -115,6 +115,7 @@ async function handleRequest(
       status: 'ok',
       service: 'tital-api',
       web: 'same-origin',
+      sessionStore: store.description,
     });
     return;
   }
@@ -214,6 +215,6 @@ const server = createServer((request, response) => {
 
 server.listen(config.port, config.host, () => {
   console.log(`Tital listening on http://${config.host}:${config.port}`);
-  console.log(`Session directory: ${store.directory}`);
+  console.log(`Session store: ${store.description}`);
   console.log(`Web build directory: ${config.webDistDir}`);
 });
