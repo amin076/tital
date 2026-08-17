@@ -2,17 +2,13 @@
 
 Status date: **2026-08-17**
 
-This roadmap starts from the repository state after PR #10, where the governed React web UI, final production-package view, workflow coverage display, traceability, and readable exports are implemented and live-validated.
+Tital has moved beyond the local-only governed MVP. Cloud Run deployment, Cloud Storage persistence, Firebase-authenticated live workflow, public landing/demo shell, and a GitHub Actions deployment workflow are now implemented on `feat/public-authenticated-tital`, with final public-release hardening still in progress.
 
 For implementation truth, see [CURRENT_STATUS.md](CURRENT_STATUS.md).
 
-## Completed foundation
+## Completed foundations
 
-Tital has completed two important product milestones.
-
-### Governed end-to-end workflow core
-
-Implemented and live-validated:
+### Governed workflow core
 
 ```text
 film idea
@@ -27,290 +23,204 @@ film idea
 → Visual Decisions
 → deterministic governance/provenance audit
 → Production Package
-→ COMPLETE
 ```
 
 ### Governed web UI
 
+Create/list/open projects, human review, rejection recovery, coverage/progress, provenance traceability, final package and JSON/text/PDF outputs are implemented.
+
+### Cloud deployment foundation
+
 Implemented and live-validated:
 
 ```text
-create persisted project
-open/list sessions
-inspect current stage and blockers
-approve/reject selected records
-continue / recover missing approved coverage
-see workflow progress and coverage
-inspect readable records
-trace approved provenance chain
-inspect final package
-export JSON
-export readable text
-print/save styled PDF
+Cloud Run single-service UI/API
+Cloud Storage durable session store
+revision-surviving persistence
+Vertex AI / Gemini in hosted runtime
+Parallel MCP in hosted runtime
+Firebase Email/Password sign-in
+backend ID-token verification
+per-user session namespace
+public landing/demo shell
 ```
 
-The Black-hole web run completed the full workflow and produced a final package and styled PDF report.
+### Reliability hardening from live runs
+
+Implemented or actively being validated:
+
+- semantic-null Evidence uncertainty handling;
+- legacy session migration;
+- Visual Decision disclosure fallback;
+- application-owned Shot `sceneId` and Visual Decision `shotId`;
+- malformed Parallel candidate discard without losing the valid batch;
+- numbered model references mapped to trusted IDs for Claim, Script, Scene and Shot stages.
+
+See [AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md).
 
 ---
 
-## Priority 0 — documentation truth reset
+## Priority 1 — Public authenticated Hackathon release
 
-Status: **in progress in `docs/post-mvp-status`**
+Current highest priority.
 
-Repository documentation must describe the product that now exists, not the pre-UI CLI state.
-
-Update:
+Target experience:
 
 ```text
-README.md
-docs/CURRENT_STATUS.md
-docs/ROADMAP.md
-docs/PROJECT_HANDOFF.md
-docs/architecture/system-architecture.md
-docs/architecture/workflow-architecture.md
+anonymous visitor
+→ public Tital landing
+→ completed read-only demo
+
+authorized judge
+→ Firebase sign-in
+→ live create/review/continue workflow
 ```
 
-Record the Black-hole UI validation and clearly separate:
+Release tasks:
 
-```text
-scientific truth verification
-from
-governance/provenance integrity verification
-```
+1. Pull and locally validate the trusted-reference refactor (`typecheck`, tests, build).
+2. Continue the hosted Lorestan run through Shots, Visual Decisions, audit and final package.
+3. Confirm no remaining model-owned opaque parent-ID references exist in the governed chain.
+4. Configure a curated completed `TITAL_DEMO_SESSION_ID`.
+5. Verify anonymous protected API calls are denied while demo endpoints remain usable.
+6. Verify judge login, user-scoped sessions and live Vertex/Parallel operations.
+7. Enable public Cloud Run network access only after application auth boundaries pass.
+8. Set conservative cost controls / instance limits for judging.
+9. Verify rollback/revision persistence.
 
-This is a small prerequisite, not the next major product feature.
+Release gate: [AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md).
 
 ---
 
-## Priority 1 — Cloud Deployment Foundation
+## Priority 2 — GitHub Actions deployment automation
 
-This is the next major engineering milestone.
-
-### Goal
-
-Make the existing governed product accessible as a hosted application without weakening the current trust boundaries.
-
-Target outcome:
+Workflow file exists:
 
 ```text
-public hosted Tital URL
-        ↓
-hosted React UI
-        ↓
-hosted Node API
-        ↓
-existing application/session services
-        ↓
-durable cloud session store
-        ↓
-Gemini / Vertex AI
-+ Parallel MCP
+.github/workflows/ci-deploy-cloud-run.yml
 ```
 
-### Work items
-
-1. Define a production runtime contract for the Node API.
-2. Add health/readiness behavior suitable for deployment.
-3. Containerize or otherwise package the current Node + web application for the selected Google Cloud path.
-4. Add environment/secrets handling appropriate for deployed Vertex AI and partner integrations.
-5. Introduce a session-store interface without changing workflow semantics.
-6. Add a cloud-durable implementation while keeping `JsonMvpSessionStore` for local development/tests.
-7. Deploy a first non-production hosted environment.
-8. Run one complete hosted E2E project with real Gemini and Parallel MCP.
-9. Capture deployment/runtime evidence for hackathon submission.
-
-### Non-goals for this milestone
-
-Do not expand into:
+Finish Google Cloud/GitHub setup:
 
 ```text
-billing
-enterprise authentication
-large multi-tenant architecture
-complex permissions
-video rendering
-mobile apps
+GitHub OIDC
+→ Google Workload Identity Federation
+→ dedicated tital-deployer service account
+→ least-privilege source deployment roles
+→ Service Account User on tital-runtime
+→ Cloud Run source deploy after validation
 ```
 
-The goal is a reliable judge-testable hosted vertical slice.
+Do not use a long-lived Google service-account JSON key for the preferred CI/CD design.
+
+Validate both automatic `main` deployment and manual workflow dispatch. Document rollback and failed-build behavior.
+
+See [DEPLOYMENT_AND_OPERATIONS.md](DEPLOYMENT_AND_OPERATIONS.md).
 
 ---
 
-## Priority 2 — Full-source verification before Evidence
+## Priority 3 — Full-source verification before Evidence
 
-Current source discovery uses Parallel Search MCP and preserves search excerpts/provider provenance. Evidence extraction currently works from approved `SourceRecord` excerpts.
+Current Parallel discovery preserves search excerpts/provider provenance, but Evidence extraction does not yet retrieve and verify dedicated full content for every approved source.
 
-Strengthen the workflow to separate discovery from verification:
+Target:
 
 ```text
 Research Question
 → Parallel web_search
 → SourceRecord DISCOVERED
 → human source approval
-→ controlled source-content retrieval / web_fetch
-→ validated retrieved source content
+→ controlled approved-source retrieval / web_fetch
+→ retrieval provenance + bounded evidence-bearing content
 → Evidence Extraction Agent
 → EvidenceRecord REVIEW_REQUIRED
 ```
 
-### Design requirements
+Requirements:
 
-- Fetch only approved sources.
-- Preserve retrieval provenance and timestamp.
-- Do not store unnecessary full copyrighted documents.
-- Prefer extractive, evidence-bearing content needed by the approved research question.
-- Preserve the original source URL and provider provenance.
-- Make retrieval failure visible rather than silently falling back to invented content.
-- Keep human evidence review explicit.
-
-### Likely source metadata additions
-
-Evaluate a minimal set such as:
-
-```text
-sourceType
-publisher / institution
-authors when available
-DOI when available
-primary / secondary classification
-retrieval provenance
-```
-
-Avoid building a large academic ontology before the concrete verification workflow needs it.
+- fetch only approved sources;
+- preserve source/retrieval provenance and timestamp;
+- surface retrieval failure instead of inventing evidence;
+- avoid unnecessary storage of copyrighted full documents;
+- support source type/publisher/authors/DOI metadata only where useful;
+- keep human evidence review explicit.
 
 ---
 
-## Priority 3 — Edit / Regenerate / Staleness
-
-The current UI is excellent for review and progression but does not yet support a complete editing lifecycle after approved upstream content changes.
+## Priority 4 — Edit / Regenerate / Staleness
 
 Desired behavior:
 
 ```text
-approved Evidence / Claim / Script / Scene changes
-→ determine dependent downstream records
-→ mark affected records stale
-→ invalidate prior audit/package
+approved upstream record changes
+→ dependent downstream records become stale
+→ audit/package invalidated
 → regenerate only affected coverage
 → require human review again
 ```
 
-Start with deterministic dependency invalidation. Do not introduce a large graph platform unless simple provenance relationships prove insufficient.
-
-Useful first cases:
-
-1. Replace an approved Claim.
-2. Edit/regenerate one ScriptLine.
-3. Regenerate one Scene or Shot.
-4. Show exactly which downstream records became stale.
-5. Preserve old versions/history rather than silently overwriting trusted decisions.
+Start with deterministic dependency invalidation for Claim, Script Line, Scene and Shot edits. Preserve old history rather than silently overwriting trusted decisions.
 
 ---
 
-## Priority 4 — Scientific governance expansion
+## Priority 5 — Persistence concurrency and reviewer accountability
 
-The current deterministic audit correctly checks implemented governance rules, but it is not a scientific truth engine.
+Cloud Storage persistence is implemented, but production hardening still needs:
 
-High-value next rules:
+```text
+session version / optimistic locking
+conflict response for concurrent Continue/review
+formal schema/session versioning
+broader migrations
+reviewer identity in review events
+review rationale/timestamps
+backup/export/import policy
+```
+
+Authentication identifies the reviewer but must never be presented as proof that approved science is true.
+
+---
+
+## Priority 6 — Scientific governance expansion
+
+High-value semantic checks:
 
 ```text
 UNCERTAINTY_DROPPED
 SCIENTIFIC_CONSTRAINT_VIOLATION
+proposition-aware unsupported-claim detection
+citation/source-authority evaluation
 ```
 
-### `UNCERTAINTY_DROPPED`
-
-Must be proposition-aware. A downstream statement should not be required to copy every upstream caveat if the caveat is irrelevant to the proposition being made.
-
-### `SCIENTIFIC_CONSTRAINT_VIOLATION`
-
-Should detect meaningful weakening or contradiction of approved shot/visual constraints, not merely string inequality.
-
-Keep the audit deterministic wherever a rule can be expressed deterministically. Use model assistance only where semantic interpretation is truly required, and keep any model-based audit result behind explicit labeling/validation.
+Keep checks deterministic where possible. If semantic model assistance is introduced, label it explicitly and keep it separate from deterministic governance integrity.
 
 ---
 
-## Priority 5 — persistence hardening and reviewer identity
+## Priority 7 — Scientific-status / contradiction model
 
-After the first hosted vertical slice is stable, strengthen project persistence and review accountability.
+Longer-term epistemic categories may include observation, measurement, experiment, theoretical prediction, model-dependent inference, consensus, debate, hypothesis and analogy.
 
-Candidate capabilities:
-
-```text
-schema/session versioning
-formal migrations
-project ownership
-reviewer identity
-review timestamps / rationale
-optimistic locking
-transactional state + event updates
-backup/export/import
-```
-
-Do not treat authenticated identity as cryptographic scientific endorsement. Keep the distinction between "who approved" and "scientifically true" explicit.
+Do this after source retrieval and edit/staleness mature because it affects schemas, migrations, audit and UI.
 
 ---
 
-## Priority 6 — scientific-status / contradiction model
+## Priority 8 — Submission hardening
 
-The long-term product vision benefits from richer epistemic status such as:
+Before final Hackathon submission:
 
-```text
-observation
-measurement
-experiment
-theoretical prediction
-model-dependent inference
-strong inference
-consensus
-debate
-hypothesis
-analogy
-```
-
-This should be designed only after stronger source retrieval and editing/staleness workflows exist, because the ontology will affect schemas, migrations, audit rules, UI, and production exports.
-
----
-
-## Priority 7 — Hackathon deployment and submission hardening
-
-Before final submission:
-
-1. Host the application on the selected Google Cloud path.
-2. Verify deployed Gemini / Vertex AI behavior.
-3. Verify deployed Parallel MCP behavior.
-4. Run and record a hosted end-to-end scientific-film project.
-5. Keep provenance and human review visible in the demo.
-6. Prepare a short demo narrative around one strong scientific example.
-7. Capture the differentiator: **"Why are we saying or showing this?"**
-8. Keep the distinction between governance audit and independent scientific peer review explicit.
-9. Finalize repository documentation and reproducible run instructions.
-10. Prepare submission text, screenshots, architecture diagram, and demo video.
-
----
+1. Public judge-testable URL.
+2. Completed curated demo available immediately.
+3. Judge credentials and instructions tested.
+4. Hosted live workflow verified.
+5. GitHub Actions deployment reproducible.
+6. Architecture/error-handling/security docs current.
+7. Demo narrative emphasizes: **“Why are we saying or showing this?”**
+8. Show evidence-to-shot provenance and human review clearly.
+9. Keep governance audit distinct from independent scientific peer review.
+10. Capture screenshots, architecture diagram and short demo video.
 
 ## Explicitly deferred
 
-Unless required to prove the core product, do not prioritize:
+Unless needed to prove the core value, do not prioritize a large video-generation stack, 3D editor, mobile apps, billing, custom foundation models, large graph infrastructure, or decorative extra agents.
 
-```text
-large video-generation stack
-3D editor
-mobile apps
-billing
-advanced multi-tenancy
-custom foundation models
-large knowledge-graph infrastructure
-many decorative agents
-general-purpose production-management suite
-```
-
-Tital's advantage is not the number of agents. It is the governed chain from scientific evidence to film decisions.
-
-## Guiding question
-
-For every roadmap item ask:
-
-> Does this make it easier for a filmmaker to transform scientific evidence into a scientifically defensible film decision while preserving traceability?
-
-If not, it is probably not a near-term Tital priority.
+Tital's advantage is the governed evidence-to-film chain, not the number of agents.
