@@ -5,6 +5,7 @@ import { parallelSourceAgent } from '../agents/parallelSourceAgent.js';
 import {
   ParallelSourceCandidateSchema,
   ParallelSourceDiscoverySchema,
+  type ParallelSourceCandidate,
   type ParallelSourceDiscovery,
 } from '../domain/parallelSourceDiscovery.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
@@ -36,7 +37,7 @@ export function parseParallelSourceDiscovery(rawText: string): ParallelSourceDis
     throw new Error(`Parallel MCP source validation failed: ${envelope.error.message}`);
   }
 
-  const validSources = [];
+  const validSources: ParallelSourceCandidate[] = [];
   const rejectedIssues: string[] = [];
 
   envelope.data.sources.forEach((candidate, index) => {
