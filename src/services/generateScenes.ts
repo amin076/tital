@@ -15,13 +15,11 @@ export function validateScriptLinesForScenes(
   if (!parsedQuestion.success) {
     throw new Error(`Invalid ResearchQuestion schema: ${parsedQuestion.error.message}`);
   }
-
   if (question.status !== 'APPROVED') {
     throw new Error(
       `ResearchQuestion is not approved: scene generation requires APPROVED status, current status is "${question.status}".`
     );
   }
-
   if (scriptLines.length === 0) {
     throw new Error('Scene generation requires at least one approved ScriptLineRecord.');
   }
@@ -32,19 +30,16 @@ export function validateScriptLinesForScenes(
     if (!parsedLine.success) {
       throw new Error(`Invalid ScriptLineRecord schema: ${parsedLine.error.message}`);
     }
-
     if (line.status !== 'APPROVED') {
       throw new Error(
         `ScriptLineRecord is not approved: scene generation requires APPROVED status for "${line.id}", current status is "${line.status}".`
       );
     }
-
     if (line.researchQuestionId !== question.id) {
       throw new Error(
         `ScriptLineRecord researchQuestionId mismatch for "${line.id}": expected "${question.id}", received "${line.researchQuestionId}".`
       );
     }
-
     if (seenIds.has(line.id)) {
       throw new Error(`Duplicate ScriptLineRecord id supplied for scene generation: "${line.id}".`);
     }
@@ -68,23 +63,24 @@ export function assembleSceneRecords(
   options: { idFactory?: () => string } = {}
 ): SceneRecord[] {
   const validated = SceneProposalListSchema.parse(proposals);
-  const approvedScriptLineIds = new Set(scriptLines.map((line) => line.id));
   const idFactory = options.idFactory ?? (() => `SC-${crypto.randomUUID()}`);
 
   return validated.scenes.map((proposal) => {
-    const uniqueScriptLineIds = [...new Set(proposal.scriptLineIds)];
-    for (const scriptLineId of uniqueScriptLineIds) {
-      if (!approvedScriptLineIds.has(scriptLineId)) {
+    const uniqueScriptLineNumbers = [...new Set(proposal.scriptLineNumbers)];
+    const scriptLineIds = uniqueScriptLineNumbers.map((scriptLineNumber) => {
+      const line = scriptLines[scriptLineNumber - 1];
+      if (!line) {
         throw new Error(
-          `Scene proposal references script line that was not supplied as approved: "${scriptLineId}".`
+          `Scene proposal references script line number outside the supplied approved script lines: ${scriptLineNumber}.`
         );
       }
-    }
+      return line.id;
+    });
 
     const record = {
       id: idFactory(),
       researchQuestionId: question.id,
-      scriptLineIds: uniqueScriptLineIds,
+      scriptLineIds,
       title: proposal.title,
       purpose: proposal.purpose,
       visualSummary: proposal.visualSummary,
@@ -96,7 +92,6 @@ export function assembleSceneRecords(
     if (!parsed.success) {
       throw new Error(`Final SceneRecord validation failed: ${parsed.error.message}`);
     }
-
     return parsed.data;
   });
 }
@@ -107,6 +102,11 @@ export async function callSceneDirectorAgent(
 ): Promise<SceneProposalList> {
   const runner = new InMemoryRunner({ agent: sceneDirectorAgent });
   let responseText = '';
+  const numberedScriptLines = scriptLines.map((line, index) => ({
+    scriptLineNumber: index + 1,
+    text: line.text,
+    uncertaintyDisclosure: line.uncertaintyDisclosure,
+  }));
 
   try {
     const run = runner.runEphemeral({
@@ -114,15 +114,12 @@ export async function callSceneDirectorAgent(
       newMessage: {
         parts: [
           {
-            text: `Create scene proposals for this approved research question using ONLY the supplied approved script lines.\n\nResearchQuestion:\n${JSON.stringify(question, null, 2)}\n\nApproved ScriptLineRecords:\n${JSON.stringify(scriptLines, null, 2)}`,
+            text: `Create scene proposals for this approved research question using ONLY the supplied numbered approved script lines.\n\nResearchQuestion:\n${question.question}\n\nApproved numbered script lines:\n${JSON.stringify(numberedScriptLines, null, 2)}`,
           },
         ],
       },
     });
-
-    for await (const event of run) {
-      responseText += stringifyContent(event);
-    }
+    for await (const event of run) responseText += stringifyContent(event);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Scene ADK/model invocation failure: ${message}`);
