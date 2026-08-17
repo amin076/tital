@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
+import type { MvpSessionStore } from './mvpSessionStore.js';
 
 const SAFE_SESSION_ID = /^[A-Za-z0-9_-]+$/;
 const LEGACY_SEMANTIC_NULLS = new Set([
@@ -17,7 +18,7 @@ export function defaultMvpSessionDirectory(): string {
   return configured || path.resolve(process.cwd(), '.tital', 'sessions');
 }
 
-function assertSafeSessionId(sessionId: string): void {
+export function assertSafeSessionId(sessionId: string): void {
   if (!SAFE_SESSION_ID.test(sessionId)) {
     throw new Error(`Invalid session ID "${sessionId}".`);
   }
@@ -60,8 +61,12 @@ export function normalizeLegacyMvpSessionData(value: unknown): unknown {
   };
 }
 
-export class JsonMvpSessionStore {
-  constructor(readonly directory: string = defaultMvpSessionDirectory()) {}
+export class JsonMvpSessionStore implements MvpSessionStore {
+  readonly description: string;
+
+  constructor(readonly directory: string = defaultMvpSessionDirectory()) {
+    this.description = `local-json:${this.directory}`;
+  }
 
   private filePath(sessionId: string): string {
     assertSafeSessionId(sessionId);
