@@ -1,0 +1,93 @@
+name: Tital CI and Cloud Run Deploy
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tital-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  deploy:
+    name: Deploy to Cloud Run
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: scientific-film-director-agent
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Deploy Tital from source
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: tital
+          project_id: scientific-film-director-agent
+          region: australia-southeast1
+          source: .
+          env_vars_update_strategy: merge
+          env_vars: |-
+            GOOGLE_CLOUD_PROJECT=scientific-film-director-agent
+            GOOGLE_CLOUD_LOCATION=global
+            GOOGLE_GENAI_USE_VERTEXAI=true
+            TITAL_GCS_BUCKET=tital-sessions-593835701785
+            TITAL_GCS_PREFIX=sessions
+            TITAL_AUTH_REQUIRED=true
+            TITAL_FIREBASE_PROJECT_ID=scientific-film-director-agent
+            TITAL_FIREBASE_AUTH_DOMAIN=scientific-film-director-agent.firebaseapp.com
+            TITAL_FIREBASE_API_KEY=${{ secrets.TITAL_FIREBASE_API_KEY }}
+            TITAL_DEMO_SESSION_ID=${{ vars.TITAL_DEMO_SESSION_ID }}
+          timeout: 900s
+          flags: >-
+            --service-account=tital-runtime@scientific-film-director-agent.iam.gserviceaccount.com
+            --max-instances=1
+            --concurrency=1
+            --memory=1Gi
+
+      - name: Deployment summary
+        run: |
+          echo "### Tital Cloud Run deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "Service URL: ${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
