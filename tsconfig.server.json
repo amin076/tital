@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/server",
+    "rootDir": ".",
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": [
+    "agent.ts",
+    "parallel-agent.ts",
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "apps/**",
+    "dist/**",
+    "node_modules/**",
+    "tests/**"
+  ]
+}
