@@ -15,6 +15,10 @@
     "api:dev": "tsx src/api/server.ts",
     "web:dev": "vite --config apps/web/vite.config.ts",
     "web:build": "vite build --config apps/web/vite.config.ts",
+    "server:build": "tsc -p tsconfig.server.json",
+    "build": "npm run web:build && npm run server:build",
+    "gcp-build": "npm run build",
+    "start": "node dist/server/src/api/server.js",
     "test": "vitest run",
     "test:run": "vitest run"
   },
