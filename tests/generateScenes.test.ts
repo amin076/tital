@@ -17,103 +17,62 @@ const approvedQuestion: ResearchQuestion = {
   status: 'APPROVED',
 };
 
-const approvedScriptLines: ScriptLineRecord[] = [
-  {
-    id: 'SL-europa-magnetic',
-    researchQuestionId: approvedQuestion.id,
-    claimIds: ['CL-europa-magnetic'],
-    text: 'Galileo detected a magnetic signature that strongly points to a conductive layer beneath Europa’s ice.',
-    uncertaintyDisclosure:
-      'The signal supports a conductive layer but does not by itself prove its exact composition or extent.',
-    status: 'APPROVED',
-  },
-];
+const approvedScriptLines: ScriptLineRecord[] = [{
+  id: 'SL-europa-magnetic',
+  researchQuestionId: approvedQuestion.id,
+  claimIds: ['CL-europa-magnetic'],
+  text: 'Galileo detected a magnetic signature that strongly points to a conductive layer beneath Europa’s ice.',
+  uncertaintyDisclosure: 'The signal supports a conductive layer but does not by itself prove its exact composition or extent.',
+  status: 'APPROVED',
+}];
 
-const proposals = {
-  scenes: [
-    {
-      title: 'A Hidden Conductive Layer',
-      scriptLineIds: ['SL-europa-magnetic'],
-      purpose: 'Explain why Galileo magnetic measurements support a subsurface conductive layer.',
-      visualSummary:
-        'Introduce Europa, then conceptually show Jupiter’s magnetic field interacting with a conductive layer beneath the ice.',
-      uncertaintyDisclosure:
-        'The magnetic signal supports a conductive layer but does not alone establish exact composition or global extent.',
-    },
-  ],
-};
+const proposals = { scenes: [{
+  title: 'A Hidden Conductive Layer',
+  scriptLineNumbers: [1],
+  purpose: 'Explain why Galileo magnetic measurements support a subsurface conductive layer.',
+  visualSummary: 'Introduce Europa, then conceptually show Jupiter’s magnetic field interacting with a conductive layer beneath the ice.',
+  uncertaintyDisclosure: 'The magnetic signal supports a conductive layer but does not alone establish exact composition or global extent.',
+}] };
 
 describe('Approved ScriptLine → Scene governed generation', () => {
-  it('parses valid structured scene proposals', () => {
+  it('parses numbered script-line references', () => {
     expect(parseSceneProposalList(JSON.stringify(proposals))).toEqual(proposals);
   });
 
   it('accepts fenced JSON returned by the model', () => {
-    const fenced = '```json\n' + JSON.stringify(proposals) + '\n```';
-    expect(parseSceneProposalList(fenced)).toEqual(proposals);
+    expect(parseSceneProposalList('```json\n' + JSON.stringify(proposals) + '\n```')).toEqual(proposals);
   });
 
   it('rejects non-approved script lines before model invocation', async () => {
     const lines = [{ ...approvedScriptLines[0], status: 'REVIEW_REQUIRED' as const }];
     const modelCaller = vi.fn(async () => proposals);
-
-    await expect(generateScenes(lines, approvedQuestion, modelCaller)).rejects.toThrow(
-      'ScriptLineRecord is not approved'
-    );
+    await expect(generateScenes(lines, approvedQuestion, modelCaller)).rejects.toThrow('ScriptLineRecord is not approved');
     expect(modelCaller).not.toHaveBeenCalled();
   });
 
   it('rejects script line/question provenance mismatches', () => {
     const lines = [{ ...approvedScriptLines[0], researchQuestionId: 'RQ-other' }];
-    expect(() => validateScriptLinesForScenes(lines, approvedQuestion)).toThrow(
-      'researchQuestionId mismatch'
-    );
+    expect(() => validateScriptLinesForScenes(lines, approvedQuestion)).toThrow('researchQuestionId mismatch');
   });
 
-  it('rejects scene proposals that cite script lines not supplied to the model', () => {
-    expect(() =>
-      assembleSceneRecords(
-        approvedQuestion,
-        approvedScriptLines,
-        {
-          scenes: [{ ...proposals.scenes[0], scriptLineIds: ['SL-invented'] }],
-        },
-        { idFactory: () => 'SC-fixed' }
-      )
-    ).toThrow('not supplied as approved');
+  it('rejects an out-of-range script-line number', () => {
+    expect(() => assembleSceneRecords(
+      approvedQuestion,
+      approvedScriptLines,
+      { scenes: [{ ...proposals.scenes[0], scriptLineNumbers: [2] }] },
+      { idFactory: () => 'SC-fixed' }
+    )).toThrow('script line number outside');
   });
 
-  it('assembles application-owned SceneRecords in REVIEW_REQUIRED state', () => {
-    const scenes = assembleSceneRecords(approvedQuestion, approvedScriptLines, proposals, {
-      idFactory: () => 'SC-fixed',
-    });
-
-    expect(scenes).toEqual([
-      {
-        id: 'SC-fixed',
-        researchQuestionId: approvedQuestion.id,
-        scriptLineIds: ['SL-europa-magnetic'],
-        title: proposals.scenes[0].title,
-        purpose: proposals.scenes[0].purpose,
-        visualSummary: proposals.scenes[0].visualSummary,
-        uncertaintyDisclosure: proposals.scenes[0].uncertaintyDisclosure,
-        status: 'REVIEW_REQUIRED',
-      },
-    ]);
+  it('maps script-line numbers to trusted script-line IDs', () => {
+    const scenes = assembleSceneRecords(approvedQuestion, approvedScriptLines, proposals, { idFactory: () => 'SC-fixed' });
+    expect(scenes[0]).toMatchObject({ id: 'SC-fixed', scriptLineIds: ['SL-europa-magnetic'], status: 'REVIEW_REQUIRED' });
   });
 
   it('returns validated scenes only from approved script lines', async () => {
     const modelCaller = vi.fn(async () => proposals);
-    const scenes = await generateScenes(approvedScriptLines, approvedQuestion, modelCaller, {
-      idFactory: () => 'SC-1',
-    });
-
+    const scenes = await generateScenes(approvedScriptLines, approvedQuestion, modelCaller, { idFactory: () => 'SC-1' });
     expect(modelCaller).toHaveBeenCalledOnce();
-    expect(scenes[0]).toMatchObject({
-      id: 'SC-1',
-      researchQuestionId: approvedQuestion.id,
-      scriptLineIds: ['SL-europa-magnetic'],
-      status: 'REVIEW_REQUIRED',
-    });
+    expect(scenes[0]).toMatchObject({ id: 'SC-1', scriptLineIds: ['SL-europa-magnetic'], status: 'REVIEW_REQUIRED' });
   });
 });
