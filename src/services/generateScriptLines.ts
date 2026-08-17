@@ -18,13 +18,11 @@ export function validateClaimsForScript(
   if (!parsedQuestion.success) {
     throw new Error(`Invalid ResearchQuestion schema: ${parsedQuestion.error.message}`);
   }
-
   if (question.status !== 'APPROVED') {
     throw new Error(
       `ResearchQuestion is not approved: script generation requires APPROVED status, current status is "${question.status}".`
     );
   }
-
   if (claims.length === 0) {
     throw new Error('Script generation requires at least one approved ClaimRecord.');
   }
@@ -35,19 +33,16 @@ export function validateClaimsForScript(
     if (!parsedClaim.success) {
       throw new Error(`Invalid ClaimRecord schema: ${parsedClaim.error.message}`);
     }
-
     if (claim.status !== 'APPROVED') {
       throw new Error(
         `ClaimRecord is not approved: script generation requires APPROVED status for "${claim.id}", current status is "${claim.status}".`
       );
     }
-
     if (claim.researchQuestionId !== question.id) {
       throw new Error(
         `ClaimRecord researchQuestionId mismatch for "${claim.id}": expected "${question.id}", received "${claim.researchQuestionId}".`
       );
     }
-
     if (seenIds.has(claim.id)) {
       throw new Error(`Duplicate ClaimRecord id supplied for script generation: "${claim.id}".`);
     }
@@ -71,23 +66,24 @@ export function assembleScriptLineRecords(
   options: { idFactory?: () => string } = {}
 ): ScriptLineRecord[] {
   const validated = ScriptLineProposalListSchema.parse(proposals);
-  const approvedClaimIds = new Set(claims.map((claim) => claim.id));
   const idFactory = options.idFactory ?? (() => `SL-${crypto.randomUUID()}`);
 
   return validated.scriptLines.map((proposal) => {
-    const uniqueClaimIds = [...new Set(proposal.claimIds)];
-    for (const claimId of uniqueClaimIds) {
-      if (!approvedClaimIds.has(claimId)) {
+    const uniqueClaimNumbers = [...new Set(proposal.claimNumbers)];
+    const claimIds = uniqueClaimNumbers.map((claimNumber) => {
+      const claim = claims[claimNumber - 1];
+      if (!claim) {
         throw new Error(
-          `Script line proposal references a claim that was not supplied as approved: "${claimId}".`
+          `Script line proposal references claim number outside the supplied approved claims: ${claimNumber}.`
         );
       }
-    }
+      return claim.id;
+    });
 
     const record = {
       id: idFactory(),
       researchQuestionId: question.id,
-      claimIds: uniqueClaimIds,
+      claimIds,
       text: proposal.text,
       uncertaintyDisclosure: proposal.uncertaintyDisclosure,
       status: 'REVIEW_REQUIRED' as const,
@@ -97,7 +93,6 @@ export function assembleScriptLineRecords(
     if (!parsed.success) {
       throw new Error(`Final ScriptLineRecord validation failed: ${parsed.error.message}`);
     }
-
     return parsed.data;
   });
 }
@@ -108,6 +103,12 @@ export async function callScientificScriptAgent(
 ): Promise<ScriptLineProposalList> {
   const runner = new InMemoryRunner({ agent: scientificScriptAgent });
   let responseText = '';
+  const numberedClaims = claims.map((claim, index) => ({
+    claimNumber: index + 1,
+    text: claim.text,
+    confidence: claim.confidence,
+    uncertainty: claim.uncertainty,
+  }));
 
   try {
     const run = runner.runEphemeral({
@@ -115,15 +116,12 @@ export async function callScientificScriptAgent(
       newMessage: {
         parts: [
           {
-            text: `Write evidence-governed scientific script lines for this approved research question using ONLY the supplied approved claims.\n\nResearchQuestion:\n${JSON.stringify(question, null, 2)}\n\nApproved ClaimRecords:\n${JSON.stringify(claims, null, 2)}`,
+            text: `Write evidence-governed scientific script lines for this approved research question using ONLY the supplied numbered approved claims.\n\nResearchQuestion:\n${question.question}\n\nApproved numbered claims:\n${JSON.stringify(numberedClaims, null, 2)}`,
           },
         ],
       },
     });
-
-    for await (const event of run) {
-      responseText += stringifyContent(event);
-    }
+    for await (const event of run) responseText += stringifyContent(event);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Scientific script ADK/model invocation failure: ${message}`);
