@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 export const SceneProposalSchema = z.object({
   title: z.string().min(1, 'Scene title must be a non-empty string'),
-  scriptLineIds: z.array(z.string().min(1)).min(1, 'Scene must reference at least one script line'),
+  scriptLineNumbers: z
+    .array(z.number().int().positive())
+    .min(1, 'Scene must reference at least one supplied script line'),
   purpose: z.string().min(1, 'Scene purpose must be a non-empty string'),
   visualSummary: z.string().min(1, 'Scene visual summary must be a non-empty string'),
   uncertaintyDisclosure: z.string().min(1).nullable(),
