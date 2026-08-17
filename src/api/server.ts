@@ -6,6 +6,8 @@ import { createMvpSession } from '../services/createMvpSession.js';
 import { getMvpSessionView } from '../services/getMvpSessionView.js';
 import { reviewMvpSession } from '../services/reviewMvpSession.js';
 import { summarizeMvpSession } from '../services/summarizeMvpSession.js';
+import { resolveTitalServerConfig } from './runtimeConfig.js';
+import { tryServeBuiltWebApp } from './staticWeb.js';
 
 const CreateSessionRequestSchema = z.object({
   rawIdea: z.string().trim().min(1).max(5000),
@@ -16,9 +18,7 @@ const ReviewRequestSchema = z.object({
   recordIds: z.array(z.string().min(1)).optional(),
 });
 
-const host = process.env.TITAL_API_HOST?.trim() || '127.0.0.1';
-const port = Number(process.env.TITAL_API_PORT ?? '8787');
-const webOrigin = process.env.TITAL_WEB_ORIGIN?.trim() || 'http://127.0.0.1:5173';
+const config = resolveTitalServerConfig();
 const store = new JsonMvpSessionStore();
 
 class HttpError extends Error {
@@ -32,7 +32,10 @@ class HttpError extends Error {
 
 function applyCommonHeaders(response: ServerResponse): void {
   response.setHeader('Cache-Control', 'no-store');
-  response.setHeader('Access-Control-Allow-Origin', webOrigin);
+  if (config.webOrigin) {
+    response.setHeader('Access-Control-Allow-Origin', config.webOrigin);
+    response.setHeader('Vary', 'Origin');
+  }
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   response.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
 }
@@ -104,11 +107,15 @@ async function handleRequest(
 
   const url = new URL(
     request.url ?? '/',
-    `http://${request.headers.host ?? `${host}:${port}`}`
+    `http://${request.headers.host ?? `${config.host}:${config.port}`}`
   );
 
   if (request.method === 'GET' && url.pathname === '/api/health') {
-    sendJson(response, 200, { status: 'ok', service: 'tital-api' });
+    sendJson(response, 200, {
+      status: 'ok',
+      service: 'tital-api',
+      web: 'same-origin',
+    });
     return;
   }
 
@@ -169,7 +176,18 @@ async function handleRequest(
     return;
   }
 
-  throw new HttpError(404, `Route ${request.method ?? 'UNKNOWN'} ${url.pathname} was not found.`);
+  if (
+    request.method === 'GET' &&
+    !url.pathname.startsWith('/api/') &&
+    (await tryServeBuiltWebApp(response, url.pathname, config.webDistDir))
+  ) {
+    return;
+  }
+
+  throw new HttpError(
+    404,
+    `Route ${request.method ?? 'UNKNOWN'} ${url.pathname} was not found.`
+  );
 }
 
 const server = createServer((request, response) => {
@@ -194,7 +212,8 @@ const server = createServer((request, response) => {
   });
 });
 
-server.listen(port, host, () => {
-  console.log(`Tital API listening on http://${host}:${port}`);
+server.listen(config.port, config.host, () => {
+  console.log(`Tital listening on http://${config.host}:${config.port}`);
   console.log(`Session directory: ${store.directory}`);
+  console.log(`Web build directory: ${config.webDistDir}`);
 });
