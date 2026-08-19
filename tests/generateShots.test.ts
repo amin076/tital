@@ -43,7 +43,7 @@ const scene: SceneRecord = {
 const proposals = {
   shots: [
     {
-      scriptLineIds: ['SL-europa'],
+      scriptLineNumbers: [1],
       description: 'Europa fills frame, then transitions to a clearly labeled cutaway reconstruction beneath the surface.',
       cameraDirection: 'Slow push toward the surface followed by a controlled cutaway reveal.',
       visualIntegrityCategory: 'SCIENTIFIC_RECONSTRUCTION' as const,
@@ -54,7 +54,7 @@ const proposals = {
 };
 
 describe('Approved Scene → Shot governed generation', () => {
-  it('parses valid shot proposals without application-owned scene identity', () => {
+  it('parses valid shot proposals without application-owned provenance IDs', () => {
     expect(parseShotProposalList(JSON.stringify(proposals))).toEqual(proposals);
   });
 
@@ -63,12 +63,17 @@ describe('Approved Scene → Shot governed generation', () => {
     expect(parseShotProposalList(fenced)).toEqual(proposals);
   });
 
-  it('rejects model output that tries to include an application-owned sceneId', () => {
-    const withSceneId = {
-      shots: [{ ...proposals.shots[0], sceneId: 'SC-invented' }],
+  it('ignores model output that tries to include application-owned IDs', () => {
+    const withTrustedIds = {
+      shots: [
+        {
+          ...proposals.shots[0],
+          sceneId: 'SC-invented',
+          scriptLineIds: ['SL-invented'],
+        },
+      ],
     };
-    expect(() => parseShotProposalList(JSON.stringify(withSceneId))).not.toThrow();
-    expect(parseShotProposalList(JSON.stringify(withSceneId))).toEqual(proposals);
+    expect(parseShotProposalList(JSON.stringify(withTrustedIds))).toEqual(proposals);
   });
 
   it('rejects non-approved scenes before model invocation', async () => {
@@ -83,19 +88,19 @@ describe('Approved Scene → Shot governed generation', () => {
     expect(() => validateSceneForShots(scene, [], question)).toThrow('requires the approved ScriptLineRecords');
   });
 
-  it('rejects invented scriptLineIds in shot proposals', () => {
+  it('rejects script line numbers outside the approved scene', () => {
     expect(() =>
       assembleShotRecords(
         scene,
         {
-          shots: [{ ...proposals.shots[0], scriptLineIds: ['SL-invented'] }],
+          shots: [{ ...proposals.shots[0], scriptLineNumbers: [2] }],
         },
         { idFactory: () => 'SH-fixed' }
       )
-    ).toThrow('not present in the approved scene');
+    ).toThrow('outside the approved scene');
   });
 
-  it('assembles application-owned ShotRecords in REVIEW_REQUIRED state', () => {
+  it('maps model line numbers to application-owned script-line IDs', () => {
     const shots = assembleShotRecords(scene, proposals, { idFactory: () => 'SH-fixed' });
     expect(shots[0]).toMatchObject({
       id: 'SH-fixed',
@@ -105,5 +110,16 @@ describe('Approved Scene → Shot governed generation', () => {
       visualIntegrityCategory: 'SCIENTIFIC_RECONSTRUCTION',
       status: 'REVIEW_REQUIRED',
     });
+  });
+
+  it('deduplicates repeated line numbers before assigning trusted IDs', () => {
+    const shots = assembleShotRecords(
+      scene,
+      {
+        shots: [{ ...proposals.shots[0], scriptLineNumbers: [1, 1] }],
+      },
+      { idFactory: () => 'SH-fixed' }
+    );
+    expect(shots[0].scriptLineIds).toEqual(['SL-europa']);
   });
 });

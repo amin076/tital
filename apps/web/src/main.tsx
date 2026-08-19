@@ -1,7 +1,7 @@
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+import { RootApp } from './RootApp';
 import './styles.css';
 import { titalTheme } from './theme';
 
@@ -15,7 +15,7 @@ createRoot(root).render(
   <StrictMode>
     <ThemeProvider theme={titalTheme}>
       <CssBaseline />
-      <App />
+      <RootApp />
     </ThemeProvider>
   </StrictMode>
 );

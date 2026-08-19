@@ -41,7 +41,7 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
     expect(() => parseParallelSourceDiscovery('{not-json')).toThrow('malformed JSON');
   });
 
-  it('rejects invalid source URLs', () => {
+  it('rejects a batch when every source candidate is invalid', () => {
     expect(() =>
       parseParallelSourceDiscovery(
         JSON.stringify({
@@ -49,7 +49,47 @@ describe('Phase 4C Parallel MCP + Zod source discovery', () => {
           sources: [{ ...discovery.sources[0], url: 'not-a-url' }],
         })
       )
-    ).toThrow('source validation failed');
+    ).toThrow('no valid source candidates remained');
+  });
+
+  it('discards malformed source candidates while preserving valid Parallel results', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const secondValidSource = {
+      title: 'Europa Clipper science overview',
+      url: 'https://science.nasa.gov/mission/europa-clipper/science/',
+      excerpt: 'The mission will investigate whether Europa has conditions suitable for life.',
+      publishDate: null,
+    };
+
+    const parsed = parseParallelSourceDiscovery(
+      JSON.stringify({
+        providerSearchId: 'search-robustness',
+        sources: [
+          discovery.sources[0],
+          { ...discovery.sources[0], title: '' },
+          secondValidSource,
+        ],
+      })
+    );
+
+    expect(parsed).toEqual({
+      providerSearchId: 'search-robustness',
+      sources: [discovery.sources[0], secondValidSource],
+    });
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain('discarded 1 malformed source candidate');
+    warn.mockRestore();
+  });
+
+  it('treats whitespace-only titles and excerpts as malformed', () => {
+    expect(() =>
+      parseParallelSourceDiscovery(
+        JSON.stringify({
+          ...discovery,
+          sources: [{ ...discovery.sources[0], title: '   ', excerpt: '   ' }],
+        })
+      )
+    ).toThrow('no valid source candidates remained');
   });
 
   it('maps validated MCP candidates to application-owned SourceRecords', () => {

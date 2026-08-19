@@ -1,4 +1,4 @@
-import { JsonMvpSessionStore } from '../persistence/jsonMvpSessionStore.js';
+import { createMvpSessionStore } from '../persistence/createMvpSessionStore.js';
 import { advanceMvpSession } from '../services/advanceMvpSession.js';
 import { createMvpSession } from '../services/createMvpSession.js';
 import { reviewMvpSession } from '../services/reviewMvpSession.js';
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
   const [, , command, ...args] = process.argv;
   if (!command) usage();
 
-  const store = new JsonMvpSessionStore();
+  const store = createMvpSessionStore();
 
   if (command === 'start') {
     const rawIdea = args.join(' ').trim();

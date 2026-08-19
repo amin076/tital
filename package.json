@@ -15,6 +15,10 @@
     "api:dev": "tsx src/api/server.ts",
     "web:dev": "vite --config apps/web/vite.config.ts",
     "web:build": "vite build --config apps/web/vite.config.ts",
+    "server:build": "tsc -p tsconfig.server.json",
+    "build": "npm run web:build && npm run server:build",
+    "gcp-build": "npm run build",
+    "start": "node dist/server/src/api/server.js",
     "test": "vitest run",
     "test:run": "vitest run"
   },
@@ -34,7 +38,10 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@google/adk": "^1.6.0",
+    "@google-cloud/storage": "^7.21.0",
     "@mui/material": "^9.2.0",
+    "firebase": "^12.17.0",
+    "firebase-admin": "^14.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zod": "^4.4.3"

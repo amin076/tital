@@ -80,24 +80,25 @@ export function assembleShotRecords(
   options: { idFactory?: () => string } = {}
 ): ShotRecord[] {
   const validated = ShotProposalListSchema.parse(proposals);
-  const allowedScriptLineIds = new Set(scene.scriptLineIds);
   const idFactory = options.idFactory ?? (() => `SH-${crypto.randomUUID()}`);
 
   return validated.shots.map((proposal) => {
-    const uniqueScriptLineIds = [...new Set(proposal.scriptLineIds)];
-    for (const scriptLineId of uniqueScriptLineIds) {
-      if (!allowedScriptLineIds.has(scriptLineId)) {
+    const uniqueLineNumbers = [...new Set(proposal.scriptLineNumbers)];
+    const scriptLineIds = uniqueLineNumbers.map((lineNumber) => {
+      const scriptLineId = scene.scriptLineIds[lineNumber - 1];
+      if (!scriptLineId) {
         throw new Error(
-          `Shot proposal references script line not present in the approved scene: "${scriptLineId}".`
+          `Shot proposal references script line number outside the approved scene: ${lineNumber}.`
         );
       }
-    }
+      return scriptLineId;
+    });
 
     const record = {
       id: idFactory(),
       researchQuestionId: scene.researchQuestionId,
       sceneId: scene.id,
-      scriptLineIds: uniqueScriptLineIds,
+      scriptLineIds,
       description: proposal.description,
       cameraDirection: proposal.cameraDirection,
       visualIntegrityCategory: proposal.visualIntegrityCategory,
@@ -122,6 +123,25 @@ export async function callShotDirectorAgent(
 ): Promise<ShotProposalList> {
   const runner = new InMemoryRunner({ agent: shotDirectorAgent });
   let responseText = '';
+  const byId = new Map(scriptLines.map((line) => [line.id, line]));
+  const numberedScriptLines = scene.scriptLineIds.map((scriptLineId, index) => {
+    const line = byId.get(scriptLineId);
+    if (!line) {
+      throw new Error(`Scene references ScriptLineRecord that was not supplied: "${scriptLineId}".`);
+    }
+    return {
+      scriptLineNumber: index + 1,
+      text: line.text,
+      uncertaintyDisclosure: line.uncertaintyDisclosure,
+    };
+  });
+
+  const sceneForModel = {
+    title: scene.title,
+    purpose: scene.purpose,
+    visualSummary: scene.visualSummary,
+    uncertaintyDisclosure: scene.uncertaintyDisclosure,
+  };
 
   try {
     const run = runner.runEphemeral({
@@ -129,7 +149,7 @@ export async function callShotDirectorAgent(
       newMessage: {
         parts: [
           {
-            text: `Create shots for this approved scientific scene.\n\nResearchQuestion:\n${JSON.stringify(question, null, 2)}\n\nApproved SceneRecord:\n${JSON.stringify(scene, null, 2)}\n\nApproved ScriptLineRecords:\n${JSON.stringify(scriptLines, null, 2)}`,
+            text: `Create shots for this approved scientific scene.\n\nResearchQuestion:\n${question.question}\n\nApproved Scene:\n${JSON.stringify(sceneForModel, null, 2)}\n\nApproved numbered Script Lines:\n${JSON.stringify(numberedScriptLines, null, 2)}`,
           },
         ],
       },

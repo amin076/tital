@@ -1,11 +1,19 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { z } from 'zod';
-import { JsonMvpSessionStore } from '../persistence/jsonMvpSessionStore.js';
+import { createMvpSessionStore } from '../persistence/createMvpSessionStore.js';
+import type { MvpSessionStore } from '../persistence/mvpSessionStore.js';
 import { advanceMvpSession } from '../services/advanceMvpSession.js';
 import { createMvpSession } from '../services/createMvpSession.js';
 import { getMvpSessionView } from '../services/getMvpSessionView.js';
 import { reviewMvpSession } from '../services/reviewMvpSession.js';
 import { summarizeMvpSession } from '../services/summarizeMvpSession.js';
+import {
+  authenticateRequest,
+  resolveTitalAuthConfig,
+  type AuthenticatedUser,
+} from './auth.js';
+import { resolveTitalServerConfig } from './runtimeConfig.js';
+import { tryServeBuiltWebApp } from './staticWeb.js';
 
 const CreateSessionRequestSchema = z.object({
   rawIdea: z.string().trim().min(1).max(5000),
@@ -16,10 +24,10 @@ const ReviewRequestSchema = z.object({
   recordIds: z.array(z.string().min(1)).optional(),
 });
 
-const host = process.env.TITAL_API_HOST?.trim() || '127.0.0.1';
-const port = Number(process.env.TITAL_API_PORT ?? '8787');
-const webOrigin = process.env.TITAL_WEB_ORIGIN?.trim() || 'http://127.0.0.1:5173';
-const store = new JsonMvpSessionStore();
+const config = resolveTitalServerConfig();
+const authConfig = resolveTitalAuthConfig();
+const baseStore = createMvpSessionStore();
+const demoSessionId = process.env.TITAL_DEMO_SESSION_ID?.trim() || '';
 
 class HttpError extends Error {
   constructor(
@@ -32,8 +40,11 @@ class HttpError extends Error {
 
 function applyCommonHeaders(response: ServerResponse): void {
   response.setHeader('Cache-Control', 'no-store');
-  response.setHeader('Access-Control-Allow-Origin', webOrigin);
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (config.webOrigin) {
+    response.setHeader('Access-Control-Allow-Origin', config.webOrigin);
+    response.setHeader('Vary', 'Origin');
+  }
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
 }
 
@@ -79,7 +90,7 @@ function sessionIdFrom(match: RegExpMatchArray): string {
   }
 }
 
-async function loadSessionOr404(sessionId: string) {
+async function loadSessionOr404(store: MvpSessionStore, sessionId: string) {
   try {
     return await store.load(sessionId);
   } catch (error: unknown) {
@@ -89,6 +100,14 @@ async function loadSessionOr404(sessionId: string) {
     }
     throw error;
   }
+}
+
+function userStore(user: AuthenticatedUser | null): MvpSessionStore {
+  if (!authConfig.required) return baseStore;
+  if (!user) throw new HttpError(401, 'Authentication is required.');
+  return createMvpSessionStore(process.env, {
+    prefixSuffix: `users/${user.uid}`,
+  });
 }
 
 async function handleRequest(
@@ -104,13 +123,47 @@ async function handleRequest(
 
   const url = new URL(
     request.url ?? '/',
-    `http://${request.headers.host ?? `${host}:${port}`}`
+    `http://${request.headers.host ?? `${config.host}:${config.port}`}`
   );
 
   if (request.method === 'GET' && url.pathname === '/api/health') {
-    sendJson(response, 200, { status: 'ok', service: 'tital-api' });
+    sendJson(response, 200, {
+      status: 'ok',
+      service: 'tital-api',
+      web: 'same-origin',
+      sessionStore: baseStore.description,
+      authRequired: authConfig.required,
+      demoAvailable: Boolean(demoSessionId),
+    });
     return;
   }
+
+  if (request.method === 'GET' && url.pathname === '/api/public/config') {
+    sendJson(response, 200, {
+      authRequired: authConfig.required,
+      firebase: authConfig.required
+        ? {
+            projectId: authConfig.projectId,
+            apiKey: authConfig.apiKey,
+            authDomain: authConfig.authDomain,
+          }
+        : null,
+      demoAvailable: Boolean(demoSessionId),
+    });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/public/demo') {
+    if (!demoSessionId) {
+      throw new HttpError(404, 'No public Tital demo session is configured.');
+    }
+    const session = await loadSessionOr404(baseStore, demoSessionId);
+    sendJson(response, 200, getMvpSessionView(session));
+    return;
+  }
+
+  const user = await authenticateRequest(request, authConfig);
+  const store = url.pathname.startsWith('/api/sessions') ? userStore(user) : baseStore;
 
   if (request.method === 'GET' && url.pathname === '/api/sessions') {
     const sessions = await store.list();
@@ -130,7 +183,7 @@ async function handleRequest(
   if (request.method === 'POST' && reviewMatch) {
     const sessionId = sessionIdFrom(reviewMatch);
     const body = ReviewRequestSchema.parse(await readJson(request));
-    const session = await loadSessionOr404(sessionId);
+    const session = await loadSessionOr404(store, sessionId);
 
     let reviewed;
     try {
@@ -154,7 +207,7 @@ async function handleRequest(
   );
   if (request.method === 'POST' && continueMatch) {
     const sessionId = sessionIdFrom(continueMatch);
-    const session = await loadSessionOr404(sessionId);
+    const session = await loadSessionOr404(store, sessionId);
     const advanced = await advanceMvpSession(session);
     await store.save(advanced);
     sendJson(response, 200, getMvpSessionView(advanced));
@@ -164,12 +217,23 @@ async function handleRequest(
   const sessionMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)$/);
   if (request.method === 'GET' && sessionMatch) {
     const sessionId = sessionIdFrom(sessionMatch);
-    const session = await loadSessionOr404(sessionId);
+    const session = await loadSessionOr404(store, sessionId);
     sendJson(response, 200, getMvpSessionView(session));
     return;
   }
 
-  throw new HttpError(404, `Route ${request.method ?? 'UNKNOWN'} ${url.pathname} was not found.`);
+  if (
+    request.method === 'GET' &&
+    !url.pathname.startsWith('/api/') &&
+    (await tryServeBuiltWebApp(response, url.pathname, config.webDistDir))
+  ) {
+    return;
+  }
+
+  throw new HttpError(
+    404,
+    `Route ${request.method ?? 'UNKNOWN'} ${url.pathname} was not found.`
+  );
 }
 
 const server = createServer((request, response) => {
@@ -194,7 +258,10 @@ const server = createServer((request, response) => {
   });
 });
 
-server.listen(port, host, () => {
-  console.log(`Tital API listening on http://${host}:${port}`);
-  console.log(`Session directory: ${store.directory}`);
+server.listen(config.port, config.host, () => {
+  console.log(`Tital listening on http://${config.host}:${config.port}`);
+  console.log(`Session store: ${baseStore.description}`);
+  console.log(`Authentication required: ${authConfig.required}`);
+  console.log(`Public demo configured: ${Boolean(demoSessionId)}`);
+  console.log(`Web build directory: ${config.webDistDir}`);
 });

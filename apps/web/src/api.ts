@@ -1,3 +1,5 @@
+import { getIdToken, loadPublicRuntimeConfig, type PublicRuntimeConfig } from './auth';
+
 export interface SessionSummary {
   sessionId: string;
   title: string;
@@ -119,12 +121,15 @@ export interface SessionView {
 
 async function request<T>(
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  authenticated = true
 ): Promise<T> {
+  const token = authenticated ? await getIdToken() : null;
   const response = await fetch(path, {
     ...init,
     headers: {
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
   });
@@ -136,6 +141,14 @@ async function request<T>(
   }
 
   return body;
+}
+
+export function getPublicConfig(): Promise<PublicRuntimeConfig> {
+  return loadPublicRuntimeConfig();
+}
+
+export function getPublicDemo(): Promise<SessionView> {
+  return request<SessionView>('/api/public/demo', {}, false);
 }
 
 export function listSessions(): Promise<SessionSummary[]> {

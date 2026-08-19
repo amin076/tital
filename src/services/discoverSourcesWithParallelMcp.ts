@@ -1,13 +1,21 @@
 import crypto from 'crypto';
 import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { z } from 'zod';
 import { parallelSourceAgent } from '../agents/parallelSourceAgent.js';
 import {
+  ParallelSourceCandidateSchema,
   ParallelSourceDiscoverySchema,
+  type ParallelSourceCandidate,
   type ParallelSourceDiscovery,
 } from '../domain/parallelSourceDiscovery.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SourceRecordSchema, type SourceRecord } from '../domain/sourceRecord.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
+
+const ParallelSourceDiscoveryEnvelopeSchema = z.object({
+  providerSearchId: z.string().trim().min(1).nullable(),
+  sources: z.array(z.unknown()).min(1).max(8),
+});
 
 export function validateResearchQuestionForMcpDiscovery(question: ResearchQuestion): void {
   const parsed = ResearchQuestionSchema.safeParse(question);
@@ -24,13 +32,42 @@ export function validateResearchQuestionForMcpDiscovery(question: ResearchQuesti
 
 export function parseParallelSourceDiscovery(rawText: string): ParallelSourceDiscovery {
   const payload = parseJsonFromModelResponse(rawText, 'Parallel MCP agent');
-
-  const parsed = ParallelSourceDiscoverySchema.safeParse(payload);
-  if (!parsed.success) {
-    throw new Error(`Parallel MCP source validation failed: ${parsed.error.message}`);
+  const envelope = ParallelSourceDiscoveryEnvelopeSchema.safeParse(payload);
+  if (!envelope.success) {
+    throw new Error(`Parallel MCP source validation failed: ${envelope.error.message}`);
   }
 
-  return parsed.data;
+  const validSources: ParallelSourceCandidate[] = [];
+  const rejectedIssues: string[] = [];
+
+  envelope.data.sources.forEach((candidate, index) => {
+    const parsed = ParallelSourceCandidateSchema.safeParse(candidate);
+    if (parsed.success) {
+      validSources.push(parsed.data);
+      return;
+    }
+
+    rejectedIssues.push(
+      `sources[${index}]: ${parsed.error.issues.map((issue) => issue.message).join('; ')}`
+    );
+  });
+
+  if (validSources.length === 0) {
+    throw new Error(
+      `Parallel MCP source validation failed: no valid source candidates remained. ${rejectedIssues.join(' | ')}`
+    );
+  }
+
+  if (rejectedIssues.length > 0) {
+    console.warn(
+      `Parallel MCP discarded ${rejectedIssues.length} malformed source candidate(s): ${rejectedIssues.join(' | ')}`
+    );
+  }
+
+  return ParallelSourceDiscoverySchema.parse({
+    providerSearchId: envelope.data.providerSearchId,
+    sources: validSources,
+  });
 }
 
 export function assembleMcpSourceRecords(
