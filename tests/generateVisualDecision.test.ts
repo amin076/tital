@@ -21,15 +21,13 @@ const approvedShot: ShotRecord = {
 };
 
 const proposal = {
-  category: 'SCIENTIFIC_RECONSTRUCTION' as const,
   decision: 'Show a labeled cutaway reconstruction of Europa with an ice shell above a subsurface liquid layer.',
-  scientificConstraint: approvedShot.scientificConstraint,
   disclosure: 'Scientific reconstruction: exact ocean geometry is not directly observed.',
   riskLevel: 'MEDIUM' as const,
 };
 
 describe('Approved Shot → Visual Decision governed generation', () => {
-  it('parses structured visual decision proposals', () => {
+  it('parses structured visual decision proposals without trusted shot policy fields', () => {
     expect(parseVisualDecisionProposal(JSON.stringify(proposal))).toEqual(proposal);
   });
 
@@ -39,12 +37,6 @@ describe('Approved Shot → Visual Decision governed generation', () => {
       generateVisualDecision({ ...approvedShot, status: 'REVIEW_REQUIRED' }, modelCaller)
     ).rejects.toThrow('not approved');
     expect(modelCaller).not.toHaveBeenCalled();
-  });
-
-  it('rejects category drift from an approved shot', () => {
-    expect(() =>
-      assembleVisualDecisionRecord(approvedShot, { ...proposal, category: 'OBSERVATION' })
-    ).toThrow('category mismatch');
   });
 
   it('preserves a model-provided disclosure for medium or high visual risk', () => {
@@ -91,17 +83,42 @@ describe('Approved Shot → Visual Decision governed generation', () => {
       id: 'VD-fixed',
       researchQuestionId: approvedShot.researchQuestionId,
       shotId: approvedShot.id,
-      category: 'SCIENTIFIC_RECONSTRUCTION',
+      category: approvedShot.visualIntegrityCategory,
+      scientificConstraint: approvedShot.scientificConstraint,
       riskLevel: 'MEDIUM',
       status: 'REVIEW_REQUIRED',
     });
   });
 
-  it('does not require the model to echo the trusted shotId', () => {
+  it('does not require the model to echo trusted shot identity or policy', () => {
     const record = assembleVisualDecisionRecord(approvedShot, proposal, {
-      idFactory: () => 'VD-app-owned-shot-id',
+      idFactory: () => 'VD-app-owned-policy',
     });
 
     expect(record.shotId).toBe(approvedShot.id);
+    expect(record.category).toBe(approvedShot.visualIntegrityCategory);
+    expect(record.scientificConstraint).toBe(approvedShot.scientificConstraint);
+  });
+
+  it('inherits OBSERVATION from an approved shot even when the decision text describes reconstruction-like context', () => {
+    const observationShot: ShotRecord = {
+      ...approvedShot,
+      id: 'SH-observation',
+      visualIntegrityCategory: 'OBSERVATION',
+      scientificConstraint: 'Show only directly observed imagery and clearly label any explanatory overlay.',
+    };
+
+    const record = assembleVisualDecisionRecord(
+      observationShot,
+      {
+        decision: 'Use the approved observational image with a labeled explanatory overlay.',
+        disclosure: 'Overlay labels are explanatory and are not part of the original observation.',
+        riskLevel: 'MEDIUM',
+      },
+      { idFactory: () => 'VD-observation' }
+    );
+
+    expect(record.category).toBe('OBSERVATION');
+    expect(record.scientificConstraint).toBe(observationShot.scientificConstraint);
   });
 });
