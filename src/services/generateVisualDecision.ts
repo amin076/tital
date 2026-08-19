@@ -28,7 +28,7 @@ export function parseVisualDecisionProposal(rawText: string): VisualDecisionProp
   return parsed.data;
 }
 
-function disclosureLabel(category: VisualDecisionProposal['category']): string {
+function disclosureLabel(category: ShotRecord['visualIntegrityCategory']): string {
   return category
     .toLowerCase()
     .split('_')
@@ -44,7 +44,7 @@ export function deriveRequiredVisualDisclosure(
     return proposal.disclosure;
   }
 
-  const label = disclosureLabel(proposal.category);
+  const label = disclosureLabel(shot.visualIntegrityCategory);
   if (shot.uncertaintyDisclosure) {
     return `${label}: ${shot.uncertaintyDisclosure}`;
   }
@@ -58,13 +58,6 @@ export function assembleVisualDecisionRecord(
   options: { idFactory?: () => string } = {}
 ): VisualDecisionRecord {
   const validated = VisualDecisionProposalSchema.parse(proposal);
-
-  if (validated.category !== shot.visualIntegrityCategory) {
-    throw new Error(
-      `Visual integrity category mismatch: approved shot is "${shot.visualIntegrityCategory}", proposal is "${validated.category}".`
-    );
-  }
-
   const disclosure = deriveRequiredVisualDisclosure(shot, validated);
 
   const idFactory = options.idFactory ?? (() => `VD-${crypto.randomUUID()}`);
@@ -72,9 +65,9 @@ export function assembleVisualDecisionRecord(
     id: idFactory(),
     researchQuestionId: shot.researchQuestionId,
     shotId: shot.id,
-    category: validated.category,
+    category: shot.visualIntegrityCategory,
     decision: validated.decision,
-    scientificConstraint: validated.scientificConstraint,
+    scientificConstraint: shot.scientificConstraint,
     disclosure,
     riskLevel: validated.riskLevel,
     status: 'REVIEW_REQUIRED' as const,
@@ -92,11 +85,23 @@ export async function callVisualDecisionAgent(shot: ShotRecord): Promise<VisualD
   const runner = new InMemoryRunner({ agent: visualDecisionAgent });
   let responseText = '';
 
+  const shotForModel = {
+    description: shot.description,
+    cameraDirection: shot.cameraDirection,
+    visualIntegrityCategory: shot.visualIntegrityCategory,
+    scientificConstraint: shot.scientificConstraint,
+    uncertaintyDisclosure: shot.uncertaintyDisclosure,
+  };
+
   try {
     const run = runner.runEphemeral({
       userId: 'system',
       newMessage: {
-        parts: [{ text: `Create one governed visual decision for this approved ShotRecord. The application already owns and will attach the trusted shotId; do not copy or return it.\n\n${JSON.stringify(shot, null, 2)}` }],
+        parts: [
+          {
+            text: `Create one governed visual decision for this approved Shot. The application already owns and will attach all trusted IDs, the approved visualIntegrityCategory, and the approved scientificConstraint. Do not copy or return those trusted fields.\n\n${JSON.stringify(shotForModel, null, 2)}`,
+          },
+        ],
       },
     });
 
