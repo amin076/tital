@@ -1,4 +1,9 @@
+import type {
+  CinematicGenerationContext,
+  DirectorBrief,
+} from '../domain/directorBrief.js';
 import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
+import { mapWithConcurrency, resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
 import type {
   MvpReviewCoverageGroup,
   MvpReviewGateRecordType,
@@ -8,6 +13,12 @@ import {
   type MvpRuntimeServices,
 } from './createRealMvpStepExecutors.js';
 import { selectApprovedProductionChain } from './mvpWorkflowGuards.js';
+
+export interface RetryMvpCoverageOptions {
+  directorBrief?: DirectorBrief;
+  scopedInstruction?: string;
+  externalConcurrency?: number;
+}
 
 function normalized(value: unknown): string {
   return String(value ?? '')
@@ -45,10 +56,23 @@ export async function retryMvpCoverage(
   recordType: MvpReviewGateRecordType,
   groups: readonly MvpReviewCoverageGroup[],
   rejectedRecordIds: readonly string[],
-  services: MvpRuntimeServices = realMvpRuntimeServices
+  services: MvpRuntimeServices = realMvpRuntimeServices,
+  options: RetryMvpCoverageOptions = {}
 ): Promise<MvpWorkflowState> {
   const targetIds = [...new Set(groups.map((group) => group.targetId))];
   const chain = selectApprovedProductionChain(state);
+  const concurrency = options.externalConcurrency ?? resolveExternalConcurrency(
+    process.env.TITAL_EXTERNAL_CONCURRENCY
+  );
+  const directorGuidance: CinematicGenerationContext | undefined =
+    options.directorBrief || options.scopedInstruction
+      ? {
+          ...(options.directorBrief ? { directorBrief: options.directorBrief } : {}),
+          ...(options.scopedInstruction
+            ? { scopedInstruction: options.scopedInstruction }
+            : {}),
+        }
+      : undefined;
 
   if (recordType === 'ResearchQuestion') {
     const generated = await services.generateResearchQuestions(state.filmBrief);
@@ -64,13 +88,16 @@ export async function retryMvpCoverage(
   }
 
   if (recordType === 'SourceRecord') {
-    const generated: MvpWorkflowState['sources'] = [];
-    for (const questionId of targetIds) {
-      generated.push(...(await services.discoverSourcesWithParallelMcp(approvedQuestion(state, questionId))));
-    }
+    const batches = await mapWithConcurrency(
+      targetIds,
+      concurrency,
+      (questionId) => services.discoverSourcesWithParallelMcp(
+        approvedQuestion(state, questionId)
+      )
+    );
     const additions = novel(
       state.sources,
-      generated,
+      batches.flat(),
       (record) => `${record.researchQuestionId}|${normalized(record.url)}`
     );
     if (additions.length === 0) throw new Error('Retry produced no new source candidates.');
@@ -80,15 +107,17 @@ export async function retryMvpCoverage(
   if (recordType === 'EvidenceRecord') {
     const rejected = state.evidence.filter((record) => rejectedRecordIds.includes(record.id));
     const sourceIds = [...new Set(rejected.map((record) => record.sourceId))];
-    const generated: MvpWorkflowState['evidence'] = [];
-    for (const sourceId of sourceIds) {
+    const batches = await mapWithConcurrency(sourceIds, concurrency, async (sourceId) => {
       const source = chain.sources.find((record) => record.id === sourceId);
-      if (!source) continue;
-      generated.push(...(await services.extractEvidence(source, approvedQuestion(state, source.researchQuestionId))));
-    }
+      if (!source) return [];
+      return services.extractEvidence(
+        source,
+        approvedQuestion(state, source.researchQuestionId)
+      );
+    });
     const additions = novel(
       state.evidence,
-      generated,
+      batches.flat(),
       (record) => `${record.sourceId}|${normalized(record.excerpt)}|${normalized(record.interpretation)}`
     );
     if (additions.length === 0) throw new Error('Retry produced no new evidence candidates.');
@@ -96,14 +125,15 @@ export async function retryMvpCoverage(
   }
 
   if (recordType === 'ClaimRecord') {
-    const generated: MvpWorkflowState['claims'] = [];
-    for (const questionId of targetIds) {
-      const evidence = chain.evidence.filter((record) => record.researchQuestionId === questionId);
-      generated.push(...(await services.generateClaims(evidence, approvedQuestion(state, questionId))));
-    }
+    const batches = await mapWithConcurrency(targetIds, concurrency, (questionId) => {
+      const evidence = chain.evidence.filter(
+        (record) => record.researchQuestionId === questionId
+      );
+      return services.generateClaims(evidence, approvedQuestion(state, questionId));
+    });
     const additions = novel(
       state.claims,
-      generated,
+      batches.flat(),
       (record) => `${record.researchQuestionId}|${normalized(record.text)}`
     );
     if (additions.length === 0) throw new Error('Retry produced no new claim candidates.');
@@ -111,14 +141,15 @@ export async function retryMvpCoverage(
   }
 
   if (recordType === 'ScriptLineRecord') {
-    const generated: MvpWorkflowState['scriptLines'] = [];
-    for (const questionId of targetIds) {
-      const claims = chain.claims.filter((record) => record.researchQuestionId === questionId);
-      generated.push(...(await services.generateScriptLines(claims, approvedQuestion(state, questionId))));
-    }
+    const batches = await mapWithConcurrency(targetIds, concurrency, (questionId) => {
+      const claims = chain.claims.filter(
+        (record) => record.researchQuestionId === questionId
+      );
+      return services.generateScriptLines(claims, approvedQuestion(state, questionId));
+    });
     const additions = novel(
       state.scriptLines,
-      generated,
+      batches.flat(),
       (record) => `${record.researchQuestionId}|${normalized(record.text)}`
     );
     if (additions.length === 0) throw new Error('Retry produced no new script-line candidates.');
@@ -126,14 +157,20 @@ export async function retryMvpCoverage(
   }
 
   if (recordType === 'SceneRecord') {
-    const generated: MvpWorkflowState['scenes'] = [];
-    for (const questionId of targetIds) {
-      const scriptLines = chain.scriptLines.filter((record) => record.researchQuestionId === questionId);
-      generated.push(...(await services.generateScenes(scriptLines, approvedQuestion(state, questionId))));
-    }
+    const batches = await mapWithConcurrency(targetIds, concurrency, (questionId) => {
+      const scriptLines = chain.scriptLines.filter(
+        (record) => record.researchQuestionId === questionId
+      );
+      return services.generateScenes(
+        scriptLines,
+        approvedQuestion(state, questionId),
+        undefined,
+        { directorGuidance }
+      );
+    });
     const additions = novel(
       state.scenes,
-      generated,
+      batches.flat(),
       (record) => `${record.researchQuestionId}|${normalized(record.title)}|${normalized(record.purpose)}`
     );
     if (additions.length === 0) throw new Error('Retry produced no new scene candidates.');
@@ -141,23 +178,22 @@ export async function retryMvpCoverage(
   }
 
   if (recordType === 'ShotRecord') {
-    const generated: MvpWorkflowState['shots'] = [];
-    for (const sceneId of targetIds) {
+    const batches = await mapWithConcurrency(targetIds, concurrency, async (sceneId) => {
       const scene = chain.scenes.find((record) => record.id === sceneId);
-      if (!scene) continue;
+      if (!scene) return [];
       const lineIds = new Set(scene.scriptLineIds);
       const scriptLines = chain.scriptLines.filter((record) => lineIds.has(record.id));
-      generated.push(
-        ...(await services.generateShots(
-          scene,
-          scriptLines,
-          approvedQuestion(state, scene.researchQuestionId)
-        ))
+      return services.generateShots(
+        scene,
+        scriptLines,
+        approvedQuestion(state, scene.researchQuestionId),
+        undefined,
+        { directorGuidance }
       );
-    }
+    });
     const additions = novel(
       state.shots,
-      generated,
+      batches.flat(),
       (record) => `${record.sceneId}|${normalized(record.description)}|${normalized(record.cameraDirection)}`
     );
     if (additions.length === 0) throw new Error('Retry produced no new shot candidates.');
@@ -165,14 +201,21 @@ export async function retryMvpCoverage(
   }
 
   if (recordType === 'VisualDecisionRecord') {
-    const generated: MvpWorkflowState['visualDecisions'] = [];
-    for (const shotId of targetIds) {
+    const generated = await mapWithConcurrency(targetIds, concurrency, async (shotId) => {
       const shot = chain.shots.find((record) => record.id === shotId);
-      if (shot) generated.push(await services.generateVisualDecision(shot));
-    }
+      return shot
+        ? services.generateVisualDecision(
+            shot,
+            undefined,
+            { directorGuidance }
+          )
+        : null;
+    });
     const additions = novel(
       state.visualDecisions,
-      generated,
+      generated.filter(
+        (record): record is MvpWorkflowState['visualDecisions'][number] => record !== null
+      ),
       (record) => `${record.shotId}|${normalized(record.decision)}|${normalized(record.disclosure)}`
     );
     if (additions.length === 0) throw new Error('Retry produced no new visual-decision candidates.');
