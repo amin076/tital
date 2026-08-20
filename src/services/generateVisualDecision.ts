@@ -1,10 +1,16 @@
 import crypto from 'crypto';
 import { InMemoryRunner, stringifyContent } from '@google/adk';
 import { visualDecisionAgent } from '../agents/visualDecisionAgent.js';
+import type { CinematicGenerationContext } from '../domain/directorBrief.js';
 import { ShotRecordSchema, type ShotRecord } from '../domain/shotRecord.js';
 import { VisualDecisionProposalSchema, type VisualDecisionProposal } from '../domain/visualDecisionProposal.js';
 import { VisualDecisionRecordSchema, type VisualDecisionRecord } from '../domain/visualDecisionRecord.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
+import {
+  CINEMATIC_GUIDANCE_PRECEDENCE,
+  cinematicDecisionProvenance,
+  formatDirectorGuidance,
+} from './directorGuidance.js';
 
 export function validateShotForVisualDecision(shot: ShotRecord): void {
   const parsed = ShotRecordSchema.safeParse(shot);
@@ -55,7 +61,10 @@ export function deriveRequiredVisualDisclosure(
 export function assembleVisualDecisionRecord(
   shot: ShotRecord,
   proposal: VisualDecisionProposal,
-  options: { idFactory?: () => string } = {}
+  options: {
+    idFactory?: () => string;
+    directorGuidance?: CinematicGenerationContext;
+  } = {}
 ): VisualDecisionRecord {
   const validated = VisualDecisionProposalSchema.parse(proposal);
   const disclosure = deriveRequiredVisualDisclosure(shot, validated);
@@ -70,6 +79,7 @@ export function assembleVisualDecisionRecord(
     scientificConstraint: shot.scientificConstraint,
     disclosure,
     riskLevel: validated.riskLevel,
+    decisionProvenance: cinematicDecisionProvenance(options.directorGuidance),
     status: 'REVIEW_REQUIRED' as const,
   };
 
@@ -81,7 +91,10 @@ export function assembleVisualDecisionRecord(
   return parsed.data;
 }
 
-export async function callVisualDecisionAgent(shot: ShotRecord): Promise<VisualDecisionProposal> {
+export async function callVisualDecisionAgent(
+  shot: ShotRecord,
+  directorGuidance?: CinematicGenerationContext
+): Promise<VisualDecisionProposal> {
   const runner = new InMemoryRunner({ agent: visualDecisionAgent });
   let responseText = '';
 
@@ -99,7 +112,7 @@ export async function callVisualDecisionAgent(shot: ShotRecord): Promise<VisualD
       newMessage: {
         parts: [
           {
-            text: `Create one governed visual decision for this approved Shot. The application already owns and will attach all trusted IDs, the approved visualIntegrityCategory, and the approved scientificConstraint. Do not copy or return those trusted fields.\n\n${JSON.stringify(shotForModel, null, 2)}`,
+            text: `Create one governed visual decision for this approved Shot. The application already owns and will attach all trusted IDs, the approved visualIntegrityCategory, and the approved scientificConstraint. Do not copy or return those trusted fields.\n\n${CINEMATIC_GUIDANCE_PRECEDENCE}\n\nHuman director guidance:\n${formatDirectorGuidance(directorGuidance)}\n\nApproved shot:\n${JSON.stringify(shotForModel, null, 2)}`,
           },
         ],
       },
@@ -118,10 +131,16 @@ export async function callVisualDecisionAgent(shot: ShotRecord): Promise<VisualD
 
 export async function generateVisualDecision(
   shot: ShotRecord,
-  modelCaller: (shot: ShotRecord) => Promise<VisualDecisionProposal> = callVisualDecisionAgent,
-  options: { idFactory?: () => string } = {}
+  modelCaller: (
+    shot: ShotRecord,
+    directorGuidance?: CinematicGenerationContext
+  ) => Promise<VisualDecisionProposal> = callVisualDecisionAgent,
+  options: {
+    idFactory?: () => string;
+    directorGuidance?: CinematicGenerationContext;
+  } = {}
 ): Promise<VisualDecisionRecord> {
   validateShotForVisualDecision(shot);
-  const proposal = await modelCaller(shot);
+  const proposal = await modelCaller(shot, options.directorGuidance);
   return assembleVisualDecisionRecord(shot, proposal, options);
 }

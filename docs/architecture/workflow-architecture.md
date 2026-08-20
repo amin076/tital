@@ -1,17 +1,15 @@
 # Workflow Architecture
 
-Status date: **2026-08-17**
+Status date: **2026-08-20**
 
-Tital has two related but different structures that must not be confused:
+Tital has four related structures that must not be confused:
 
-1. the **provenance chain**, which explains why a scientific statement or visual decision exists; and
-2. the **execution stage machine**, which determines what the application is allowed to do next.
+1. **provenance chain** — why a scientific statement or visual exists;
+2. **execution stage machine** — what the application may do next;
+3. **governed coverage** — whether required branches are approved or intentionally waived;
+4. **director context** — artistic guidance applied inside, not above, scientific constraints.
 
-A third concept now matters operationally:
-
-3. **approved-chain coverage**, which determines whether a stage has enough approved, provenance-connected children to progress.
-
-## Provenance Chain
+## Provenance chain
 
 ```mermaid
 graph LR
@@ -30,11 +28,9 @@ graph LR
     FB --> RQ --> SR --> ER --> CR --> SL --> SC --> SH --> VD --> AU --> PP
 ```
 
-The core product promise is that a downstream statement or visual choice can be traced back through approved scientific context rather than existing as an untraceable creative assertion.
+A downstream statement or visual choice can be traced through approved scientific context. Cinematic records can additionally preserve whether AI recommendation used project/scoped director guidance.
 
-## Execution Stage Machine
-
-The persisted MVP uses these stages:
+## Execution stage machine
 
 ```text
 DEFINE
@@ -50,37 +46,21 @@ DEFINE
 → COMPLETE
 ```
 
-```mermaid
-graph TD
-    D[DEFINE]
-    R[RESEARCH]
-    E[EVIDENCE]
-    C[CLAIMS]
-    S[SCRIPT]
-    SC[SCENES]
-    SH[SHOTS]
-    V[VISUAL_DECISIONS]
-    A[AUDIT]
-    P[PACKAGE]
-    X[COMPLETE]
+`evaluateMvpWorkflow` derives current stage from persisted state. `executeNextMvpStep` selects the next legal action. `advanceMvpSession` applies it to a persisted session.
 
-    D --> R --> E --> C --> S --> SC --> SH --> V --> A --> P --> X
-```
+The controller intentionally stops after one model/tool-assisted automated stage so the next human gate is visible. The only automatic multi-step tail is deterministic audit → package.
 
-`evaluateMvpWorkflow` derives the current stage from persisted state. `executeNextMvpStep` decides whether the next legal action is automation, human review, audit, package construction, or completion. `advanceMvpSession` applies the legal next step to a persisted project session.
-
-## Persisted Session Loop
-
-The current product supports a real durable local session loop:
+## Hosted persisted session loop
 
 ```text
-create project
-→ persist FilmBrief proposal
+create authenticated project
+→ Gemini proposes FilmBrief
+→ save session
 → human review
-→ persist decision
-→ continue
-→ generate next eligible proposals
-→ persist
+→ save decision
+→ Continue
+→ next eligible model/tool stage
+→ save proposals
 → human review
 → ...
 → audit
@@ -88,180 +68,172 @@ create project
 → COMPLETE
 ```
 
-The React UI drives this same session/application layer through the local HTTP API. The CLI remains an alternate development/inspection surface.
+Hosted sessions use Cloud Storage with Firebase-UID namespaces. Local development can use JSON-file persistence.
 
-## Human Review Gates
-
-The stage machine is not an unconditional automatic pipeline.
+## Human review gate
 
 ```mermaid
 graph LR
-    A[Approved upstream records]
-    M[Agent/service generates proposals]
+    A[Approved upstream]
+    M[Agent / tool proposal]
     R[Pending review]
     H{Human decision}
     OK[APPROVED]
     NO[REJECTED]
-    N[Coverage evaluation]
+    G{Gap created?}
+    RT[RETRY]
+    W[WAIVE]
+    C[CANCEL]
 
     A --> M --> R --> H
-    H -->|approve| OK --> N
-    H -->|reject| NO --> N
+    H -->|approve| OK
+    H -->|reject| G
+    G -->|no| NO
+    G -->|replacement| RT
+    G -->|intentional omission| W
+    G -->|back| C
 ```
 
-The execution controller never auto-approves generated content just to reach `COMPLETE`.
+Rejected records are terminal history. They are not silently regenerated.
 
-## Approved-Chain Coverage
+## Governed coverage
 
-A stage does not advance merely because the application has generated a certain number of records.
+Progression is not based on counts. It uses required parent coverage through approved provenance or an explicit `CoverageWaiver`.
 
-The relevant condition is whether all required **approved parents** have at least one eligible **approved, provenance-connected child**.
-
-Conceptual examples:
+Current high-level requirements:
 
 ```text
-ResearchQuestion → Source
-Source           → Evidence
-ResearchQuestion → Claim
-ResearchQuestion → ScriptLine
-ResearchQuestion → Scene
-Scene            → Shot
-Shot             → VisualDecision
+required ResearchQuestion → approved Source
+required ResearchQuestion → approved Evidence through approved Source
+required ResearchQuestion → approved Claim
+required ResearchQuestion → approved ScriptLine
+required ResearchQuestion → approved Scene OR Scene-stage waiver
+required Scene            → approved Shot OR Shot-stage waiver
+required Shot             → approved VisualDecision OR Visual-stage waiver
 ```
 
-This means:
+Evidence coverage is intentionally **not** `every approved Source → approved Evidence`. A Source can be acceptable for consideration while every candidate Evidence item from that source is rejected. Human evidence review must remain meaningful.
 
 ```text
 count ≠ coverage
+approved Source ≠ forced Evidence approval
+waived gap ≠ approved content
 ```
 
-Example:
+The UI distinguishes approved coverage, intentional waivers, and unresolved gaps.
+
+## Rejection recovery
+
+Old behavior could regenerate rejected Evidence or Scenes with new UUIDs because only approved children were used to determine whether a parent had been attempted.
+
+Current behavior:
 
 ```text
-18 approved Sources
-19 approved Evidence records
+first automatic attempt
+→ human rejects
+→ record remains REJECTED
+→ no silent regeneration
+→ if gap matters: explicit RETRY or WAIVE
 ```
 
-is still insufficient if those 19 Evidence records cover only 17 of the 18 approved Sources.
+`RETRY` is target-specific and duplicate-filtered. `WAIVE` persists a `CoverageWaiver` and allows the branch to remain intentionally absent where policy permits.
 
-The web UI now exposes these coverage ratios directly so users can understand why a stage is complete or incomplete.
+## Director-control context
 
-## Rejection Recovery
-
-Rejected records remain persisted as history. They are not deleted and are not silently restored.
-
-If a rejection leaves an approved parent uncovered, the next automated continuation can generate replacement proposals for the uncovered parent(s).
-
-Example:
+Scene, Shot, and Visual Decision generation can consume a project `DirectorBrief`. An explicit cinematic replacement retry can also consume a scoped director instruction.
 
 ```text
-approved Source
-→ Evidence proposal rejected
-→ Source has no approved Evidence coverage
-→ continue
-→ generate replacement Evidence proposal for that Source
-→ human review again
+science / uncertainty / integrity constraints
+        ↓ hard boundary
+Director Brief / scoped note
+        ↓ creative guidance
+AI cinematic proposal
+        ↓
+human review
 ```
 
-This recovery behavior was exercised repeatedly during the Black-hole web E2E run.
+Director guidance does not affect scientific coverage rules and cannot turn reconstruction into observation.
 
-## Source Discovery Is a Special Case
+See [../DIRECTOR_CONTROL.md](../DIRECTOR_CONTROL.md).
 
-Parallel discovery initially creates:
+## Multi-record routing and concurrency
+
+The real executor routes records according to provenance:
+
+- Source discovery per required approved Research Question;
+- Evidence extraction per approved Source;
+- Claim/Script/Scene generation grouped by Research Question;
+- Shot generation per approved Scene and its referenced Script Lines;
+- Visual Decision generation per approved Shot.
+
+True stage dependencies remain sequential, but independent calls **inside the same stage** now use bounded concurrency. The worker pool preserves deterministic result order and defaults to three concurrent external calls.
 
 ```text
-SourceRecord.status = DISCOVERED
+RQ-A search ─┐
+RQ-B search ─┼→ ordered source batch → review
+RQ-C search ─┘
 ```
 
-`SourceRecord` supports:
+See [../PERFORMANCE.md](../PERFORMANCE.md).
+
+## Source discovery special case
+
+Parallel discovery creates `SourceRecord.status = DISCOVERED`. A source must be explicitly reviewed before Evidence extraction.
+
+Parallel Search MCP is the current real discovery provider. Discovery excerpts are not equivalent to full approved-source retrieval/verification; that remains a scientific-quality milestone.
+
+## Model-assisted versus deterministic responsibility
+
+Model/tool-assisted:
 
 ```text
-DISCOVERED
-REVIEW_REQUIRED
-APPROVED
-REJECTED
-```
-
-Approved source records are required before Evidence extraction can proceed.
-
-Source discovery is currently backed by real Parallel Search MCP. A future post-MVP step will add controlled approved-source content retrieval before Evidence extraction.
-
-## Model-Assisted vs Deterministic Responsibilities
-
-Model-assisted proposal generation includes:
-
-```text
-Film brief
-Research questions
-Source discovery through Gemini + Parallel MCP
+FilmBrief
+Research Questions
+Source discovery
 Evidence
 Claims
-Script lines
+Script Lines
 Scenes
 Shots
-Visual decisions
+Visual Decisions
 ```
 
-Deterministic application responsibilities include:
+Deterministic application code:
 
 ```text
 schema validation
-trusted ID creation
-trusted parent/provenance assignment
+trusted IDs and parent mapping
 status assignment
-human-review transitions
-coverage calculation
-workflow-stage evaluation
-execution control
+human review transitions
+coverage evaluation
+Retry/Waive policy
+CoverageWaiver creation
+cinematic decision provenance
+stage evaluation
+bounded concurrency/orchestration
 audit
-production-package construction
+ProductionPackage construction
 session persistence
 ```
 
-The Black-hole run exposed two reliability defects caused by asking Gemini to echo trusted IDs. Those paths were corrected so Shot `sceneId` and VisualDecision `shotId` are owned by application code.
+## Audit and package
 
-## Multi-Record Routing
+When required governed visual coverage is resolved, workflow reaches `AUDIT`. The audit validates implemented provenance/governance integrity and disclosure rules. It does not independently certify scientific truth or source authority.
 
-The real executor adapter routes records according to provenance rather than applying a generic global generator:
-
-- source discovery runs per approved ResearchQuestion;
-- evidence extraction runs per approved Source with its matching ResearchQuestion;
-- claim/script/scene generation groups inputs by `researchQuestionId`;
-- shot generation uses each approved Scene plus its approved referenced ScriptLines;
-- visual decisions are generated per approved Shot.
-
-This prevents unrelated chains from satisfying each other's coverage accidentally.
-
-## Audit and Package
-
-When all governed visual coverage is complete, the workflow reaches `AUDIT`.
-
-The deterministic audit checks implemented governance/provenance rules such as:
-
-```text
-BROKEN_PROVENANCE
-UNAPPROVED_UPSTREAM_RECORD
-UNSUPPORTED_CLAIM
-VISUAL_CATEGORY_MISMATCH
-MISSING_VISUAL_DISCLOSURE
-```
-
-Human-facing output describes this accurately as a **Governance & provenance audit**. It does not independently certify scientific truth.
-
-If the audit passes, deterministic package construction selects only the approved, provenance-connected production chain and creates the final `ProductionPackage`.
-
-Final state:
+If audit and readiness pass:
 
 ```text
 stage: COMPLETE
-productionPackageStatus: READY_FOR_PRODUCTION
+ProductionPackage.status: READY_FOR_PRODUCTION
 ```
 
-The web UI then exposes readable final results, traceability, and JSON/text/PDF-oriented exports.
+## Performance traces
 
-## Current Editing Limitation
+New automation events may contain lightweight timing data for the automated step and individual external calls. This allows future optimisation to be based on live measurement rather than assumptions.
 
-The persisted workflow can recover from rejection during generation/review, but it does not yet implement a complete post-approval editing and staleness lifecycle.
+## Current editing limitation
+
+Tital supports rejection, replacement, and intentional omission during the governed workflow, but does not yet implement a complete general post-approval editing/staleness system.
 
 Future behavior should support:
 
@@ -269,20 +241,11 @@ Future behavior should support:
 approved upstream record edited/replaced
 → dependent downstream records become STALE (or equivalent)
 → prior audit/package invalidated
-→ affected coverage regenerated
-→ human review required again
+→ affected chain regenerated/reviewed
 ```
 
-This is a post-MVP priority after the cloud deployment foundation.
+General lock/unlock/version comparison must be designed together with that staleness lifecycle.
 
-## Current Deployment Limitation
+## Current deployment status
 
-The persisted application shell now exists and is web-driven, but it is still local:
-
-```text
-Web: 127.0.0.1:5173
-API: 127.0.0.1:8787
-Store: .tital/sessions/*.json
-```
-
-The next major milestone is a hosted deployment with durable cloud sessions while preserving the same deterministic workflow and human-gate semantics.
+Tital is hosted on Cloud Run with Firebase-authenticated live routes and Cloud Storage persistence. The public landing/demo shell is implemented; publishing a completed authenticated project as anonymous demo still requires safe promotion/sanitized snapshot handling and live anonymous validation.

@@ -1,4 +1,7 @@
+import type { DirectorBrief } from '../domain/directorBrief.js';
+import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
+import { mapWithConcurrency, resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
 import type { MvpStepExecutors } from './executeNextMvpStep.js';
 import { discoverSourcesWithParallelMcp } from './discoverSourcesWithParallelMcp.js';
 import { extractEvidence } from './extractEvidence.js';
@@ -29,6 +32,12 @@ export interface MvpRuntimeServices {
   runScientificAudit: typeof runScientificAudit;
 }
 
+export interface MvpRuntimeExecutionOptions {
+  directorBrief?: DirectorBrief;
+  externalConcurrency?: number;
+  onOperation?: (operation: PerformanceOperation) => void;
+}
+
 export const realMvpRuntimeServices: MvpRuntimeServices = {
   generateResearchQuestions,
   discoverSourcesWithParallelMcp,
@@ -54,13 +63,53 @@ function questionFor(
   return question;
 }
 
+async function timed<T>(
+  name: string,
+  targetId: string | null,
+  onOperation: MvpRuntimeExecutionOptions['onOperation'],
+  call: () => Promise<T>
+): Promise<T> {
+  const started = Date.now();
+  try {
+    const result = await call();
+    onOperation?.({
+      name,
+      targetId,
+      durationMs: Math.max(0, Date.now() - started),
+      success: true,
+    });
+    return result;
+  } catch (error) {
+    onOperation?.({
+      name,
+      targetId,
+      durationMs: Math.max(0, Date.now() - started),
+      success: false,
+    });
+    throw error;
+  }
+}
+
 export function createRealMvpStepExecutors(
-  services: MvpRuntimeServices = realMvpRuntimeServices
+  services: MvpRuntimeServices = realMvpRuntimeServices,
+  options: MvpRuntimeExecutionOptions = {}
 ): MvpStepExecutors {
+  const concurrency = options.externalConcurrency ?? resolveExternalConcurrency(
+    process.env.TITAL_EXTERNAL_CONCURRENCY
+  );
+  const projectDirectorGuidance = options.directorBrief
+    ? { directorBrief: options.directorBrief }
+    : undefined;
+
   return {
     generateResearchQuestions: async (state) => {
       if (state.researchQuestions.length > 0) return state.researchQuestions;
-      const generated = await services.generateResearchQuestions(state.filmBrief);
+      const generated = await timed(
+        'gemini.research_questions',
+        state.filmBrief.id,
+        options.onOperation,
+        () => services.generateResearchQuestions(state.filmBrief)
+      );
       return [...state.researchQuestions, ...generated];
     },
 
@@ -75,11 +124,18 @@ export function createRealMvpStepExecutors(
         chain.sources,
         (record) => record.researchQuestionId
       ).filter((question) => !attemptedQuestionIds.has(question.id));
-      const discovered: MvpWorkflowState['sources'] = [];
-      for (const question of missingQuestions) {
-        discovered.push(...(await services.discoverSourcesWithParallelMcp(question)));
-      }
-      return [...state.sources, ...discovered];
+
+      const batches = await mapWithConcurrency(
+        missingQuestions,
+        concurrency,
+        (question) => timed(
+          'parallel.source_discovery',
+          question.id,
+          options.onOperation,
+          () => services.discoverSourcesWithParallelMcp(question)
+        )
+      );
+      return [...state.sources, ...batches.flat()];
     },
 
     extractEvidence: async (state) => {
@@ -93,11 +149,21 @@ export function createRealMvpStepExecutors(
           requiredQuestionIds.has(source.researchQuestionId) &&
           !attemptedSourceIds.has(source.id)
       );
-      const records: MvpWorkflowState['evidence'] = [];
-      for (const source of sourcesNeedingFirstExtraction) {
-        records.push(...(await services.extractEvidence(source, questionFor(state, source.researchQuestionId))));
-      }
-      return [...state.evidence, ...records];
+
+      const batches = await mapWithConcurrency(
+        sourcesNeedingFirstExtraction,
+        concurrency,
+        (source) => timed(
+          'gemini.evidence_extraction',
+          source.id,
+          options.onOperation,
+          () => services.extractEvidence(
+            source,
+            questionFor(state, source.researchQuestionId)
+          )
+        )
+      );
+      return [...state.evidence, ...batches.flat()];
     },
 
     generateClaims: async (state) => {
@@ -111,12 +177,23 @@ export function createRealMvpStepExecutors(
         chain.claims,
         (record) => record.researchQuestionId
       ).filter((question) => !attemptedQuestionIds.has(question.id));
-      const records: MvpWorkflowState['claims'] = [];
-      for (const question of missingQuestions) {
-        const evidence = chain.evidence.filter((record) => record.researchQuestionId === question.id);
-        records.push(...(await services.generateClaims(evidence, question)));
-      }
-      return [...state.claims, ...records];
+
+      const batches = await mapWithConcurrency(
+        missingQuestions,
+        concurrency,
+        (question) => {
+          const evidence = chain.evidence.filter(
+            (record) => record.researchQuestionId === question.id
+          );
+          return timed(
+            'gemini.claim_generation',
+            question.id,
+            options.onOperation,
+            () => services.generateClaims(evidence, question)
+          );
+        }
+      );
+      return [...state.claims, ...batches.flat()];
     },
 
     generateScriptLines: async (state) => {
@@ -130,12 +207,23 @@ export function createRealMvpStepExecutors(
         chain.scriptLines,
         (record) => record.researchQuestionId
       ).filter((question) => !attemptedQuestionIds.has(question.id));
-      const records: MvpWorkflowState['scriptLines'] = [];
-      for (const question of missingQuestions) {
-        const claims = chain.claims.filter((record) => record.researchQuestionId === question.id);
-        records.push(...(await services.generateScriptLines(claims, question)));
-      }
-      return [...state.scriptLines, ...records];
+
+      const batches = await mapWithConcurrency(
+        missingQuestions,
+        concurrency,
+        (question) => {
+          const claims = chain.claims.filter(
+            (record) => record.researchQuestionId === question.id
+          );
+          return timed(
+            'gemini.script_generation',
+            question.id,
+            options.onOperation,
+            () => services.generateScriptLines(claims, question)
+          );
+        }
+      );
+      return [...state.scriptLines, ...batches.flat()];
     },
 
     generateScenes: async (state) => {
@@ -149,12 +237,28 @@ export function createRealMvpStepExecutors(
         chain.scenes,
         (record) => record.researchQuestionId
       ).filter((question) => !attemptedQuestionIds.has(question.id));
-      const records: MvpWorkflowState['scenes'] = [];
-      for (const question of missingQuestions) {
-        const scriptLines = chain.scriptLines.filter((record) => record.researchQuestionId === question.id);
-        records.push(...(await services.generateScenes(scriptLines, question)));
-      }
-      return [...state.scenes, ...records];
+
+      const batches = await mapWithConcurrency(
+        missingQuestions,
+        concurrency,
+        (question) => {
+          const scriptLines = chain.scriptLines.filter(
+            (record) => record.researchQuestionId === question.id
+          );
+          return timed(
+            'gemini.scene_generation',
+            question.id,
+            options.onOperation,
+            () => services.generateScenes(
+              scriptLines,
+              question,
+              undefined,
+              { directorGuidance: projectDirectorGuidance }
+            )
+          );
+        }
+      );
+      return [...state.scenes, ...batches.flat()];
     },
 
     generateShots: async (state) => {
@@ -166,13 +270,30 @@ export function createRealMvpStepExecutors(
         chain.shots,
         (record) => record.sceneId
       ).filter((scene) => !attemptedSceneIds.has(scene.id));
-      const records: MvpWorkflowState['shots'] = [];
-      for (const scene of missingScenes) {
-        const sceneScriptLineIds = new Set(scene.scriptLineIds);
-        const scriptLines = chain.scriptLines.filter((record) => sceneScriptLineIds.has(record.id));
-        records.push(...(await services.generateShots(scene, scriptLines, questionFor(state, scene.researchQuestionId))));
-      }
-      return [...state.shots, ...records];
+
+      const batches = await mapWithConcurrency(
+        missingScenes,
+        concurrency,
+        (scene) => {
+          const sceneScriptLineIds = new Set(scene.scriptLineIds);
+          const scriptLines = chain.scriptLines.filter((record) =>
+            sceneScriptLineIds.has(record.id)
+          );
+          return timed(
+            'gemini.shot_generation',
+            scene.id,
+            options.onOperation,
+            () => services.generateShots(
+              scene,
+              scriptLines,
+              questionFor(state, scene.researchQuestionId),
+              undefined,
+              { directorGuidance: projectDirectorGuidance }
+            )
+          );
+        }
+      );
+      return [...state.shots, ...batches.flat()];
     },
 
     generateVisualDecisions: async (state) => {
@@ -186,8 +307,21 @@ export function createRealMvpStepExecutors(
         chain.visualDecisions,
         (record) => record.shotId
       ).filter((shot) => !attemptedShotIds.has(shot.id));
-      const records: MvpWorkflowState['visualDecisions'] = [];
-      for (const shot of missingShots) records.push(await services.generateVisualDecision(shot));
+
+      const records = await mapWithConcurrency(
+        missingShots,
+        concurrency,
+        (shot) => timed(
+          'gemini.visual_decision',
+          shot.id,
+          options.onOperation,
+          () => services.generateVisualDecision(
+            shot,
+            undefined,
+            { directorGuidance: projectDirectorGuidance }
+          )
+        )
+      );
       return [...state.visualDecisions, ...records];
     },
 

@@ -1,79 +1,84 @@
 # Real Execution Paths
 
-Tital currently exposes both direct CLI/ADK entry points for individual capabilities and a governed orchestration core for the multi-stage MVP. There is not yet one persisted end-to-end CLI session that carries a project through every human review cycle automatically.
+Status date: **2026-08-20**
 
-## Direct Define CLI Path
+Tital now has a complete persisted web execution path in addition to development CLI entry points. The hosted path uses the same deterministic workflow services as local development.
 
-The Define flow is a real executable path from a raw idea to a validated `FilmBrief`.
-
-```mermaid
-graph TD
-    A[User runs npm run define]
-    B[tsx src/cli/define.ts]
-    C[defineFilm service]
-    D[callDefineAgent]
-    E[ADK InMemoryRunner]
-    F[defineAgent]
-    G[Gemini on configured backend]
-    H[Structured model output]
-    I[ModelOutputBriefSchema validation]
-    J[assembleFilmBrief]
-    K[FilmBriefSchema validation]
-    L[FilmBrief returned to CLI]
-
-    A --> B --> C --> D --> E --> F --> G
-    G --> F --> E --> D --> H --> I --> J --> K --> L
-```
-
-At this boundary the application adds trusted fields such as the record ID/status rather than asking the model to own those fields.
-
-## Governed MVP Execution Path
-
-The multi-stage architecture is driven by `MvpWorkflowState`, the workflow evaluator, the execution controller, and the real executor adapter.
+## Hosted application path
 
 ```mermaid
 graph TD
-    S[MvpWorkflowState]
-    E[evaluateMvpWorkflow]
-    C[executeNextMvpStep]
-    R[createRealMvpStepExecutors]
-    Q[Research-question service]
-    P[Parallel MCP source discovery]
-    EV[Evidence service]
-    CL[Claim service]
-    SL[Script service]
-    SC[Scene service]
-    SH[Shot service]
-    VD[Visual-decision service]
-    AU[Scientific audit]
-    H[Human review boundary]
+    U[Browser]
+    CR[Cloud Run tital]
+    WEB[React UI]
+    API[Node API]
+    AUTH[Firebase ID token verification]
+    STORE[CloudStorageMvpSessionStore]
+    GCS[Cloud Storage]
+    ADV[advanceMvpSession]
+    EXEC[executeNextMvpStep]
+    REAL[createRealMvpStepExecutors]
+    V[Gemini / Vertex AI]
+    P[Parallel Search MCP]
+    H[Human review]
 
-    S --> E --> C --> R
-    R --> Q
-    R --> P
-    R --> EV
-    R --> CL
-    R --> SL
-    R --> SC
-    R --> SH
-    R --> VD
-    R --> AU
-    Q --> H
-    P --> H
-    EV --> H
-    CL --> H
-    SL --> H
-    SC --> H
-    SH --> H
-    VD --> H
-    H --> S
+    U --> CR --> WEB
+    WEB --> API --> AUTH
+    API --> STORE --> GCS
+    API --> ADV --> EXEC --> REAL
+    REAL --> V
+    REAL --> P
+    EXEC --> H --> API
 ```
 
-The controller does not execute every box in one call. It executes the next eligible automated operation and returns an updated state. If the resulting records need review, the next call stops with `AWAITING_HUMAN_REVIEW` until the application receives explicit human decisions.
+Protected live session routes are authenticated. User `uid` selects the hosted session namespace.
 
-## Source Discovery Runtime Path
+## Project creation
 
-Source discovery is the main Partner MCP runtime path:
+```text
+POST /api/sessions
+→ validate FilmProjectInput
+→ defineFilm / Gemini
+→ application assembles FilmBrief
+→ create MvpSession
+→ persist session
+→ return FilmBrief review gate
+```
+
+`FilmProjectInput` can include an optional project Director Brief. That brief is persisted with the session but does not alter trusted scientific IDs/statuses.
+
+## Governed continuation
+
+```text
+POST /api/sessions/:id/continue
+→ authenticate
+→ load user-scoped session
+→ advanceMvpSession
+→ evaluate stage
+→ execute at most one model/tool-assisted stage
+→ persist proposals + timing trace
+→ return next human gate
+```
+
+The only automatic multi-step tail is deterministic audit → package.
+
+## Real executor routing
+
+`createRealMvpStepExecutors` maps stage needs to real services:
+
+```text
+Research Questions      → Gemini
+Source discovery        → Gemini + Parallel MCP
+Evidence extraction     → Gemini
+Claims                  → Gemini
+Script Lines            → Gemini
+Scenes                  → Gemini + Director Brief
+Shots                   → Gemini + Director Brief
+Visual Decisions        → Gemini + Director Brief
+Audit                   → deterministic TypeScript
+```
+
+## Parallel source-discovery path
 
 ```mermaid
 graph TD
@@ -84,93 +89,151 @@ graph TD
     G[Gemini]
     M[MCPToolset]
     P[Parallel Search MCP]
-    W[web_search]
-    O[Structured discovery JSON]
-    Z[Zod validation]
-    SR[SourceRecord status DISCOVERED]
+    O[Structured candidates]
+    Z[Per-item validation]
+    SR[SourceRecord DISCOVERED]
 
     RQ --> S --> AR --> A
     A --> G
-    A --> M --> P --> W
-    W --> A --> AR --> O --> Z --> SR
+    A --> M --> P
+    P --> A --> AR --> O --> Z --> SR
 ```
 
-The provider search ID is preserved when returned by Parallel. The application does not fabricate a provider ID.
+Malformed individual candidates are discarded while valid candidates are preserved. Provider metadata is never fabricated.
 
-## Downstream Model-Assisted Pattern
+## Bounded parallel execution inside a stage
 
-Evidence, claims, script lines, scenes, shots, and visual decisions follow a common trust pattern even though each service has stage-specific validation rules:
+The stage graph remains ordered, but multiple independent parents inside one stage no longer have to wait serially.
+
+Example source discovery:
+
+```text
+RQ1 → Parallel ─┐
+RQ2 → Parallel ─┼→ ordered validated SourceRecord batches
+RQ3 → Parallel ─┘
+```
+
+Equivalent bounded concurrency applies to Evidence extraction, Claim/Script/Scene generation, Shots, and Visual Decisions. Default concurrency is 3 and can be tuned with `TITAL_EXTERNAL_CONCURRENCY` within 1..8.
+
+The combine order follows input order even when completion order differs.
+
+## Timing path
+
+For real runtime calls, the executor records operation timing callbacks. `advanceMvpSession` attaches a performance trace to the automation event:
+
+```text
+stage duration
+external call count
+operation name
+operation target ID
+operation duration
+success/failure
+```
+
+This data is designed for new live benchmarks. It does not exist retroactively for old sessions.
+
+## Human review path
+
+```text
+GET session
+→ current pending gate displayed
+→ human selects records
+→ POST /review
+→ APPROVE or REJECT
+```
+
+If rejection does not create a required gap, the decision is persisted normally.
+
+If it would create a gap:
+
+```text
+409 GAP_RESOLUTION_REQUIRED
+→ UI asks for explicit choice
+```
+
+Resolution:
+
+```text
+RETRY
+→ reject current candidate
+→ targeted replacement generation
+→ duplicate filtering
+→ new candidate review
+
+WAIVE
+→ reject current candidate
+→ persist CoverageWaiver
+→ continue with intentional omission
+```
+
+Rejected content is never silently regenerated.
+
+## Director-guided retry path
+
+For Scene, Shot, or Visual Decision replacement, a scoped director instruction can be supplied with `RETRY`:
+
+```text
+project Director Brief
++ scoped replacement instruction
++ approved scientific context
+→ cinematic agent proposal
+→ application-owned decisionProvenance
+→ human review
+```
+
+The backend support exists in the governed retry path. A dedicated retry-dialog text input remains a UI follow-up.
+
+## Downstream trust pattern
 
 ```text
 approved upstream records
-→ deterministic precondition/provenance validation
+→ precondition/provenance validation
 → ADK agent call
 → structured proposal
 → proposal Zod validation
-→ application provenance validation
-→ application-owned ID/status
+→ numbered-reference mapping / trusted parent assignment
+→ application-owned ID/status/provenance
 → final domain validation
 → human review
 ```
 
-For example:
+Cinematic guidance never changes this trust pattern.
 
-- claims may only cite evidence IDs supplied as approved evidence;
-- script lines may only cite supplied approved claim IDs;
-- scenes may only cite supplied approved script-line IDs;
-- shots must match the approved scene and its script-line provenance;
-- visual decisions must match the approved shot's visual-integrity category, and medium/high risk requires disclosure.
-
-## Scientific Audit Path
-
-The scientific audit is intentionally deterministic:
+## Audit path
 
 ```text
-approved workflow records
+approved governed chain
 → runScientificAudit
 → provenance / approval / visual-integrity checks
 → ScientificAuditReport
 ```
 
-It does not invoke Gemini.
+The audit does not invoke Gemini and does not independently establish scientific truth/source authority.
 
-The implemented audit currently checks categories such as:
-
-```text
-BROKEN_PROVENANCE
-UNAPPROVED_UPSTREAM_RECORD
-VISUAL_CATEGORY_MISMATCH
-MISSING_VISUAL_DISCLOSURE
-UNSUPPORTED_CLAIM
-```
-
-Do not document additional audit rules as implemented until corresponding code/tests exist.
-
-## Production Package Path
-
-Package construction is also deterministic:
+## Production-package path
 
 ```text
-workflow records + scientific audit
+approved chain + CoverageWaivers + audit
 → buildProductionPackage
 → BLOCKED or READY_FOR_PRODUCTION
 ```
 
-This builder is separate from the current `MvpStepExecutors` contract. The repository therefore contains the package capability even though the current execution controller does not expose package construction as another LLM/executor stage.
+The completed dinosaur run reached `READY_FOR_PRODUCTION` through this hosted path.
 
-## What Is Still Missing for a Full Application Run
+## Public demo path
 
-The core pieces exist, but a complete user-facing project session still needs an application shell that can persist state and collect human decisions across calls.
-
-Not yet implemented as a single application flow:
+Implemented shell:
 
 ```text
-raw film idea
-→ persistent project state
-→ repeated controller calls
-→ interactive review UI/CLI decisions
-→ durable provenance history
-→ final downloadable production package
+anonymous browser
+→ /api/public/config
+→ demoAvailable?
+→ /api/public/demo
+→ read-only completed SessionView / results
 ```
 
-That distinction is important: Tital already has the governed engine and real agent/runtime wiring, but not yet the final persistent product experience around it.
+Important store boundary: authenticated sessions are stored under `users/<uid>`, while `/api/public/demo` reads from the base public store. A completed user session therefore needs a safe promotion/sanitized snapshot mechanism before it can be published anonymously.
+
+## Local path
+
+Local development can run the same API/application flow with JSON session persistence. CLI commands remain useful for focused agent/service testing but are no longer the only end-to-end surface.

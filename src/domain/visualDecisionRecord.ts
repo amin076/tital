@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CinematicDecisionProvenanceSchema } from './cinematicDecisionProvenance.js';
 import { VisualIntegrityCategorySchema } from './shotRecord.js';
 
 export const VisualDecisionRecordSchema = z.object({
@@ -10,6 +11,7 @@ export const VisualDecisionRecordSchema = z.object({
   scientificConstraint: z.string().min(1, 'Scientific constraint must be a non-empty string'),
   disclosure: z.string().min(1).nullable(),
   riskLevel: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  decisionProvenance: CinematicDecisionProvenanceSchema.optional(),
   status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'LOCKED']),
 });
 

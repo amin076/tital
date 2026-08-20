@@ -1,77 +1,66 @@
 # System Architecture
 
-Status date: **2026-08-17**
+Status date: **2026-08-20**
 
-Tital is a TypeScript/Node.js evidence-governed scientific-film application with a React web interface, a small HTTP API adapter, persisted project sessions, deterministic workflow control, specialized Google ADK agents, real Gemini/Vertex AI execution, and Parallel Search MCP source discovery.
+Tital is a hosted TypeScript/Node.js evidence-governed scientific-film application with a React UI, Node HTTP API, persisted project sessions, deterministic workflow control, specialized Google ADK agents, Gemini/Vertex AI execution, Parallel Search MCP source discovery, Firebase authentication, and Cloud Storage persistence.
 
-The architecture deliberately separates model creativity from application trust and workflow control.
+The architecture separates model creativity from application trust, human artistic authority, and workflow control.
 
-## High-Level Architecture
+## High-level architecture
 
 ```mermaid
 graph TD
-    U[User / Human Reviewer]
-    WEB[React + Vite + MUI Web UI]
-    API[Node HTTP API Adapter]
-    PS[Persisted MVP Session]
-    STORE[Session Store\nJsonMvpSessionStore today]
-    WC[Workflow Control]
-    DS[Deterministic Services]
-    DA[ADK LlmAgents]
-    DM[Zod Domain Models]
+    U[Visitor / Human Director]
+    CR[Cloud Run: tital]
+    WEB[React + Vite + MUI]
+    API[Node HTTP API]
+    AUTH[Firebase ID-token verification]
+    STORE[MvpSessionStore]
+    GCS[Cloud Storage]
+    WC[Deterministic workflow control]
+    DS[Application services]
+    DA[Google ADK LlmAgents]
     GI[Gemini / Vertex AI]
     PM[Parallel Search MCP]
-    HG[Human Review Gates]
-    AU[Governance / Provenance Audit]
-    PP[Production Package]
-    CLI[CLI / ADK Dev Entry Points]
+    HG[Human review / Director decisions]
+    AU[Governance / provenance audit]
+    PP[ProductionPackage]
 
-    U --> WEB
-    WEB --> API
-    API --> PS
-    CLI --> PS
-    PS --> STORE
-    PS --> WC
-    WC --> DS
-    DS --> DA
-    DA --> GI
+    U --> CR --> WEB --> API
+    API --> AUTH
+    API --> STORE --> GCS
+    API --> WC --> DS
+    DS --> DA --> GI
     DA --> PM
-    DS --> DM
-    DS --> HG
-    HG --> PS
-    WC --> AU
-    AU --> PP
+    DS --> HG --> STORE
+    WC --> AU --> PP
 ```
 
-## Architectural Layers
+## Human-facing web application
 
-### 1. Human-facing web application
+`apps/web/` provides:
 
-The product UI lives under `apps/web/` and uses React, Vite, and MUI.
-
-It provides:
-
-- new project creation;
-- persisted session list/open behavior;
-- current stage, blockers, counts, and next action;
-- readable review cards;
+- authenticated project creation/session selection;
+- project/audience/production controls;
+- project-level Director Brief controls;
+- readable human-review cards;
 - selective approve/reject;
+- coverage-aware Retry / Waive / Cancel recovery;
 - governed Continue actions;
-- workflow progress and approved-chain coverage;
-- final Production Package inspection;
-- provenance / traceability navigation;
-- JSON, text, and styled PDF-oriented exports.
+- workflow/coverage views;
+- final ProductionPackage inspection and exports;
+- public landing/read-only demo shell.
 
-The frontend does **not** re-implement workflow eligibility rules. It consumes application/session views from the API.
+The frontend does not reimplement workflow eligibility rules.
 
-### 2. HTTP API adapter
+## HTTP API
 
-`src/api/server.ts` is a small Node HTTP adapter around existing session/application services.
-
-Current routes include:
+`src/api/server.ts` exposes public health/config/demo routes and authenticated session routes:
 
 ```text
 GET  /api/health
+GET  /api/public/config
+GET  /api/public/demo
 GET  /api/sessions
 POST /api/sessions
 GET  /api/sessions/:id
@@ -79,100 +68,73 @@ POST /api/sessions/:id/review
 POST /api/sessions/:id/continue
 ```
 
-Responsibilities:
+The API validates payloads, authenticates protected requests, loads/saves the appropriate store, and calls governed application services. Workflow policy remains outside the transport layer.
 
-- validate request payloads;
-- load/save persisted sessions;
-- call existing governed services;
-- return session views suitable for the web UI;
-- expose runtime errors without moving workflow governance into the HTTP layer.
+## Authentication and session isolation
 
-It is currently a local-development server, not yet a production Cloud Run service.
+Firebase Email/Password sign-in produces an ID token. The backend verifies it with Firebase Admin. Decoded `uid` selects a user-specific session-store prefix.
 
-### 3. Persisted session layer
-
-Tital has a durable local MVP project-session layer.
-
-Default storage:
+Conceptual hosted layout:
 
 ```text
-.tital/sessions/<session-id>.json
+gs://<bucket>/<prefix>/users/<firebase-uid>/<session-id>.json
 ```
 
-`JsonMvpSessionStore` validates the full session schema on read/write and uses temporary-write-plus-rename behavior.
+The Cloud Run endpoint can remain public at the network layer while live `/api/sessions*` behavior is application-authenticated.
 
-The session layer preserves:
+## Session persistence
 
-- workflow state;
-- approved/rejected historical records;
-- audit/package state;
-- major session events;
-- current stage and progression across process restarts.
+`MvpSession` preserves:
 
-This is a local MVP store, not a production cloud database.
+```text
+raw idea
+projectInput (+ optional DirectorBrief)
+workflow state
+approved/rejected history
+CoverageWaivers
+audit/package state
+event history
+optional performance traces
+```
 
-### 4. Workflow control
+Local development can use `JsonMvpSessionStore`; hosted operation uses `CloudStorageMvpSessionStore` when configured.
 
-Workflow control is deterministic and function-based.
+No optimistic locking exists yet, so concurrent mutation of the same session remains a known limitation.
 
-Key modules:
+## Workflow control
+
+Key deterministic modules:
 
 ```text
 src/services/evaluateMvpWorkflow.ts
 src/services/executeNextMvpStep.ts
 src/services/createRealMvpStepExecutors.ts
 src/services/advanceMvpSession.ts
+src/services/resolveMvpReview.ts
+src/services/retryMvpCoverage.ts
 ```
 
-Responsibilities:
+Responsibilities include stage evaluation, coverage evaluation, explicit rejection recovery, bounded execution, audit invalidation, and final package progression.
 
-- determine the current legal stage;
-- detect missing approved provenance-connected coverage;
-- run one allowed automated step;
-- stop at human review gates;
-- run the deterministic audit when eligible;
-- build/finalize the package when eligible;
-- prevent illegal stage skipping.
-
-This layer does not delegate workflow governance to Gemini.
-
-### 5. Deterministic service layer
-
-Services under `src/services/` own application trust. Depending on the stage, they:
-
-- validate upstream domain records;
-- enforce approved-status requirements;
-- verify provenance relationships;
-- invoke an ADK agent where model reasoning is needed;
-- parse and validate structured model output;
-- reject invented/illegal upstream references;
-- generate application-owned IDs;
-- set application-owned statuses;
-- assemble final domain records;
-- perform human-review transitions;
-- calculate approved-chain coverage;
-- run the governance/provenance audit;
-- build the production package.
-
-A key invariant is:
+## Deterministic service boundary
 
 ```text
-model proposal
-→ validation
-→ application-owned trusted metadata / IDs / provenance
+model/tool proposal
+→ structured validation
+→ deterministic provenance/reference checks
+→ application-owned ID/status/parent mapping
+→ optional application-owned cinematic provenance
 → human review
 ```
 
-The Black-hole UI run exposed why this matters. Shot `sceneId` and VisualDecision `shotId` are now application-assigned rather than copied from model output.
+Rejected content is historical state, not authorization for automatic regeneration.
 
-### 6. Agent layer
+## Agent layer
 
-Agents under `src/agents/` are specialized Google ADK `LlmAgent` instances. Their role is to propose scientific or creative content, not to control trusted workflow state.
-
-Implemented model-assisted stages:
+Implemented model/tool-assisted stages:
 
 ```text
-Define
+FilmBrief
 Research Questions
 Source Discovery
 Evidence
@@ -183,119 +145,114 @@ Shots
 Visual Decisions
 ```
 
-The governance/provenance audit and ProductionPackage construction are deterministic services, not LLM agents.
+Audit and ProductionPackage construction are deterministic, not LLM-driven.
 
-### 7. Domain layer
+Cinematic agents can consume a project Director Brief and scoped replacement instruction. Scientific constraints have higher precedence than style guidance.
 
-`src/domain/` contains Zod schemas and TypeScript types for governed records.
+## Director-control layer
 
-Main provenance chain:
+Human cinematic direction is intentionally represented separately from scientific truth.
 
 ```text
-FilmBrief
-→ ResearchQuestion
-→ SourceRecord
-→ EvidenceRecord
-→ ClaimRecord
-→ ScriptLineRecord
-→ SceneRecord
-→ ShotRecord
-→ VisualDecisionRecord
-→ Audit
-→ ProductionPackage
+approved science
+→ scientific / uncertainty / representation constraints
+→ project Director Brief
+→ optional scoped director instruction
+→ AI cinematic proposal
+→ human approval/rejection
 ```
 
-Status enums are domain-specific. For example, source discovery initially creates `SourceRecord.status = DISCOVERED`.
+New Scene/Shot/Visual Decision records may carry optional `decisionProvenance` recording whether AI recommendations used human director guidance.
 
-### 8. External runtime layer
+See [../DIRECTOR_CONTROL.md](../DIRECTOR_CONTROL.md).
 
-#### Google ADK / Gemini / Vertex AI
+## External runtime layer
 
-Used for model-assisted proposal generation. Services typically execute concrete agents through ADK runners and validate returned structures before domain assembly.
+### Google ADK / Gemini / Vertex AI
 
-#### Parallel Search MCP
+Used for proposal generation. Most services use ADK `InMemoryRunner`, accumulate structured model output, parse it and validate before domain assembly.
 
-`parallelSourceAgent` connects through an ADK `MCPToolset` to:
+### Parallel Search MCP
+
+Source discovery connects through ADK MCP tooling to:
 
 ```text
 https://search.parallel.ai/mcp
 ```
 
-The source-discovery path requires a real `web_search` call and preserves returned provider provenance when available.
+Parallel Search MCP already uses its low-latency basic search mode for agent loops. Source discovery is not full-source verification.
 
-Current limitation: evidence extraction uses approved source-record excerpts. A dedicated approved-source full-content retrieval step is future work.
+## Performance execution layer
 
-## Trust Boundary
+True workflow dependencies remain sequential, but independent external calls inside one stage now use bounded concurrency.
+
+Examples:
+
+```text
+multiple Research Question searches
+multiple Source evidence extractions
+multiple per-RQ Claim/Script/Scene generations
+multiple per-Scene Shot generations
+multiple per-Shot Visual Decisions
+```
+
+Default external concurrency is 3, configurable through `TITAL_EXTERNAL_CONCURRENCY` within 1..8. Deterministic output order is preserved.
+
+New automation events can persist per-step and per-external-call timings. This enables real hosted baseline measurement before further optimisation.
+
+See [../PERFORMANCE.md](../PERFORMANCE.md).
+
+## Trust boundary
 
 ```mermaid
 graph LR
-    M[Model proposal]
-    V[Zod validation]
-    P[Deterministic provenance checks]
-    R[Application-owned ID / status / parent links]
-    H[Human review]
+    M[Model/tool proposal]
+    V[Schema validation]
+    P[Provenance / numbered-reference checks]
+    R[Application-owned trusted fields]
+    H[Human review / direction]
     N[Next eligible stage]
 
     M --> V --> P --> R --> H --> N
 ```
 
-The model may propose content. It does not independently decide that its output is approved or scientifically authoritative.
+## Coverage semantics
 
-## Human review and coverage
+Progression uses required approved provenance-connected coverage or an explicit human waiver, not global counts.
 
-Progression is based on **approved provenance-connected coverage**, not a global record-count threshold.
-
-Examples:
+Important correction:
 
 ```text
-every approved ResearchQuestion needs approved Source coverage
-every approved Source needs approved Evidence coverage
-every approved ResearchQuestion needs approved Claim coverage
-every approved Scene needs approved Shot coverage
-every approved Shot needs approved VisualDecision coverage
+approved Source does not force approval of some Evidence from that Source
 ```
 
-If a reviewer rejects a generated child record and coverage becomes incomplete, the workflow can generate replacement proposals for only the uncovered parent records.
+Evidence-stage readiness requires every required Research Question to have approved Evidence through approved Source provenance. Cinematic stages can be intentionally waived at supported coverage boundaries when the director explicitly accepts the omission.
 
 ## Audit boundary
 
-The implemented audit is best described as a **Governance & provenance audit**.
+The audit is a **Governance & provenance audit**. It checks implemented structural integrity and disclosure rules. It does not independently establish scientific truth or source authority.
 
-It checks deterministic integrity conditions such as broken provenance, unapproved upstream records, unsupported claims, visual-category mismatches, and required visual disclosures.
+## Deployment boundary
 
-It does not independently establish scientific truth or source authority.
-
-## Current deployment boundary
-
-Implemented today:
+Implemented production infrastructure includes:
 
 ```text
-React web UI
-+ local Node API
-+ persisted local sessions
-+ CLI / ADK development harnesses
-+ domain contracts
-+ deterministic service layer
-+ specialized ADK agents
-+ Gemini / Vertex integration
-+ Parallel MCP integration
-+ human review
-+ coverage-aware workflow
-+ audit
-+ final production package
-+ readable final reports / exports
+Cloud Run
+Cloud Storage session persistence
+Firebase auth
+per-user namespaces
+GitHub Actions validation
+Workload Identity Federation deployment identity
+public landing/demo shell
 ```
 
-Not implemented as production infrastructure yet:
+Remaining infrastructure/product limitations include:
 
 ```text
-public hosted deployment
-cloud-durable session database
-authentication / reviewer identity
-multi-user concurrency
-formal schema migrations
-automatic downstream staleness after edits
+safe promotion/sanitized snapshot for the anonymous completed demo
+optimistic locking for concurrent session mutation
+general schema migration strategy
+general edit → downstream staleness lifecycle
+reusable cross-project Director Profile persistence
 final video rendering
 ```
-
-The next major architectural milestone is to deploy the existing vertical slice without weakening these boundaries.
