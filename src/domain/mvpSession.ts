@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { FilmProjectInputSchema } from './filmProjectInput.js';
 import { MvpWorkflowStageSchema, MvpWorkflowStateSchema } from './mvpWorkflow.js';
 import { ProductionPackageSchema } from './productionPackage.js';
 
@@ -21,6 +22,7 @@ export const MvpSessionEventSchema = z.object({
 export const MvpSessionSchema = z.object({
   id: z.string().min(1),
   rawIdea: z.string().min(1),
+  projectInput: FilmProjectInputSchema.optional(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
   state: MvpWorkflowStateSchema,
