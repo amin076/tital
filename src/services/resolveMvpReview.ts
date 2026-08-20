@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { CoverageWaiverStageSchema, type CoverageWaiver } from '../domain/coverageWaiver.js';
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
 import { getCurrentMvpReviewGate, type MvpReviewCoverageGroup } from './getCurrentMvpReviewGate.js';
+import type { MvpRuntimeServices } from './createRealMvpStepExecutors.js';
 import { reviewMvpSession } from './reviewMvpSession.js';
 import { retryMvpCoverage } from './retryMvpCoverage.js';
 
@@ -14,6 +15,7 @@ export interface ResolveMvpReviewOptions {
   now?: () => string;
   eventIdFactory?: () => string;
   waiverIdFactory?: () => string;
+  runtimeServices?: MvpRuntimeServices;
 }
 
 export class GapResolutionRequiredError extends Error {
@@ -97,7 +99,8 @@ export async function resolveMvpReview(
       reviewed.state,
       gate.recordType,
       gaps,
-      recordIds
+      recordIds,
+      options.runtimeServices
     );
     reviewed = MvpSessionSchema.parse({
       ...reviewed,
