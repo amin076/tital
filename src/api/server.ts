@@ -5,6 +5,10 @@ import { createMvpSessionStore } from '../persistence/createMvpSessionStore.js';
 import type { MvpSessionStore } from '../persistence/mvpSessionStore.js';
 import { advanceMvpSession } from '../services/advanceMvpSession.js';
 import { createMvpSession } from '../services/createMvpSession.js';
+import {
+  createPublicDemoSession,
+  PUBLIC_DEMO_SESSION_ID,
+} from '../services/createPublicDemoSession.js';
 import { getMvpSessionView } from '../services/getMvpSessionView.js';
 import {
   GapResolutionRequiredError,
@@ -29,7 +33,7 @@ const ReviewRequestSchema = z.object({
 const config = resolveTitalServerConfig();
 const authConfig = resolveTitalAuthConfig();
 const baseStore = createMvpSessionStore();
-const demoSessionId = process.env.TITAL_DEMO_SESSION_ID?.trim() || '';
+const demoSessionId = process.env.TITAL_DEMO_SESSION_ID?.trim() || PUBLIC_DEMO_SESSION_ID;
 
 class HttpError extends Error {
   constructor(
@@ -104,6 +108,17 @@ async function loadSessionOr404(store: MvpSessionStore, sessionId: string) {
   }
 }
 
+async function publicDemoAvailable(): Promise<boolean> {
+  try {
+    await baseStore.load(demoSessionId);
+    return true;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('was not found')) return false;
+    throw error;
+  }
+}
+
 function userStore(user: AuthenticatedUser | null): MvpSessionStore {
   if (!authConfig.required) return baseStore;
   if (!user) throw new HttpError(401, 'Authentication is required.');
@@ -135,7 +150,7 @@ async function handleRequest(
       web: 'same-origin',
       sessionStore: baseStore.description,
       authRequired: authConfig.required,
-      demoAvailable: Boolean(demoSessionId),
+      demoAvailable: await publicDemoAvailable(),
     });
     return;
   }
@@ -150,15 +165,12 @@ async function handleRequest(
             authDomain: authConfig.authDomain,
           }
         : null,
-      demoAvailable: Boolean(demoSessionId),
+      demoAvailable: await publicDemoAvailable(),
     });
     return;
   }
 
   if (request.method === 'GET' && url.pathname === '/api/public/demo') {
-    if (!demoSessionId) {
-      throw new HttpError(404, 'No public Tital demo session is configured.');
-    }
     const session = await loadSessionOr404(baseStore, demoSessionId);
     sendJson(response, 200, getMvpSessionView(session));
     return;
@@ -211,6 +223,23 @@ async function handleRequest(
 
     await store.save(reviewed);
     sendJson(response, 200, getMvpSessionView(reviewed));
+    return;
+  }
+
+  const publishDemoMatch = url.pathname.match(
+    /^\/api\/sessions\/([^/]+)\/publish-demo$/
+  );
+  if (request.method === 'POST' && publishDemoMatch) {
+    const sessionId = sessionIdFrom(publishDemoMatch);
+    const source = await loadSessionOr404(store, sessionId);
+    let snapshot;
+    try {
+      snapshot = createPublicDemoSession(source);
+    } catch (error: unknown) {
+      throw new HttpError(400, error instanceof Error ? error.message : String(error));
+    }
+    await baseStore.save(snapshot);
+    sendJson(response, 200, getMvpSessionView(snapshot));
     return;
   }
 
@@ -274,6 +303,6 @@ server.listen(config.port, config.host, () => {
   console.log(`Tital listening on http://${config.host}:${config.port}`);
   console.log(`Session store: ${baseStore.description}`);
   console.log(`Authentication required: ${authConfig.required}`);
-  console.log(`Public demo configured: ${Boolean(demoSessionId)}`);
+  console.log(`Public demo ID: ${demoSessionId}`);
   console.log(`Web build directory: ${config.webDistDir}`);
 });
