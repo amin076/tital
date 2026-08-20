@@ -15,6 +15,7 @@ function baseState(): MvpWorkflowState {
     scenes: [],
     shots: [],
     visualDecisions: [],
+    coverageWaivers: [],
     audit: null,
   };
 }
@@ -31,6 +32,16 @@ function executors(): MvpStepExecutors {
     generateVisualDecisions: vi.fn(async () => []),
     runAudit: vi.fn(async () => ({ passed: true, issues: [] })),
   };
+}
+
+function approvedThroughScript(): MvpWorkflowState {
+  const state = baseState();
+  state.researchQuestions = [{ id: 'RQ-1', filmBriefId: 'FB-1', question: 'Question', purpose: 'Purpose', priority: 'HIGH', status: 'APPROVED' }];
+  state.sources = [{ id: 'SRC-1', researchQuestionId: 'RQ-1', provider: 'PARALLEL', providerSearchId: 'search-1', url: 'https://example.com', title: 'Source', publishDate: null, excerpts: ['Excerpt'], retrievedAt: '2026-08-15T00:00:00.000Z', status: 'APPROVED' }];
+  state.evidence = [{ id: 'EV-1', sourceId: 'SRC-1', researchQuestionId: 'RQ-1', excerpt: 'Excerpt', interpretation: 'Interpretation', strength: 'HIGH', uncertainty: null, status: 'APPROVED' }];
+  state.claims = [{ id: 'CL-1', researchQuestionId: 'RQ-1', evidenceIds: ['EV-1'], text: 'Claim', confidence: 'HIGH', uncertainty: null, status: 'APPROVED' }];
+  state.scriptLines = [{ id: 'SL-1', researchQuestionId: 'RQ-1', claimIds: ['CL-1'], text: 'Line', uncertaintyDisclosure: null, status: 'APPROVED' }];
+  return state;
 }
 
 describe('executeNextMvpStep', () => {
@@ -79,17 +90,26 @@ describe('executeNextMvpStep', () => {
 
     expect(result.disposition).toBe('AWAITING_HUMAN_REVIEW');
     expect(result.state).toBe(state);
-    expect(result.message).toContain('No automatic re-extraction was performed');
+    expect(result.message).toContain('will not silently regenerate rejected content');
     expect(deps.extractEvidence).toHaveBeenCalledOnce();
   });
 
+  it('does not report scene generation when a reviewed scene gap needs an explicit retry or waiver', async () => {
+    const state = approvedThroughScript();
+    state.scenes = [{ id: 'SC-old', researchQuestionId: 'RQ-1', scriptLineIds: ['SL-1'], title: 'Rejected', purpose: 'Purpose', visualSummary: 'Summary', uncertaintyDisclosure: null, status: 'REJECTED' }];
+    const deps = executors();
+    deps.generateScenes = vi.fn(async () => state.scenes);
+
+    const result = await executeNextMvpStep(state, deps);
+
+    expect(result.disposition).toBe('AWAITING_HUMAN_REVIEW');
+    expect(result.state).toBe(state);
+    expect(result.message).toContain('replacement retry or accept the intentional coverage gap');
+    expect(deps.generateScenes).toHaveBeenCalledOnce();
+  });
+
   it('runs the deterministic audit only after all human approvals are complete', async () => {
-    const state = baseState();
-    state.researchQuestions = [{ id: 'RQ-1', filmBriefId: 'FB-1', question: 'Question', purpose: 'Purpose', priority: 'HIGH', status: 'APPROVED' }];
-    state.sources = [{ id: 'SRC-1', researchQuestionId: 'RQ-1', provider: 'PARALLEL', providerSearchId: 'search-1', url: 'https://example.com', title: 'Source', publishDate: null, excerpts: ['Excerpt'], retrievedAt: '2026-08-15T00:00:00.000Z', status: 'APPROVED' }];
-    state.evidence = [{ id: 'EV-1', sourceId: 'SRC-1', researchQuestionId: 'RQ-1', excerpt: 'Excerpt', interpretation: 'Interpretation', strength: 'HIGH', uncertainty: null, status: 'APPROVED' }];
-    state.claims = [{ id: 'CL-1', researchQuestionId: 'RQ-1', evidenceIds: ['EV-1'], text: 'Claim', confidence: 'HIGH', uncertainty: null, status: 'APPROVED' }];
-    state.scriptLines = [{ id: 'SL-1', researchQuestionId: 'RQ-1', claimIds: ['CL-1'], text: 'Line', uncertaintyDisclosure: null, status: 'APPROVED' }];
+    const state = approvedThroughScript();
     state.scenes = [{ id: 'SC-1', researchQuestionId: 'RQ-1', scriptLineIds: ['SL-1'], title: 'Scene', purpose: 'Purpose', visualSummary: 'Summary', uncertaintyDisclosure: null, status: 'APPROVED' }];
     state.shots = [{ id: 'SH-1', researchQuestionId: 'RQ-1', sceneId: 'SC-1', scriptLineIds: ['SL-1'], description: 'Shot', cameraDirection: 'Static', visualIntegrityCategory: 'SCIENTIFIC_RECONSTRUCTION', scientificConstraint: 'Constraint', uncertaintyDisclosure: null, status: 'APPROVED' }];
     state.visualDecisions = [{ id: 'VD-1', researchQuestionId: 'RQ-1', shotId: 'SH-1', category: 'SCIENTIFIC_RECONSTRUCTION', decision: 'Decision', scientificConstraint: 'Constraint', disclosure: null, riskLevel: 'LOW', status: 'APPROVED' }];
