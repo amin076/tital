@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { FilmProjectInputSchema } from './filmProjectInput.js';
 import { MvpWorkflowStageSchema, MvpWorkflowStateSchema } from './mvpWorkflow.js';
+import { WorkflowPerformanceTraceSchema } from './performanceTrace.js';
 import { ProductionPackageSchema } from './productionPackage.js';
 
 export const MvpSessionEventTypeSchema = z.enum([
@@ -19,6 +20,7 @@ export const MvpSessionEventSchema = z.object({
   at: z.string().min(1),
   stage: MvpWorkflowStageSchema,
   message: z.string().min(1),
+  performance: WorkflowPerformanceTraceSchema.optional(),
 });
 
 export const MvpSessionSchema = z.object({
