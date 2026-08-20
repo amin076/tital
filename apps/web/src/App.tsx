@@ -178,12 +178,14 @@ function ReviewGatePanel({
   selectedIds,
   onToggle,
   onReview,
+  onTryAnother,
   busy,
 }: {
   view: SessionView;
   selectedIds: Set<string>;
   onToggle: (id: string) => void;
   onReview: (decision: 'APPROVE' | 'REJECT') => void;
+  onTryAnother: () => void;
   busy: boolean;
 }) {
   const gate = view.gate;
@@ -203,6 +205,13 @@ function ReviewGatePanel({
     gate.records.length > 0 &&
     gate.records.every((record) => selectedIds.has(record.id));
   const kind = recordKindFromGateType(gate.recordType);
+  const canRetrySelection =
+    gate.canReject &&
+    gate.recordType !== 'FilmBrief' &&
+    selectedIds.size > 0 &&
+    gate.coverageGroups.some((group) =>
+      group.canRetry && group.pendingRecordIds.some((id) => selectedIds.has(id))
+    );
 
   return (
     <Paper variant="outlined" sx={{ p: 2.5 }}>
@@ -300,6 +309,13 @@ function ReviewGatePanel({
         >
           Reject selected
         </Button>
+        <Button
+          variant="outlined"
+          disabled={busy || !canRetrySelection}
+          onClick={onTryAnother}
+        >
+          Reject & try another
+        </Button>
         {!gate.canReject && (
           <Alert severity="info" sx={{ py: 0 }}>
             This record type does not support rejection in the current domain contract.
@@ -334,6 +350,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [gapDialog, setGapDialog] = useState<ReviewCoverageGroup[] | null>(null);
   const [waiverReason, setWaiverReason] = useState('');
+  const [replacementDialogOpen, setReplacementDialogOpen] = useState(false);
+  const [replacementInstruction, setReplacementInstruction] = useState('');
 
   const refreshSessions = useCallback(async () => {
     const next = await listSessions();
@@ -419,6 +437,8 @@ export function App() {
       setSelectedRecordIds(new Set());
       setGapDialog(null);
       setWaiverReason('');
+      setReplacementDialogOpen(false);
+      setReplacementInstruction('');
       await refreshSessions();
     } catch (cause: unknown) {
       if (
@@ -444,6 +464,12 @@ export function App() {
       }
     }
     void submitReview(decision);
+  }
+
+  function runTryAnother(): void {
+    if (!view?.gate || selectedCount === 0 || !view.gate.canReject) return;
+    setReplacementInstruction('');
+    setReplacementDialogOpen(true);
   }
 
   async function runContinue(): Promise<void> {
@@ -502,6 +528,52 @@ export function App() {
       </AppBar>
 
       <Dialog
+        open={replacementDialogOpen}
+        onClose={() => !busy && setReplacementDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Reject and request another candidate</DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            The selected candidate will remain in governance history as rejected. Tital will generate a new candidate for the same target even when that target already has other approved coverage.
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            label="Instruction for the replacement (optional)"
+            value={replacementInstruction}
+            onChange={(event) => setReplacementInstruction(event.target.value)}
+            helperText="Describe what should change: wording, emphasis, camera behaviour, visual style, scientific caution, or another scoped preference. Scientific evidence and integrity constraints still take priority."
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setReplacementDialogOpen(false);
+              setReplacementInstruction('');
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={busy}
+            onClick={() =>
+              void submitReview('REJECT', {
+                gapResolution: 'RETRY',
+                reason: replacementInstruction.trim() || undefined,
+              })
+            }
+          >
+            Reject & generate replacement
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
         open={Boolean(gapDialog)}
         onClose={() => !busy && setGapDialog(null)}
         maxWidth="md"
@@ -549,7 +621,11 @@ export function App() {
           <Button
             variant="outlined"
             disabled={busy || !canRetryGap}
-            onClick={() => void submitReview('REJECT', { gapResolution: 'RETRY' })}
+            onClick={() => {
+              setGapDialog(null);
+              setReplacementInstruction('');
+              setReplacementDialogOpen(true);
+            }}
           >
             Reject & try another
           </Button>
@@ -690,6 +766,7 @@ export function App() {
                       selectedIds={selectedRecordIds}
                       onToggle={toggleRecord}
                       onReview={runReview}
+                      onTryAnother={runTryAnother}
                       busy={busy}
                     />
 
