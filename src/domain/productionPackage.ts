@@ -8,6 +8,7 @@ import { ScriptLineRecordSchema } from './scriptLineRecord.js';
 import { SceneRecordSchema } from './sceneRecord.js';
 import { ShotRecordSchema } from './shotRecord.js';
 import { VisualDecisionRecordSchema } from './visualDecisionRecord.js';
+import { CoverageWaiverSchema } from './coverageWaiver.js';
 import { ScientificAuditReportSchema } from './scientificAudit.js';
 
 export const ProductionPackageSchema = z.object({
@@ -20,6 +21,7 @@ export const ProductionPackageSchema = z.object({
   scenes: z.array(SceneRecordSchema),
   shots: z.array(ShotRecordSchema),
   visualDecisions: z.array(VisualDecisionRecordSchema),
+  coverageWaivers: z.array(CoverageWaiverSchema).optional(),
   audit: ScientificAuditReportSchema,
   generatedAt: z.string().min(1),
   status: z.enum(['BLOCKED', 'READY_FOR_PRODUCTION']),
