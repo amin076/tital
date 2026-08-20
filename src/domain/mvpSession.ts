@@ -7,6 +7,8 @@ export const MvpSessionEventTypeSchema = z.enum([
   'SESSION_CREATED',
   'AUTOMATION_EXECUTED',
   'REVIEW_DECISION',
+  'RETRY_REQUESTED',
+  'COVERAGE_WAIVED',
   'AUDIT_EXECUTED',
   'PACKAGE_BUILT',
 ]);
