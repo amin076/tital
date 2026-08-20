@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import { MvpSessionSchema, type MvpSession, type MvpSessionEventType } from '../domain/mvpSession.js';
 import { buildProductionPackage } from './buildProductionPackage.js';
-import { createRealMvpStepExecutors } from './createRealMvpStepExecutors.js';
+import {
+  createRealMvpStepExecutors,
+  realMvpRuntimeServices,
+} from './createRealMvpStepExecutors.js';
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import { executeNextMvpStep, type MvpStepExecutors } from './executeNextMvpStep.js';
 
@@ -9,6 +13,7 @@ export interface AdvanceMvpSessionOptions {
   executors?: MvpStepExecutors;
   now?: () => string;
   eventIdFactory?: () => string;
+  performanceNow?: () => number;
 }
 
 function packageFor(session: MvpSession) {
@@ -31,7 +36,15 @@ export async function advanceMvpSession(
   options: AdvanceMvpSessionOptions = {}
 ): Promise<MvpSession> {
   let current = MvpSessionSchema.parse(session);
-  const executors = options.executors ?? createRealMvpStepExecutors();
+  const operations: PerformanceOperation[] = [];
+  const performanceNow = options.performanceNow ?? (() => Date.now());
+  const executors = options.executors ?? createRealMvpStepExecutors(
+    realMvpRuntimeServices,
+    {
+      directorBrief: current.projectInput?.directorBrief,
+      onOperation: (operation) => operations.push(operation),
+    }
+  );
   const nowFactory = options.now ?? (() => new Date().toISOString());
   const eventIdFactory = options.eventIdFactory ?? (() => `EVT-${randomUUID()}`);
 
@@ -39,7 +52,11 @@ export async function advanceMvpSession(
   // multi-step automatic tail is audit -> package, because both are deterministic.
   for (let step = 0; step < 4; step += 1) {
     const stageBefore = evaluateMvpWorkflow(current.state).stage;
+    const startedAt = performanceNow();
+    const operationStart = operations.length;
     const result = await executeNextMvpStep(current.state, executors);
+    const durationMs = Math.max(0, Math.round(performanceNow() - startedAt));
+    const stepOperations = operations.slice(operationStart);
 
     if (result.disposition === 'AWAITING_HUMAN_REVIEW') {
       return current;
@@ -64,6 +81,11 @@ export async function advanceMvpSession(
           at: now,
           stage: stageBefore,
           message: result.message,
+          performance: {
+            durationMs,
+            externalCallCount: stepOperations.length,
+            operations: stepOperations,
+          },
         },
       ],
     });
