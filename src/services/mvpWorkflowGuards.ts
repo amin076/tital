@@ -197,7 +197,7 @@ export function isProductionWorkflowReady(state: MvpWorkflowState): boolean {
 
   const chain = selectApprovedProductionChain(state);
   if (missingApprovedCoverage(chain.researchQuestions, chain.sources, (record) => record.researchQuestionId).length > 0) return false;
-  if (missingApprovedCoverage(chain.sources, chain.evidence, (record) => record.sourceId).length > 0) return false;
+  if (missingApprovedCoverage(chain.researchQuestions, chain.evidence, (record) => record.researchQuestionId).length > 0) return false;
   if (missingApprovedCoverage(chain.researchQuestions, chain.claims, (record) => record.researchQuestionId).length > 0) return false;
   if (missingApprovedCoverage(chain.researchQuestions, chain.scriptLines, (record) => record.researchQuestionId).length > 0) return false;
   if (missingApprovedCoverage(chain.researchQuestions, chain.scenes, (record) => record.researchQuestionId).length > 0) return false;

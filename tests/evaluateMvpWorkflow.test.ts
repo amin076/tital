@@ -32,6 +32,38 @@ describe('evaluateMvpWorkflow', () => {
     expect(evaluateMvpWorkflow(state)).toMatchObject({ stage: 'RESEARCH', blockedBy: ['SOURCES_INCOMPLETE'] });
   });
 
+  it('does not require every approved source to yield approved evidence when its research question is already covered', () => {
+    const state = approvedState();
+    state.sources.push({
+      id: 'SRC-2',
+      researchQuestionId: 'RQ-1',
+      provider: 'PARALLEL',
+      providerSearchId: 'search-2',
+      url: 'https://example.com/source-2',
+      title: 'Second approved source',
+      publishDate: null,
+      excerpts: ['A candidate excerpt that did not survive evidence review.'],
+      retrievedAt: '2026-08-15T00:10:00.000Z',
+      status: 'APPROVED',
+    });
+    state.evidence.push({
+      id: 'EV-2',
+      sourceId: 'SRC-2',
+      researchQuestionId: 'RQ-1',
+      excerpt: 'A candidate excerpt that did not survive evidence review.',
+      interpretation: 'Rejected during human evidence review.',
+      strength: 'MEDIUM',
+      uncertainty: 'Not strong enough for the production chain.',
+      status: 'REJECTED',
+    });
+
+    expect(evaluateMvpWorkflow(state)).toEqual({
+      stage: 'COMPLETE',
+      nextAction: 'Production package is ready.',
+      blockedBy: [],
+    });
+  });
+
   it('stops at AUDIT when audit has not run', () => {
     const state = approvedState();
     state.audit = null;

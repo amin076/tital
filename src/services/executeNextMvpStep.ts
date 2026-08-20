@@ -86,12 +86,19 @@ export async function executeNextMvpStep(
     if (hasPendingReview(relevantEvidence)) {
       return { disposition: 'AWAITING_HUMAN_REVIEW', state, message: 'Evidence requires human review before claim generation.' };
     }
-    if (missingApprovedCoverage(chain.sources, chain.evidence, (record) => record.sourceId).length > 0) {
+    if (missingApprovedCoverage(chain.researchQuestions, chain.evidence, (record) => record.researchQuestionId).length > 0) {
       const evidence = await executors.extractEvidence(state);
+      if (evidence.length === state.evidence.length) {
+        return {
+          disposition: 'AWAITING_HUMAN_REVIEW',
+          state,
+          message: 'Evidence coverage is still incomplete, but all currently approved sources for the uncovered research question(s) have already been extracted and reviewed. No automatic re-extraction was performed.',
+        };
+      }
       return {
         disposition: 'EXECUTED_AUTOMATION',
         state: withInvalidatedAudit({ ...state, evidence }),
-        message: 'Evidence extraction executed for uncovered approved sources; human evidence review is now required.',
+        message: 'Evidence extraction executed for uncovered research questions; human evidence review is now required.',
       };
     }
   }
