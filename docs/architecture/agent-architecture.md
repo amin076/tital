@@ -28,15 +28,11 @@ Human reviews.
 Workflow progresses only when deterministic rules allow it.
 ```
 
-A stronger reliability rule now applies to upstream references:
+A stronger reliability rule applies to upstream references:
 
 > **Do not ask a model to echo trusted UUID-like record IDs when the application can provide numbered references instead.**
 
-This was adopted after live runs exposed one-character/invented-reference failures.
-
 ## Numbered-reference design
-
-For multi-record model inputs, Tital now prefers:
 
 ```text
 approved records with trusted IDs
@@ -59,22 +55,7 @@ Scene proposal        scriptLineNumbers → ScriptLineRecord IDs
 Shot proposal         scriptLineNumbers → scene-local ScriptLineRecord IDs
 ```
 
-For single-parent stages, the model does not need to return the parent identity at all:
-
-```text
-EvidenceRecord       sourceId assigned by application
-ResearchQuestion     filmBriefId assigned by application
-ShotRecord           sceneId assigned by application
-VisualDecisionRecord shotId assigned by application
-```
-
-ResearchQuestion/FilmBrief record IDs and all workflow statuses are also application-owned.
-
-## Why this design exists
-
-Models are good at semantic selection but should not be used as exact-copy machines for opaque application identifiers. A proposal such as `scriptLineNumbers: [2]` preserves the model's semantic choice while deterministic code owns the exact mapping to `SL-...`.
-
-Out-of-range numbered references fail closed. The application never guesses a replacement ID.
+For single-parent stages, the model does not return parent identity when application code can attach it directly.
 
 ## Standard service boundary
 
@@ -93,24 +74,38 @@ graph LR
     I --> S --> A --> M --> A --> P --> Z --> R --> D --> H
 ```
 
-Services are responsible for:
+Services are responsible for validating upstream approval/provenance, sanitizing model context, parsing/validating output, mapping numbered references to trusted IDs, assigning application-owned identity/status, and preserving human review.
 
-- validating upstream schemas and approval state;
-- ensuring same-question/same-scene provenance where required;
-- rejecting duplicate or missing upstream records;
-- sanitizing model context to remove trusted IDs when not needed;
-- parsing JSON and validating proposal schemas;
-- validating numbered-reference ranges;
-- mapping numbered references to trusted IDs;
-- assigning application-owned IDs/statuses;
-- validating final domain records;
-- preserving the human review gate.
+## Human director context for cinematic agents
+
+`sceneDirectorAgent`, `shotDirectorAgent`, and `visualDecisionAgent` remain proposal generators. They now receive optional application-supplied cinematic context derived from the project's `DirectorBrief` and, for explicit replacement retries, a scoped director instruction.
+
+The prompt-level precedence rule is:
+
+```text
+1. approved science / provenance / uncertainty / visual-integrity constraints
+2. approved production constraints
+3. human Director Brief + scoped director instruction
+4. AI cinematic preference
+```
+
+This is important: director control does **not** mean the model may satisfy style by weakening scientific constraints.
+
+The application, not the agent, adds `decisionProvenance` to Scene, Shot, and Visual Decision records. That provenance distinguishes AI recommendation from applied human guidance without confusing recommendation origin with human approval.
+
+See [../DIRECTOR_CONTROL.md](../DIRECTOR_CONTROL.md).
+
+## Retry is explicit, not autonomous self-correction
+
+Rejected candidates are terminal history. Agents do not automatically regenerate because coverage became incomplete.
+
+If a human explicitly chooses `RETRY`, `retryMvpCoverage` calls only the relevant stage/target and filters duplicates. Cinematic retries can receive the scoped director note that motivated the replacement.
+
+If the human chooses `WAIVE`, no agent call is made for that gap; a `CoverageWaiver` records the intentional omission.
 
 ## Parallel MCP exception: partial external batches
 
-Parallel source discovery is a tool-backed batch integration. One malformed candidate should not destroy otherwise valid provider results.
-
-Current handling:
+Parallel source discovery is a tool-backed batch integration. One malformed candidate should not destroy otherwise valid provider results:
 
 ```text
 validate response envelope
@@ -120,15 +115,48 @@ validate response envelope
 → fail if no valid candidate remains
 ```
 
-Tital does not fabricate a missing source title, URL or excerpt.
+Tital does not fabricate missing source metadata.
+
+## Bounded concurrency inside a stage
+
+The workflow remains sequential **between dependent stages**, but independent agent/tool calls inside one stage can now run concurrently with a bounded worker pool.
+
+Examples safe to parallelize after upstream approval:
+
+```text
+source discovery: Research Question A / B / C
+Evidence extraction: Source A / B / C
+Claims: RQ A / B / C
+Scenes: RQ A / B / C
+Shots: Scene A / B / C
+Visual Decisions: Shot A / B / C
+```
+
+Results are combined in deterministic input order. Default external concurrency is conservative (`3`) and can be configured through `TITAL_EXTERNAL_CONCURRENCY` within `1..8`.
+
+This does not make dependent stages parallel and does not bypass human gates.
+
+## Lightweight runtime timing
+
+Real runtime service calls can emit application timing operations such as:
+
+```text
+gemini.evidence_extraction
+parallel.source_discovery
+gemini.shot_generation
+```
+
+`advanceMvpSession` stores the relevant operation timings on the automation event. This is intended for real baseline measurement before further optimisation, not as a replacement for full distributed tracing.
+
+See [../PERFORMANCE.md](../PERFORMANCE.md).
 
 ## Error-handling rule
 
 Use deterministic recovery only when the intended transformation is unambiguous:
 
-- numbered reference → exact trusted ID: recover by deterministic mapping;
-- MEDIUM/HIGH visual disclosure missing: derive deterministic disclosure from governed shot/category context;
-- malformed one-of-many external source candidate: discard it while retaining valid candidates.
+- numbered reference → exact trusted ID: deterministic mapping;
+- MEDIUM/HIGH visual disclosure missing: deterministic disclosure from governed context;
+- malformed one-of-many external source candidate: discard while preserving valid candidates.
 
 Fail closed when recovery would require guessing scientific meaning or provenance.
 
@@ -137,19 +165,19 @@ Fail closed when recovery would require guessing scientific meaning or provenanc
 - model-echoed Shot `sceneId` mismatch → application assigns `sceneId`;
 - model-echoed Visual Decision `shotId` mismatch → application assigns `shotId`;
 - Parallel candidate with empty title aborted full batch → per-item validation/discard;
-- Shot proposal referenced a ScriptLine ID not present in the Scene → numbered scene-local script-line references;
-- evidence uncertainty returned semantic-null strings → strict new-record validation + legacy-load migration;
+- Shot proposal referenced a ScriptLine ID not present in the Scene → numbered scene-local references;
+- rejected Evidence regenerated with new IDs → first-attempt-only automatic generation;
+- rejected Scene regenerated because required coverage disappeared → explicit Retry / Waive / Cancel coverage resolution;
+- evidence uncertainty returned semantic-null strings → strict validation + legacy-load migration;
 - MEDIUM/HIGH visual proposal omitted disclosure → deterministic disclosure fallback.
 
-See [../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md) for the complete failure matrix.
+See [../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md).
 
 ## ADK execution pattern
 
-Most stages run an `LlmAgent` through `InMemoryRunner`, accumulate response events, parse the returned structured proposal and validate it before trusted state is created.
+Most stages run an `LlmAgent` through `InMemoryRunner`, accumulate response events, parse structured proposals, and validate them before trusted state is created. Durable project state is handled separately by Tital persistence.
 
-`InMemoryRunner` is the agent execution harness; durable project state is handled separately by Tital persistence.
-
-`defineAgent` uses ADK `outputSchema`. Other stages commonly parse JSON text through Zod proposal schemas. The invariant is the same: **unvalidated model text never becomes trusted application state**.
+`defineAgent` uses ADK `outputSchema`. Other stages commonly parse JSON text through Zod proposal schemas. In every case, **unvalidated model text never becomes trusted application state**.
 
 ## Agent design rules
 
@@ -157,17 +185,19 @@ When adding or changing an agent:
 
 1. Give it one narrow responsibility.
 2. Supply only approved upstream information it is allowed to use.
-3. Remove opaque trusted IDs from model context unless the model genuinely needs their semantic value (normally it does not).
+3. Remove opaque trusted IDs from model context unless truly necessary.
 4. For multi-parent selection, send numbered records and accept numbered references.
 5. Require structured output and validate it with a proposal schema.
-6. Range-check/model-reference selections deterministically.
+6. Range-check references deterministically.
 7. Assign trusted IDs, provenance and statuses in application code.
 8. Preserve uncertainty; never silently increase certainty.
 9. Keep human review outside the model.
-10. Turn every reproducible live failure into a regression test.
+10. For cinematic agents, treat Director Brief/notes as guidance below scientific constraints.
+11. Do not silently regenerate rejected content.
+12. Turn every reproducible live failure into a regression test.
 
 ## Research alignment
 
-Google ADK supports structured `outputSchema` for `LlmAgent`, but structured output does not replace application-level trust/provenance enforcement. Tital therefore uses ADK for generation and deterministic application code for identity, governance and state transitions.
+Google ADK structured output improves reliability but does not replace application-level trust/provenance enforcement. Tital therefore uses ADK for generation and deterministic application code for identity, governance and state transitions.
 
 Official ADK TypeScript reference: https://adk.dev/api-reference/typescript/interfaces/LlmAgentConfig.html
