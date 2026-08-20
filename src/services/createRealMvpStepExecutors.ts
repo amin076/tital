@@ -11,6 +11,9 @@ import { generateVisualDecision } from './generateVisualDecision.js';
 import { runScientificAudit } from './runScientificAudit.js';
 import {
   missingApprovedCoverage,
+  requiredResearchQuestionsForStage,
+  requiredScenesForShots,
+  requiredShotsForVisualDecisions,
   selectApprovedProductionChain,
 } from './mvpWorkflowGuards.js';
 
@@ -46,7 +49,7 @@ function questionFor(
     (candidate) => candidate.id === researchQuestionId
   );
   if (!question) {
-    throw new Error(`Missing approved ResearchQuestion for provenance id \"${researchQuestionId}\".`);
+    throw new Error(`Missing approved ResearchQuestion for provenance id "${researchQuestionId}".`);
   }
   return question;
 }
@@ -56,17 +59,22 @@ export function createRealMvpStepExecutors(
 ): MvpStepExecutors {
   return {
     generateResearchQuestions: async (state) => {
+      if (state.researchQuestions.length > 0) return state.researchQuestions;
       const generated = await services.generateResearchQuestions(state.filmBrief);
       return [...state.researchQuestions, ...generated];
     },
 
     discoverSources: async (state) => {
       const chain = selectApprovedProductionChain(state);
+      const attemptedQuestionIds = new Set(
+        state.sources.map((record) => record.researchQuestionId)
+      );
+      const requiredQuestions = requiredResearchQuestionsForStage(state, 'RESEARCH');
       const missingQuestions = missingApprovedCoverage(
-        chain.researchQuestions,
+        requiredQuestions,
         chain.sources,
         (record) => record.researchQuestionId
-      );
+      ).filter((question) => !attemptedQuestionIds.has(question.id));
       const discovered: MvpWorkflowState['sources'] = [];
       for (const question of missingQuestions) {
         discovered.push(...(await services.discoverSourcesWithParallelMcp(question)));
@@ -76,9 +84,14 @@ export function createRealMvpStepExecutors(
 
     extractEvidence: async (state) => {
       const chain = selectApprovedProductionChain(state);
+      const requiredQuestionIds = new Set(
+        requiredResearchQuestionsForStage(state, 'EVIDENCE').map((record) => record.id)
+      );
       const attemptedSourceIds = new Set(state.evidence.map((record) => record.sourceId));
       const sourcesNeedingFirstExtraction = chain.sources.filter(
-        (source) => !attemptedSourceIds.has(source.id)
+        (source) =>
+          requiredQuestionIds.has(source.researchQuestionId) &&
+          !attemptedSourceIds.has(source.id)
       );
       const records: MvpWorkflowState['evidence'] = [];
       for (const source of sourcesNeedingFirstExtraction) {
@@ -89,11 +102,15 @@ export function createRealMvpStepExecutors(
 
     generateClaims: async (state) => {
       const chain = selectApprovedProductionChain(state);
+      const attemptedQuestionIds = new Set(
+        state.claims.map((record) => record.researchQuestionId)
+      );
+      const requiredQuestions = requiredResearchQuestionsForStage(state, 'CLAIMS');
       const missingQuestions = missingApprovedCoverage(
-        chain.researchQuestions,
+        requiredQuestions,
         chain.claims,
         (record) => record.researchQuestionId
-      );
+      ).filter((question) => !attemptedQuestionIds.has(question.id));
       const records: MvpWorkflowState['claims'] = [];
       for (const question of missingQuestions) {
         const evidence = chain.evidence.filter((record) => record.researchQuestionId === question.id);
@@ -104,11 +121,15 @@ export function createRealMvpStepExecutors(
 
     generateScriptLines: async (state) => {
       const chain = selectApprovedProductionChain(state);
+      const attemptedQuestionIds = new Set(
+        state.scriptLines.map((record) => record.researchQuestionId)
+      );
+      const requiredQuestions = requiredResearchQuestionsForStage(state, 'SCRIPT');
       const missingQuestions = missingApprovedCoverage(
-        chain.researchQuestions,
+        requiredQuestions,
         chain.scriptLines,
         (record) => record.researchQuestionId
-      );
+      ).filter((question) => !attemptedQuestionIds.has(question.id));
       const records: MvpWorkflowState['scriptLines'] = [];
       for (const question of missingQuestions) {
         const claims = chain.claims.filter((record) => record.researchQuestionId === question.id);
@@ -119,11 +140,15 @@ export function createRealMvpStepExecutors(
 
     generateScenes: async (state) => {
       const chain = selectApprovedProductionChain(state);
+      const attemptedQuestionIds = new Set(
+        state.scenes.map((record) => record.researchQuestionId)
+      );
+      const requiredQuestions = requiredResearchQuestionsForStage(state, 'SCENES');
       const missingQuestions = missingApprovedCoverage(
-        chain.researchQuestions,
+        requiredQuestions,
         chain.scenes,
         (record) => record.researchQuestionId
-      );
+      ).filter((question) => !attemptedQuestionIds.has(question.id));
       const records: MvpWorkflowState['scenes'] = [];
       for (const question of missingQuestions) {
         const scriptLines = chain.scriptLines.filter((record) => record.researchQuestionId === question.id);
@@ -134,7 +159,13 @@ export function createRealMvpStepExecutors(
 
     generateShots: async (state) => {
       const chain = selectApprovedProductionChain(state);
-      const missingScenes = missingApprovedCoverage(chain.scenes, chain.shots, (record) => record.sceneId);
+      const attemptedSceneIds = new Set(state.shots.map((record) => record.sceneId));
+      const requiredScenes = requiredScenesForShots(state);
+      const missingScenes = missingApprovedCoverage(
+        requiredScenes,
+        chain.shots,
+        (record) => record.sceneId
+      ).filter((scene) => !attemptedSceneIds.has(scene.id));
       const records: MvpWorkflowState['shots'] = [];
       for (const scene of missingScenes) {
         const sceneScriptLineIds = new Set(scene.scriptLineIds);
@@ -146,11 +177,15 @@ export function createRealMvpStepExecutors(
 
     generateVisualDecisions: async (state) => {
       const chain = selectApprovedProductionChain(state);
+      const attemptedShotIds = new Set(
+        state.visualDecisions.map((record) => record.shotId)
+      );
+      const requiredShots = requiredShotsForVisualDecisions(state);
       const missingShots = missingApprovedCoverage(
-        chain.shots,
+        requiredShots,
         chain.visualDecisions,
         (record) => record.shotId
-      );
+      ).filter((shot) => !attemptedShotIds.has(shot.id));
       const records: MvpWorkflowState['visualDecisions'] = [];
       for (const shot of missingShots) records.push(await services.generateVisualDecision(shot));
       return [...state.visualDecisions, ...records];

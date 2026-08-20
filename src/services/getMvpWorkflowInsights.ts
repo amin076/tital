@@ -2,6 +2,9 @@ import type { MvpWorkflowStage, MvpWorkflowState } from '../domain/mvpWorkflow.j
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import {
   missingApprovedCoverage,
+  requiredResearchQuestionsForStage,
+  requiredScenesForShots,
+  requiredShotsForVisualDecisions,
   selectApprovedProductionChain,
 } from './mvpWorkflowGuards.js';
 
@@ -26,9 +29,11 @@ export interface CoverageInsight {
   parentLabel: string;
   childLabel: string;
   covered: number;
+  waived: number;
   total: number;
   complete: boolean;
   missingParentIds: string[];
+  waivedParentIds: string[];
 }
 
 export interface MvpWorkflowInsights {
@@ -59,20 +64,28 @@ function coverageItem<P extends { id: string }, C extends { status: string }>(
   label: string,
   parentLabel: string,
   childLabel: string,
-  parents: readonly P[],
+  allParents: readonly P[],
+  requiredParents: readonly P[],
   children: readonly C[],
   childParentId: (child: C) => string
 ): CoverageInsight {
-  const missing = missingApprovedCoverage(parents, children, childParentId);
+  const requiredIds = new Set(requiredParents.map((record) => record.id));
+  const waivedParentIds = allParents
+    .filter((record) => !requiredIds.has(record.id))
+    .map((record) => record.id);
+  const missing = missingApprovedCoverage(requiredParents, children, childParentId);
+  const approvedCovered = requiredParents.length - missing.length;
   return {
     key,
     label,
     parentLabel,
     childLabel,
-    covered: parents.length - missing.length,
-    total: parents.length,
-    complete: parents.length > 0 && missing.length === 0,
+    covered: approvedCovered + waivedParentIds.length,
+    waived: waivedParentIds.length,
+    total: allParents.length,
+    complete: allParents.length > 0 && missing.length === 0,
     missingParentIds: missing.map((record) => record.id),
+    waivedParentIds,
   };
 }
 
@@ -97,6 +110,14 @@ export function getMvpWorkflowInsights(
           : 'UPCOMING',
   }));
 
+  const sourceQuestions = requiredResearchQuestionsForStage(state, 'RESEARCH');
+  const evidenceQuestions = requiredResearchQuestionsForStage(state, 'EVIDENCE');
+  const claimQuestions = requiredResearchQuestionsForStage(state, 'CLAIMS');
+  const scriptQuestions = requiredResearchQuestionsForStage(state, 'SCRIPT');
+  const sceneQuestions = requiredResearchQuestionsForStage(state, 'SCENES');
+  const requiredScenes = requiredScenesForShots(state);
+  const requiredShots = requiredShotsForVisualDecisions(state);
+
   const coverage: CoverageInsight[] = [
     coverageItem(
       'sources',
@@ -104,17 +125,19 @@ export function getMvpWorkflowInsights(
       'approved research questions',
       'approved sources',
       chain.researchQuestions,
+      sourceQuestions,
       chain.sources,
       (record) => record.researchQuestionId
     ),
     coverageItem(
       'evidence',
-      'Source → evidence coverage',
-      'approved sources',
+      'Research question → evidence coverage',
+      'approved research questions',
       'approved evidence',
-      chain.sources,
+      chain.researchQuestions,
+      evidenceQuestions,
       chain.evidence,
-      (record) => record.sourceId
+      (record) => record.researchQuestionId
     ),
     coverageItem(
       'claims',
@@ -122,6 +145,7 @@ export function getMvpWorkflowInsights(
       'approved research questions',
       'approved claims',
       chain.researchQuestions,
+      claimQuestions,
       chain.claims,
       (record) => record.researchQuestionId
     ),
@@ -131,6 +155,7 @@ export function getMvpWorkflowInsights(
       'approved research questions',
       'approved script lines',
       chain.researchQuestions,
+      scriptQuestions,
       chain.scriptLines,
       (record) => record.researchQuestionId
     ),
@@ -140,6 +165,7 @@ export function getMvpWorkflowInsights(
       'approved research questions',
       'approved scenes',
       chain.researchQuestions,
+      sceneQuestions,
       chain.scenes,
       (record) => record.researchQuestionId
     ),
@@ -149,6 +175,7 @@ export function getMvpWorkflowInsights(
       'approved scenes',
       'approved shots',
       chain.scenes,
+      requiredScenes,
       chain.shots,
       (record) => record.sceneId
     ),
@@ -158,6 +185,7 @@ export function getMvpWorkflowInsights(
       'approved shots',
       'approved visual decisions',
       chain.shots,
+      requiredShots,
       chain.visualDecisions,
       (record) => record.shotId
     ),

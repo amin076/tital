@@ -5,6 +5,9 @@ import {
   isApprovedRecord,
   isProductionWorkflowReady,
   missingApprovedCoverage,
+  requiredResearchQuestionsForStage,
+  requiredScenesForShots,
+  requiredShotsForVisualDecisions,
   reviewedSetReady,
   selectApprovedProductionChain,
 } from './mvpWorkflowGuards.js';
@@ -27,65 +30,121 @@ export function evaluateMvpWorkflow(state: MvpWorkflowState): MvpWorkflowEvaluat
   }
 
   const chain = selectApprovedProductionChain(validated);
-  const researchQuestionIds = new Set(chain.researchQuestions.map((record) => record.id));
-  const relevantSources = validated.sources.filter((record) => researchQuestionIds.has(record.researchQuestionId));
 
+  const sourceQuestions = requiredResearchQuestionsForStage(validated, 'RESEARCH');
+  const sourceQuestionIds = new Set(sourceQuestions.map((record) => record.id));
+  const relevantSources = validated.sources.filter((record) =>
+    sourceQuestionIds.has(record.researchQuestionId)
+  );
   if (
     hasPendingReview(relevantSources) ||
-    missingApprovedCoverage(chain.researchQuestions, chain.sources, (record) => record.researchQuestionId).length > 0
+    missingApprovedCoverage(sourceQuestions, chain.sources, (record) => record.researchQuestionId).length > 0
   ) {
-    return { stage: 'RESEARCH', nextAction: 'Discover sources with Parallel MCP and complete human source review for each approved research question.', blockedBy: ['SOURCES_INCOMPLETE'] };
+    return {
+      stage: 'RESEARCH',
+      nextAction: 'Discover sources with Parallel MCP, review them, or explicitly resolve an uncovered research question by retrying or waiving that branch.',
+      blockedBy: ['SOURCES_INCOMPLETE'],
+    };
   }
 
-  const sourceIds = new Set(chain.sources.map((record) => record.id));
-  const relevantEvidence = validated.evidence.filter((record) => sourceIds.has(record.sourceId));
+  const evidenceQuestions = requiredResearchQuestionsForStage(validated, 'EVIDENCE');
+  const evidenceQuestionIds = new Set(evidenceQuestions.map((record) => record.id));
+  const approvedSourceIds = new Set(
+    approvedOnly(validated.sources)
+      .filter((record) => evidenceQuestionIds.has(record.researchQuestionId))
+      .map((record) => record.id)
+  );
+  const relevantEvidence = validated.evidence.filter(
+    (record) =>
+      evidenceQuestionIds.has(record.researchQuestionId) && approvedSourceIds.has(record.sourceId)
+  );
   if (
     hasPendingReview(relevantEvidence) ||
-    missingApprovedCoverage(chain.researchQuestions, chain.evidence, (record) => record.researchQuestionId).length > 0
+    missingApprovedCoverage(evidenceQuestions, chain.evidence, (record) => record.researchQuestionId).length > 0
   ) {
-    return { stage: 'EVIDENCE', nextAction: 'Extract evidence from approved sources and complete human evidence review for each approved research question.', blockedBy: ['EVIDENCE_INCOMPLETE'] };
+    return {
+      stage: 'EVIDENCE',
+      nextAction: 'Extract and review evidence, or explicitly retry/waive any research-question branch that remains uncovered.',
+      blockedBy: ['EVIDENCE_INCOMPLETE'],
+    };
   }
 
-  const relevantClaims = validated.claims.filter((record) => researchQuestionIds.has(record.researchQuestionId));
+  const claimQuestions = requiredResearchQuestionsForStage(validated, 'CLAIMS');
+  const claimQuestionIds = new Set(claimQuestions.map((record) => record.id));
+  const relevantClaims = validated.claims.filter((record) =>
+    claimQuestionIds.has(record.researchQuestionId)
+  );
   if (
     hasPendingReview(relevantClaims) ||
-    missingApprovedCoverage(chain.researchQuestions, chain.claims, (record) => record.researchQuestionId).length > 0
+    missingApprovedCoverage(claimQuestions, chain.claims, (record) => record.researchQuestionId).length > 0
   ) {
-    return { stage: 'CLAIMS', nextAction: 'Generate claims from approved evidence and complete human claim review.', blockedBy: ['CLAIMS_INCOMPLETE'] };
+    return {
+      stage: 'CLAIMS',
+      nextAction: 'Generate and review claims, or explicitly retry/waive any uncovered research-question branch.',
+      blockedBy: ['CLAIMS_INCOMPLETE'],
+    };
   }
 
-  const relevantScriptLines = validated.scriptLines.filter((record) => researchQuestionIds.has(record.researchQuestionId));
+  const scriptQuestions = requiredResearchQuestionsForStage(validated, 'SCRIPT');
+  const scriptQuestionIds = new Set(scriptQuestions.map((record) => record.id));
+  const relevantScriptLines = validated.scriptLines.filter((record) =>
+    scriptQuestionIds.has(record.researchQuestionId)
+  );
   if (
     hasPendingReview(relevantScriptLines) ||
-    missingApprovedCoverage(chain.researchQuestions, chain.scriptLines, (record) => record.researchQuestionId).length > 0
+    missingApprovedCoverage(scriptQuestions, chain.scriptLines, (record) => record.researchQuestionId).length > 0
   ) {
-    return { stage: 'SCRIPT', nextAction: 'Generate scientific script lines and complete human script review.', blockedBy: ['SCRIPT_LINES_INCOMPLETE'] };
+    return {
+      stage: 'SCRIPT',
+      nextAction: 'Generate and review scientific script lines, or explicitly retry/waive any uncovered research-question branch.',
+      blockedBy: ['SCRIPT_LINES_INCOMPLETE'],
+    };
   }
 
-  const relevantScenes = validated.scenes.filter((record) => researchQuestionIds.has(record.researchQuestionId));
+  const sceneQuestions = requiredResearchQuestionsForStage(validated, 'SCENES');
+  const sceneQuestionIds = new Set(sceneQuestions.map((record) => record.id));
+  const relevantScenes = validated.scenes.filter((record) =>
+    sceneQuestionIds.has(record.researchQuestionId)
+  );
   if (
     hasPendingReview(relevantScenes) ||
-    missingApprovedCoverage(chain.researchQuestions, chain.scenes, (record) => record.researchQuestionId).length > 0
+    missingApprovedCoverage(sceneQuestions, chain.scenes, (record) => record.researchQuestionId).length > 0
   ) {
-    return { stage: 'SCENES', nextAction: 'Generate scenes from approved script lines and complete human scene review.', blockedBy: ['SCENES_INCOMPLETE'] };
+    return {
+      stage: 'SCENES',
+      nextAction: 'Generate and review scenes, or explicitly retry/waive any uncovered research-question branch.',
+      blockedBy: ['SCENES_INCOMPLETE'],
+    };
   }
 
-  const sceneIds = new Set(chain.scenes.map((record) => record.id));
-  const relevantShots = validated.shots.filter((record) => sceneIds.has(record.sceneId));
+  const requiredScenes = requiredScenesForShots(validated);
+  const requiredSceneIds = new Set(requiredScenes.map((record) => record.id));
+  const relevantShots = validated.shots.filter((record) => requiredSceneIds.has(record.sceneId));
   if (
     hasPendingReview(relevantShots) ||
-    missingApprovedCoverage(chain.scenes, chain.shots, (record) => record.sceneId).length > 0
+    missingApprovedCoverage(requiredScenes, chain.shots, (record) => record.sceneId).length > 0
   ) {
-    return { stage: 'SHOTS', nextAction: 'Generate shots and complete human shot review.', blockedBy: ['SHOTS_INCOMPLETE'] };
+    return {
+      stage: 'SHOTS',
+      nextAction: 'Generate and review shots, or explicitly retry/waive any approved scene that remains without a shot.',
+      blockedBy: ['SHOTS_INCOMPLETE'],
+    };
   }
 
-  const shotIds = new Set(chain.shots.map((record) => record.id));
-  const relevantVisualDecisions = validated.visualDecisions.filter((record) => shotIds.has(record.shotId));
+  const requiredShots = requiredShotsForVisualDecisions(validated);
+  const requiredShotIds = new Set(requiredShots.map((record) => record.id));
+  const relevantVisualDecisions = validated.visualDecisions.filter((record) =>
+    requiredShotIds.has(record.shotId)
+  );
   if (
     hasPendingReview(relevantVisualDecisions) ||
-    missingApprovedCoverage(chain.shots, chain.visualDecisions, (record) => record.shotId).length > 0
+    missingApprovedCoverage(requiredShots, chain.visualDecisions, (record) => record.shotId).length > 0
   ) {
-    return { stage: 'VISUAL_DECISIONS', nextAction: 'Generate visual decisions and complete human visual review.', blockedBy: ['VISUAL_DECISIONS_INCOMPLETE'] };
+    return {
+      stage: 'VISUAL_DECISIONS',
+      nextAction: 'Generate and review visual decisions, or explicitly retry/waive any approved shot that remains uncovered.',
+      blockedBy: ['VISUAL_DECISIONS_INCOMPLETE'],
+    };
   }
 
   if (!validated.audit) {

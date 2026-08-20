@@ -15,6 +15,7 @@ function approvedState(): MvpWorkflowState {
     scenes: [{ id: 'SC-1', researchQuestionId: 'RQ-1', scriptLineIds: ['SL-1'], title: 'Hidden Ocean', purpose: 'Explain the evidence', visualSummary: 'Move from observed surface to scientific reconstruction.', uncertaintyDisclosure: 'Reconstruction is evidence-based, not a direct observation.', status: 'APPROVED' }],
     shots: [{ id: 'SH-1', researchQuestionId: 'RQ-1', sceneId: 'SC-1', scriptLineIds: ['SL-1'], description: 'Cutaway reconstruction of Europa.', cameraDirection: 'Slow push toward the cutaway.', visualIntegrityCategory: 'SCIENTIFIC_RECONSTRUCTION', scientificConstraint: 'Do not imply exact ocean geometry is directly observed.', uncertaintyDisclosure: 'Scientific reconstruction based on multiple lines of evidence.', status: 'APPROVED' }],
     visualDecisions: [{ id: 'VD-1', researchQuestionId: 'RQ-1', shotId: 'SH-1', category: 'SCIENTIFIC_RECONSTRUCTION', decision: 'Show an illustrative cutaway beneath the ice shell.', scientificConstraint: 'Do not present exact geometry as measured.', disclosure: 'Scientific reconstruction; dimensions are illustrative.', riskLevel: 'MEDIUM', status: 'APPROVED' }],
+    coverageWaivers: [],
     audit: { issues: [], passed: true },
   };
 }
@@ -27,7 +28,7 @@ describe('getMvpWorkflowInsights', () => {
     expect(insights.coverage.every((coverage) => coverage.complete)).toBe(true);
   });
 
-  it('reports missing approved evidence coverage by source ID', () => {
+  it('reports missing approved evidence coverage by research-question ID', () => {
     const state = approvedState();
     state.evidence[0].status = 'REJECTED';
 
@@ -37,9 +38,39 @@ describe('getMvpWorkflowInsights', () => {
     expect(insights.stage).toBe('EVIDENCE');
     expect(evidenceCoverage).toMatchObject({
       covered: 0,
+      waived: 0,
       total: 1,
       complete: false,
-      missingParentIds: ['SRC-1'],
+      missingParentIds: ['RQ-1'],
+    });
+  });
+
+  it('shows an intentional downstream waiver as resolved but waived coverage', () => {
+    const state = approvedState();
+    state.scenes[0].status = 'REJECTED';
+    state.shots = [];
+    state.visualDecisions = [];
+    state.audit = null;
+    state.coverageWaivers = [{
+      id: 'CW-1',
+      stage: 'SCENES',
+      targetType: 'RESEARCH_QUESTION',
+      targetId: 'RQ-1',
+      reason: 'Intentional omission.',
+      rejectedRecordIds: ['SC-1'],
+      createdAt: '2026-08-20T00:00:00.000Z',
+    }];
+
+    const insights = getMvpWorkflowInsights(state);
+    const sceneCoverage = insights.coverage.find((item) => item.key === 'scenes');
+
+    expect(sceneCoverage).toMatchObject({
+      covered: 1,
+      waived: 1,
+      total: 1,
+      complete: true,
+      missingParentIds: [],
+      waivedParentIds: ['RQ-1'],
     });
   });
 });

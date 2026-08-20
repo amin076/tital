@@ -45,6 +45,7 @@ export async function createMvpSession(
       scenes: [],
       shots: [],
       visualDecisions: [],
+      coverageWaivers: [],
       audit: null,
     },
     productionPackage: null,

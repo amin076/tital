@@ -1,3 +1,4 @@
+import type { CoverageWaiverStage } from '../domain/coverageWaiver.js';
 import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
 
 export interface StatusRecord {
@@ -49,6 +50,81 @@ export function missingApprovedCoverage<
   return parents.filter((parent) => !coveredParentIds.has(parent.id));
 }
 
+const QUESTION_STAGE_ORDER: Record<CoverageWaiverStage, number> = {
+  RESEARCH: 0,
+  EVIDENCE: 1,
+  CLAIMS: 2,
+  SCRIPT: 3,
+  SCENES: 4,
+  SHOTS: 5,
+  VISUAL_DECISIONS: 6,
+};
+
+export function coverageWaivers(state: MvpWorkflowState) {
+  return state.coverageWaivers ?? [];
+}
+
+/**
+ * A human waiver at a question-level stage intentionally removes that research
+ * question from the required production branch at that stage and all later
+ * stages. The approved upstream research remains in provenance history.
+ */
+export function isQuestionBranchWaived(
+  state: MvpWorkflowState,
+  questionId: string,
+  stage: CoverageWaiverStage
+): boolean {
+  const targetOrder = QUESTION_STAGE_ORDER[stage];
+  return coverageWaivers(state).some(
+    (waiver) =>
+      waiver.targetType === 'RESEARCH_QUESTION' &&
+      waiver.targetId === questionId &&
+      QUESTION_STAGE_ORDER[waiver.stage] <= targetOrder
+  );
+}
+
+export function requiredResearchQuestionsForStage(
+  state: MvpWorkflowState,
+  stage: CoverageWaiverStage
+): MvpWorkflowState['researchQuestions'] {
+  return approvedOnly(state.researchQuestions).filter(
+    (question) => !isQuestionBranchWaived(state, question.id, stage)
+  );
+}
+
+export function requiredScenesForShots(
+  state: MvpWorkflowState
+): MvpWorkflowState['scenes'] {
+  const activeQuestionIds = new Set(
+    requiredResearchQuestionsForStage(state, 'SHOTS').map((record) => record.id)
+  );
+  const waivedSceneIds = new Set(
+    coverageWaivers(state)
+      .filter((waiver) => waiver.stage === 'SHOTS' && waiver.targetType === 'SCENE')
+      .map((waiver) => waiver.targetId)
+  );
+  return approvedOnly(state.scenes).filter(
+    (scene) => activeQuestionIds.has(scene.researchQuestionId) && !waivedSceneIds.has(scene.id)
+  );
+}
+
+export function requiredShotsForVisualDecisions(
+  state: MvpWorkflowState
+): MvpWorkflowState['shots'] {
+  const requiredSceneIds = new Set(requiredScenesForShots(state).map((record) => record.id));
+  const waivedShotIds = new Set(
+    coverageWaivers(state)
+      .filter(
+        (waiver) =>
+          waiver.stage === 'VISUAL_DECISIONS' && waiver.targetType === 'SHOT'
+      )
+      .map((waiver) => waiver.targetId)
+  );
+  return approvedOnly(state.shots).filter(
+    (shot) => requiredSceneIds.has(shot.sceneId) && !waivedShotIds.has(shot.id)
+  );
+}
+
 export interface ApprovedProductionChain {
   researchQuestions: MvpWorkflowState['researchQuestions'];
   sources: MvpWorkflowState['sources'];
@@ -62,8 +138,8 @@ export interface ApprovedProductionChain {
 
 /**
  * Select only approved/locked records that are connected all the way back to
- * approved upstream provenance. This prevents an approved-but-orphaned record
- * from satisfying coverage after an upstream record was rejected or replaced.
+ * approved upstream provenance. Waivers do not erase approved history; they
+ * only change which coverage gaps are required for progression.
  */
 export function selectApprovedProductionChain(
   state: MvpWorkflowState
@@ -137,72 +213,84 @@ function relevantForParentIds<T>(
 }
 
 /**
- * Returns true only when the complete active workflow has approved,
- * provenance-connected coverage and no unresolved human-review records on the
- * active chain. Rejected historical records are terminal and remain persisted.
+ * Returns true only when the active workflow has approved provenance-connected
+ * coverage or an explicit human waiver for every required branch, and no
+ * unresolved human-review records remain on those active branches.
  */
 export function isProductionWorkflowReady(state: MvpWorkflowState): boolean {
   if (!isApprovedRecord(state.filmBrief)) return false;
   if (!reviewedSetReady(state.researchQuestions)) return false;
 
-  const approvedQuestions = approvedOnly(state.researchQuestions);
-  const questionIds = new Set(approvedQuestions.map((record) => record.id));
-
+  const sourceQuestions = requiredResearchQuestionsForStage(state, 'RESEARCH');
+  const sourceQuestionIds = new Set(sourceQuestions.map((record) => record.id));
   const relevantSources = relevantForParentIds(
     state.sources,
-    questionIds,
+    sourceQuestionIds,
     (record) => record.researchQuestionId
   );
   if (hasPendingReview(relevantSources)) return false;
 
-  const approvedSources = approvedOnly(relevantSources);
-  const sourceIds = new Set(approvedSources.map((record) => record.id));
-  const relevantEvidence = relevantForParentIds(state.evidence, sourceIds, (record) => record.sourceId);
+  const evidenceQuestions = requiredResearchQuestionsForStage(state, 'EVIDENCE');
+  const evidenceQuestionIds = new Set(evidenceQuestions.map((record) => record.id));
+  const approvedSources = approvedOnly(state.sources).filter((record) =>
+    evidenceQuestionIds.has(record.researchQuestionId)
+  );
+  const approvedSourceIds = new Set(approvedSources.map((record) => record.id));
+  const relevantEvidence = state.evidence.filter(
+    (record) =>
+      evidenceQuestionIds.has(record.researchQuestionId) && approvedSourceIds.has(record.sourceId)
+  );
   if (hasPendingReview(relevantEvidence)) return false;
 
+  const claimQuestions = requiredResearchQuestionsForStage(state, 'CLAIMS');
+  const claimQuestionIds = new Set(claimQuestions.map((record) => record.id));
   const relevantClaims = relevantForParentIds(
     state.claims,
-    questionIds,
+    claimQuestionIds,
     (record) => record.researchQuestionId
   );
   if (hasPendingReview(relevantClaims)) return false;
 
+  const scriptQuestions = requiredResearchQuestionsForStage(state, 'SCRIPT');
+  const scriptQuestionIds = new Set(scriptQuestions.map((record) => record.id));
   const relevantScriptLines = relevantForParentIds(
     state.scriptLines,
-    questionIds,
+    scriptQuestionIds,
     (record) => record.researchQuestionId
   );
   if (hasPendingReview(relevantScriptLines)) return false;
 
+  const sceneQuestions = requiredResearchQuestionsForStage(state, 'SCENES');
+  const sceneQuestionIds = new Set(sceneQuestions.map((record) => record.id));
   const relevantScenes = relevantForParentIds(
     state.scenes,
-    questionIds,
+    sceneQuestionIds,
     (record) => record.researchQuestionId
   );
   if (hasPendingReview(relevantScenes)) return false;
 
-  const approvedScenes = approvedOnly(relevantScenes);
-  const sceneIds = new Set(approvedScenes.map((record) => record.id));
-  const relevantShots = relevantForParentIds(state.shots, sceneIds, (record) => record.sceneId);
+  const requiredScenes = requiredScenesForShots(state);
+  const requiredSceneIds = new Set(requiredScenes.map((record) => record.id));
+  const relevantShots = relevantForParentIds(state.shots, requiredSceneIds, (record) => record.sceneId);
   if (hasPendingReview(relevantShots)) return false;
 
-  const approvedShots = approvedOnly(relevantShots);
-  const shotIds = new Set(approvedShots.map((record) => record.id));
+  const requiredShots = requiredShotsForVisualDecisions(state);
+  const requiredShotIds = new Set(requiredShots.map((record) => record.id));
   const relevantVisualDecisions = relevantForParentIds(
     state.visualDecisions,
-    shotIds,
+    requiredShotIds,
     (record) => record.shotId
   );
   if (hasPendingReview(relevantVisualDecisions)) return false;
 
   const chain = selectApprovedProductionChain(state);
-  if (missingApprovedCoverage(chain.researchQuestions, chain.sources, (record) => record.researchQuestionId).length > 0) return false;
-  if (missingApprovedCoverage(chain.researchQuestions, chain.evidence, (record) => record.researchQuestionId).length > 0) return false;
-  if (missingApprovedCoverage(chain.researchQuestions, chain.claims, (record) => record.researchQuestionId).length > 0) return false;
-  if (missingApprovedCoverage(chain.researchQuestions, chain.scriptLines, (record) => record.researchQuestionId).length > 0) return false;
-  if (missingApprovedCoverage(chain.researchQuestions, chain.scenes, (record) => record.researchQuestionId).length > 0) return false;
-  if (missingApprovedCoverage(chain.scenes, chain.shots, (record) => record.sceneId).length > 0) return false;
-  if (missingApprovedCoverage(chain.shots, chain.visualDecisions, (record) => record.shotId).length > 0) return false;
+  if (missingApprovedCoverage(sourceQuestions, chain.sources, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(evidenceQuestions, chain.evidence, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(claimQuestions, chain.claims, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(scriptQuestions, chain.scriptLines, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(sceneQuestions, chain.scenes, (record) => record.researchQuestionId).length > 0) return false;
+  if (missingApprovedCoverage(requiredScenes, chain.shots, (record) => record.sceneId).length > 0) return false;
+  if (missingApprovedCoverage(requiredShots, chain.visualDecisions, (record) => record.shotId).length > 0) return false;
 
   return true;
 }

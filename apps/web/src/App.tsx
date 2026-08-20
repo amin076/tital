@@ -9,22 +9,29 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   List,
   ListItemButton,
   ListItemText,
   Paper,
   Stack,
+  TextField,
   Toolbar,
   Typography,
   type ChipProps,
 } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ApiError,
   continueSession,
   getSession,
   listSessions,
   reviewSession,
+  type ReviewCoverageGroup,
   type SessionSummary,
   type SessionView,
 } from './api';
@@ -303,6 +310,19 @@ function ReviewGatePanel({
   );
 }
 
+function gapImpactText(group: ReviewCoverageGroup): string {
+  if (group.targetType === 'SCENE') {
+    return 'This approved scene would have no approved shot, so it would contribute no downstream shot or visual decision.';
+  }
+  if (group.targetType === 'SHOT') {
+    return 'This approved shot would have no approved visual decision.';
+  }
+  if (group.targetType === 'WORKFLOW') {
+    return 'The project would have no approved research question and cannot continue.';
+  }
+  return 'This approved research-question branch would have no approved result at this stage, so downstream film content for this branch can be intentionally omitted only with an explicit waiver.';
+}
+
 export function App() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -312,6 +332,8 @@ export function App() {
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gapDialog, setGapDialog] = useState<ReviewCoverageGroup[] | null>(null);
+  const [waiverReason, setWaiverReason] = useState('');
 
   const refreshSessions = useCallback(async () => {
     const next = await listSessions();
@@ -369,7 +391,20 @@ export function App() {
     });
   }
 
-  async function runReview(decision: 'APPROVE' | 'REJECT'): Promise<void> {
+  function rejectionGaps(): ReviewCoverageGroup[] {
+    if (!view?.gate) return [];
+    return view.gate.coverageGroups.filter(
+      (group) =>
+        group.approvedRecordCount === 0 &&
+        group.pendingRecordIds.length > 0 &&
+        group.pendingRecordIds.every((id) => selectedRecordIds.has(id))
+    );
+  }
+
+  async function submitReview(
+    decision: 'APPROVE' | 'REJECT',
+    options: { gapResolution?: 'RETRY' | 'WAIVE'; reason?: string } = {}
+  ): Promise<void> {
     if (!selectedId || selectedCount === 0) return;
     setBusy(true);
     setError(null);
@@ -377,16 +412,38 @@ export function App() {
       const nextView = await reviewSession(
         selectedId,
         decision,
-        Array.from(selectedRecordIds)
+        Array.from(selectedRecordIds),
+        options
       );
       setView(nextView);
       setSelectedRecordIds(new Set());
+      setGapDialog(null);
+      setWaiverReason('');
       await refreshSessions();
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      if (
+        cause instanceof ApiError &&
+        cause.code === 'GAP_RESOLUTION_REQUIRED' &&
+        cause.gaps?.length
+      ) {
+        setGapDialog(cause.gaps);
+      } else {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
     } finally {
       setBusy(false);
     }
+  }
+
+  function runReview(decision: 'APPROVE' | 'REJECT'): void {
+    if (decision === 'REJECT') {
+      const gaps = rejectionGaps();
+      if (gaps.length > 0) {
+        setGapDialog(gaps);
+        return;
+      }
+    }
+    void submitReview(decision);
   }
 
   async function runContinue(): Promise<void> {
@@ -425,6 +482,9 @@ export function App() {
     await refreshSessions();
   }
 
+  const canRetryGap = Boolean(gapDialog?.every((group) => group.canRetry));
+  const canWaiveGap = Boolean(gapDialog?.every((group) => group.canWaive));
+
   return (
     <>
       <AppBar position="static" elevation={0}>
@@ -440,6 +500,74 @@ export function App() {
           </Button>
         </Toolbar>
       </AppBar>
+
+      <Dialog
+        open={Boolean(gapDialog)}
+        onClose={() => !busy && setGapDialog(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Rejecting this would create a coverage gap</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Tital will not silently regenerate content after a human rejection. Choose whether you want a replacement candidate or intentionally continue without this branch.
+          </Alert>
+          <Stack spacing={1.5}>
+            {gapDialog?.map((group) => (
+              <Card key={`${group.targetType}-${group.targetId}`} variant="outlined">
+                <CardContent sx={{ '&:last-child': { pb: 2 } }}>
+                  <Typography variant="subtitle2">{group.targetLabel}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {gapImpactText(group)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+          {canWaiveGap && (
+            <TextField
+              fullWidth
+              multiline
+              minRows={2}
+              label="Reason for intentional omission (optional)"
+              value={waiverReason}
+              onChange={(event) => setWaiverReason(event.target.value)}
+              sx={{ mt: 2 }}
+              helperText="This reason is stored in governance history and included with the production package."
+            />
+          )}
+          {!canWaiveGap && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              This gap cannot be waived because Tital requires at least one approved research question for the project.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, flexWrap: 'wrap' }}>
+          <Button disabled={busy} onClick={() => setGapDialog(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={busy || !canRetryGap}
+            onClick={() => void submitReview('REJECT', { gapResolution: 'RETRY' })}
+          >
+            Reject & try another
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            disabled={busy || !canWaiveGap}
+            onClick={() =>
+              void submitReview('REJECT', {
+                gapResolution: 'WAIVE',
+                reason: waiverReason.trim() || undefined,
+              })
+            }
+          >
+            Reject & continue with gap
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
         {error && (
@@ -541,6 +669,12 @@ export function App() {
                         />
                       ))}
                     </Stack>
+                  )}
+
+                  {view.coverageWaivers.length > 0 && (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      {view.coverageWaivers.length} intentional coverage gap{view.coverageWaivers.length === 1 ? '' : 's'} accepted by human review. These remain in governance history and the production package.
+                    </Alert>
                   )}
                 </Paper>
 

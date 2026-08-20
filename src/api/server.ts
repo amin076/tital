@@ -6,7 +6,10 @@ import type { MvpSessionStore } from '../persistence/mvpSessionStore.js';
 import { advanceMvpSession } from '../services/advanceMvpSession.js';
 import { createMvpSession } from '../services/createMvpSession.js';
 import { getMvpSessionView } from '../services/getMvpSessionView.js';
-import { reviewMvpSession } from '../services/reviewMvpSession.js';
+import {
+  GapResolutionRequiredError,
+  resolveMvpReview,
+} from '../services/resolveMvpReview.js';
 import { summarizeMvpSession } from '../services/summarizeMvpSession.js';
 import {
   authenticateRequest,
@@ -19,6 +22,8 @@ import { tryServeBuiltWebApp } from './staticWeb.js';
 const ReviewRequestSchema = z.object({
   decision: z.enum(['APPROVE', 'REJECT']),
   recordIds: z.array(z.string().min(1)).optional(),
+  gapResolution: z.enum(['RETRY', 'WAIVE']).optional(),
+  reason: z.string().trim().max(1000).optional(),
 });
 
 const config = resolveTitalServerConfig();
@@ -184,10 +189,20 @@ async function handleRequest(
 
     let reviewed;
     try {
-      reviewed = reviewMvpSession(session, body.decision, {
+      reviewed = await resolveMvpReview(session, body.decision, {
         recordIds: body.recordIds,
+        gapResolution: body.gapResolution,
+        reason: body.reason,
       });
     } catch (error: unknown) {
+      if (error instanceof GapResolutionRequiredError) {
+        sendJson(response, 409, {
+          error: error.message,
+          code: 'GAP_RESOLUTION_REQUIRED',
+          gaps: error.groups,
+        });
+        return;
+      }
       throw new HttpError(
         400,
         error instanceof Error ? error.message : String(error)

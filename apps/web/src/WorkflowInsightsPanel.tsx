@@ -84,11 +84,10 @@ export function WorkflowInsightsPanel({
       )}
 
       <Typography variant="subtitle1" sx={{ mt: 2.5, fontWeight: 700 }}>
-        Approved-chain coverage
+        Governed coverage
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-        A stage advances when every approved parent record has at least one approved,
-        provenance-connected child record.
+        A required branch advances with approved, provenance-connected coverage. A human may also explicitly waive a branch after rejecting its candidates; waived gaps stay visible in governance history instead of being silently regenerated.
       </Typography>
 
       <Box
@@ -116,7 +115,7 @@ export function WorkflowInsightsPanel({
                     <Typography variant="caption" color="text.secondary">
                       {coverage.total === 0
                         ? 'Not active yet'
-                        : `${coverage.covered} of ${coverage.total} ${coverage.parentLabel} covered`}
+                        : `${coverage.covered} of ${coverage.total} ${coverage.parentLabel} resolved`}
                     </Typography>
                   </Box>
                   {coverage.total > 0 && (
@@ -135,6 +134,19 @@ export function WorkflowInsightsPanel({
                   color={coverage.complete ? 'success' : 'primary'}
                   sx={{ mt: 1.25, height: 7, borderRadius: 8 }}
                 />
+
+                {coverage.waived > 0 && (
+                  <Box sx={{ mt: 1.25 }}>
+                    <Typography variant="caption" color="info.main">
+                      Intentionally waived: {coverage.waived}
+                    </Typography>
+                    <Stack direction="row" spacing={0.5} useFlexGap sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+                      {coverage.waivedParentIds.slice(0, 6).map((id) => (
+                        <Chip key={id} size="small" label={id} color="info" variant="outlined" />
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
 
                 {coverage.missingParentIds.length > 0 && (
                   <Box sx={{ mt: 1.25 }}>

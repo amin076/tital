@@ -9,6 +9,7 @@ import { SceneRecordSchema } from './sceneRecord.js';
 import { ShotRecordSchema } from './shotRecord.js';
 import { VisualDecisionRecordSchema } from './visualDecisionRecord.js';
 import { ScientificAuditReportSchema } from './scientificAudit.js';
+import { CoverageWaiverSchema } from './coverageWaiver.js';
 
 export const MvpWorkflowStageSchema = z.enum([
   'DEFINE',
@@ -34,6 +35,7 @@ export const MvpWorkflowStateSchema = z.object({
   scenes: z.array(SceneRecordSchema),
   shots: z.array(ShotRecordSchema),
   visualDecisions: z.array(VisualDecisionRecordSchema),
+  coverageWaivers: z.array(CoverageWaiverSchema).optional(),
   audit: ScientificAuditReportSchema.nullable(),
 });
 

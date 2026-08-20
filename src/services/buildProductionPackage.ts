@@ -7,6 +7,7 @@ import { ScriptLineRecordSchema, type ScriptLineRecord } from '../domain/scriptL
 import { SceneRecordSchema, type SceneRecord } from '../domain/sceneRecord.js';
 import { ShotRecordSchema, type ShotRecord } from '../domain/shotRecord.js';
 import { VisualDecisionRecordSchema, type VisualDecisionRecord } from '../domain/visualDecisionRecord.js';
+import { CoverageWaiverSchema, type CoverageWaiver } from '../domain/coverageWaiver.js';
 import { ProductionPackageSchema, type ProductionPackage } from '../domain/productionPackage.js';
 import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
 import { runScientificAudit } from './runScientificAudit.js';
@@ -25,6 +26,7 @@ export interface ProductionPackageInput {
   scenes: SceneRecord[];
   shots: ShotRecord[];
   visualDecisions: VisualDecisionRecord[];
+  coverageWaivers?: CoverageWaiver[];
 }
 
 export function buildProductionPackage(
@@ -40,9 +42,11 @@ export function buildProductionPackage(
   input.scenes.forEach((record) => SceneRecordSchema.parse(record));
   input.shots.forEach((record) => ShotRecordSchema.parse(record));
   input.visualDecisions.forEach((record) => VisualDecisionRecordSchema.parse(record));
+  (input.coverageWaivers ?? []).forEach((record) => CoverageWaiverSchema.parse(record));
 
   const workflowState: MvpWorkflowState = {
     ...input,
+    coverageWaivers: input.coverageWaivers ?? [],
     audit: null,
   };
   const chain = selectApprovedProductionChain(workflowState);
@@ -53,6 +57,7 @@ export function buildProductionPackage(
   return ProductionPackageSchema.parse({
     filmBrief: input.filmBrief,
     ...chain,
+    coverageWaivers: input.coverageWaivers ?? [],
     audit,
     generatedAt: (options.now ?? (() => new Date().toISOString()))(),
     status: audit.passed && workflowReady ? 'READY_FOR_PRODUCTION' : 'BLOCKED',
