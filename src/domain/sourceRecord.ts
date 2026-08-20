@@ -10,7 +10,7 @@ export const SourceRecordSchema = z.object({
   publishDate: z.string().nullable(),
   excerpts: z.array(z.string().min(1, 'Source excerpts must be non-empty strings')),
   retrievedAt: z.string().min(1, 'Retrieved-at timestamp must be a non-empty string'),
-  status: z.enum(['DISCOVERED', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED']),
+  status: z.enum(['DISCOVERED', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'STALE']),
 });
 
 export type SourceRecord = z.infer<typeof SourceRecordSchema>;
