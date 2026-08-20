@@ -21,7 +21,7 @@ function continueActionFor(session: MvpSession) {
     return {
       enabled: false,
       mode: 'BLOCKED_BY_REVIEW' as const,
-      message: 'Complete the current human-review gate before continuing.',
+      message: 'Complete the current human-review gate. If rejection would create a coverage gap, explicitly choose replacement retry or intentional omission.',
     };
   }
 
@@ -61,7 +61,7 @@ function continueActionFor(session: MvpSession) {
     enabled: true,
     mode: 'LIVE_RUNTIME' as const,
     message:
-      'Run the next governed automated stage. This may use Gemini / Vertex AI and Parallel MCP.',
+      'Run the next governed automated stage. Automatic generation is first-attempt only; rejected content is never silently regenerated.',
   };
 }
 
@@ -76,6 +76,7 @@ export function getMvpSessionView(session: MvpSession) {
     continueAction: continueActionFor(validated),
     workflowInsights: getMvpWorkflowInsights(validated.state),
     approvedChain: selectApprovedProductionChain(validated.state),
+    coverageWaivers: validated.state.coverageWaivers ?? [],
     audit: validated.state.audit,
     productionPackage: validated.productionPackage,
     recentEvents: validated.events.slice(-20).reverse(),
