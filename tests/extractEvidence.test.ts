@@ -51,6 +51,18 @@ describe('Source → Evidence governed extraction', () => {
     expect(parseEvidenceProposalList(JSON.stringify(proposals))).toEqual(proposals);
   });
 
+  it('normalizes a valid bare evidence array returned by the model', () => {
+    expect(parseEvidenceProposalList(JSON.stringify(proposals.evidence))).toEqual(proposals);
+  });
+
+  it('still rejects malformed items inside a bare evidence array', () => {
+    expect(() =>
+      parseEvidenceProposalList(
+        JSON.stringify([{ ...proposals.evidence[0], strength: 'VERY_HIGH' }])
+      )
+    ).toThrow('Evidence proposal validation failed');
+  });
+
   it('rejects malformed evidence JSON', () => {
     expect(() => parseEvidenceProposalList('{bad-json')).toThrow('malformed JSON');
   });
