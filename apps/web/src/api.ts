@@ -1,5 +1,18 @@
 import { getIdToken, loadPublicRuntimeConfig, type PublicRuntimeConfig } from './auth';
 
+export interface DirectorBriefInput {
+  collaborationMode: 'AI_ASSISTED' | 'COLLABORATIVE' | 'DIRECTOR_LED';
+  pacing: 'CONTEMPLATIVE' | 'BALANCED' | 'ENERGETIC';
+  cameraMovement: 'RESTRAINED' | 'BALANCED' | 'EXPRESSIVE';
+  representationPreference:
+    | 'REAL_IMAGERY_FIRST'
+    | 'BALANCED'
+    | 'EXPLANATORY_VISUALS_FIRST';
+  visualStyle?: string;
+  notes?: string;
+  avoid: string[];
+}
+
 export interface CreateSessionInput {
   rawIdea: string;
   title?: string;
@@ -8,6 +21,7 @@ export interface CreateSessionInput {
   audienceKnowledgeLevel?: string;
   format?: string;
   tone?: string;
+  directorBrief?: DirectorBriefInput;
 }
 
 export interface SessionSummary {
@@ -68,12 +82,24 @@ export interface ContinueAction {
   message: string;
 }
 
+export interface SessionPerformanceOperation {
+  name: string;
+  targetId: string | null;
+  durationMs: number;
+  success: boolean;
+}
+
 export interface SessionEvent {
   id: string;
   type: string;
   at: string;
   stage: string;
   message: string;
+  performance?: {
+    durationMs: number;
+    externalCallCount: number;
+    operations: SessionPerformanceOperation[];
+  };
 }
 
 export interface WorkflowStepInsight {
