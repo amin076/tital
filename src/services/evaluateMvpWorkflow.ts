@@ -41,9 +41,9 @@ export function evaluateMvpWorkflow(state: MvpWorkflowState): MvpWorkflowEvaluat
   const relevantEvidence = validated.evidence.filter((record) => sourceIds.has(record.sourceId));
   if (
     hasPendingReview(relevantEvidence) ||
-    missingApprovedCoverage(chain.sources, chain.evidence, (record) => record.sourceId).length > 0
+    missingApprovedCoverage(chain.researchQuestions, chain.evidence, (record) => record.researchQuestionId).length > 0
   ) {
-    return { stage: 'EVIDENCE', nextAction: 'Extract evidence from approved sources and complete human evidence review.', blockedBy: ['EVIDENCE_INCOMPLETE'] };
+    return { stage: 'EVIDENCE', nextAction: 'Extract evidence from approved sources and complete human evidence review for each approved research question.', blockedBy: ['EVIDENCE_INCOMPLETE'] };
   }
 
   const relevantClaims = validated.claims.filter((record) => researchQuestionIds.has(record.researchQuestionId));
