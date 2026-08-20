@@ -24,7 +24,7 @@ export const ShotRecordSchema = z.object({
   scientificConstraint: z.string().min(1, 'Scientific constraint must be a non-empty string'),
   uncertaintyDisclosure: z.string().min(1).nullable(),
   decisionProvenance: CinematicDecisionProvenanceSchema.optional(),
-  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'LOCKED']),
+  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'LOCKED', 'STALE']),
 });
 
 export type ShotRecord = z.infer<typeof ShotRecordSchema>;
