@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { z } from 'zod';
+import { FilmProjectInputSchema } from '../domain/filmProjectInput.js';
 import { createMvpSessionStore } from '../persistence/createMvpSessionStore.js';
 import type { MvpSessionStore } from '../persistence/mvpSessionStore.js';
 import { advanceMvpSession } from '../services/advanceMvpSession.js';
@@ -14,10 +15,6 @@ import {
 } from './auth.js';
 import { resolveTitalServerConfig } from './runtimeConfig.js';
 import { tryServeBuiltWebApp } from './staticWeb.js';
-
-const CreateSessionRequestSchema = z.object({
-  rawIdea: z.string().trim().min(1).max(5000),
-});
 
 const ReviewRequestSchema = z.object({
   decision: z.enum(['APPROVE', 'REJECT']),
@@ -172,8 +169,8 @@ async function handleRequest(
   }
 
   if (request.method === 'POST' && url.pathname === '/api/sessions') {
-    const body = CreateSessionRequestSchema.parse(await readJson(request));
-    const session = await createMvpSession(body.rawIdea);
+    const projectInput = FilmProjectInputSchema.parse(await readJson(request));
+    const session = await createMvpSession(projectInput);
     await store.save(session);
     sendJson(response, 201, getMvpSessionView(session));
     return;

@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { FilmBrief } from '../domain/filmBrief.js';
+import {
+  normalizeFilmProjectInput,
+  type FilmProjectInput,
+} from '../domain/filmProjectInput.js';
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
 import { defineFilm } from './defineFilm.js';
 
@@ -11,22 +15,24 @@ export interface CreateMvpSessionOptions {
 }
 
 export async function createMvpSession(
-  rawIdea: string,
+  input: string | FilmProjectInput,
   options: CreateMvpSessionOptions = {}
 ): Promise<MvpSession> {
-  if (!rawIdea || rawIdea.trim() === '') {
-    throw new Error('A non-empty film idea is required to start a Tital MVP session.');
-  }
+  const projectInput = normalizeFilmProjectInput(input);
+  const rawIdea = projectInput.rawIdea;
 
-  const define = options.defineFilmCaller ?? defineFilm;
-  const filmBrief = await define(rawIdea.trim());
+  const filmBrief = options.defineFilmCaller
+    ? await options.defineFilmCaller(rawIdea)
+    : await defineFilm(projectInput);
+
   const now = (options.now ?? (() => new Date().toISOString()))();
   const id = (options.sessionIdFactory ?? (() => `SES-${randomUUID()}`))();
   const eventId = (options.eventIdFactory ?? (() => `EVT-${randomUUID()}`))();
 
   return MvpSessionSchema.parse({
     id,
-    rawIdea: rawIdea.trim(),
+    rawIdea,
+    projectInput,
     createdAt: now,
     updatedAt: now,
     state: {
