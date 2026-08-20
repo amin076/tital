@@ -1,5 +1,15 @@
 import { getIdToken, loadPublicRuntimeConfig, type PublicRuntimeConfig } from './auth';
 
+export interface CreateSessionInput {
+  rawIdea: string;
+  title?: string;
+  durationMinutes?: number;
+  targetAudience?: string;
+  audienceKnowledgeLevel?: string;
+  format?: string;
+  tone?: string;
+}
+
 export interface SessionSummary {
   sessionId: string;
   title: string;
@@ -110,6 +120,7 @@ export interface ProductionPackage {
 export interface SessionView {
   summary: SessionSummary;
   rawIdea: string;
+  projectInput: CreateSessionInput;
   gate: ReviewGate | null;
   continueAction: ContinueAction;
   workflowInsights: WorkflowInsights;
@@ -155,10 +166,11 @@ export function listSessions(): Promise<SessionSummary[]> {
   return request<SessionSummary[]>('/api/sessions');
 }
 
-export function createSession(rawIdea: string): Promise<SessionView> {
+export function createSession(input: string | CreateSessionInput): Promise<SessionView> {
+  const projectInput = typeof input === 'string' ? { rawIdea: input } : input;
   return request<SessionView>('/api/sessions', {
     method: 'POST',
-    body: JSON.stringify({ rawIdea }),
+    body: JSON.stringify(projectInput),
   });
 }
 
