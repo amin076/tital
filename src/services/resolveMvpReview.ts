@@ -95,12 +95,17 @@ export async function resolveMvpReview(
   if (decision !== 'REJECT' || gaps.length === 0) return reviewed;
 
   if (options.gapResolution === 'RETRY') {
+    const scopedInstruction = options.reason?.trim() || undefined;
     const retriedState = await retryMvpCoverage(
       reviewed.state,
       gate.recordType,
       gaps,
       recordIds,
-      options.runtimeServices
+      options.runtimeServices,
+      {
+        directorBrief: validated.projectInput?.directorBrief,
+        scopedInstruction,
+      }
     );
     reviewed = MvpSessionSchema.parse({
       ...reviewed,
@@ -112,7 +117,7 @@ export async function resolveMvpReview(
       reviewed,
       'RETRY_REQUESTED',
       gate.stage,
-      `Human rejected ${recordIds.length} ${gate.recordType} candidate(s) and explicitly requested replacement candidates for ${gaps.length} uncovered target(s).`,
+      `Human rejected ${recordIds.length} ${gate.recordType} candidate(s) and explicitly requested replacement candidates for ${gaps.length} uncovered target(s).${scopedInstruction ? ' A scoped director instruction was supplied for the replacement.' : ''}`,
       now,
       eventIdFactory()
     );
