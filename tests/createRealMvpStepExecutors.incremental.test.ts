@@ -63,4 +63,82 @@ describe('incremental real MVP executors', () => {
     expect(result.map((record) => record.id)).toEqual(['SRC-1', 'SRC-old', 'SRC-new']);
     expect(result.find((record) => record.id === 'SRC-old')?.status).toBe('REJECTED');
   });
+
+  it('extracts evidence only for approved sources that have never been attempted', async () => {
+    const workflow = state();
+    const called: string[] = [];
+    const executors = createRealMvpStepExecutors(services({
+      extractEvidence: async (source) => {
+        called.push(source.id);
+        return [{
+          id: 'EV-new',
+          sourceId: source.id,
+          researchQuestionId: source.researchQuestionId,
+          excerpt: 'Excerpt',
+          interpretation: 'Interpretation',
+          strength: 'HIGH',
+          uncertainty: null,
+          status: 'REVIEW_REQUIRED',
+        }];
+      },
+    }));
+
+    const result = await executors.extractEvidence(workflow);
+
+    expect(called).toEqual(['SRC-1']);
+    expect(result.map((record) => record.id)).toEqual(['EV-new']);
+  });
+
+  it('does not regenerate evidence after a human rejected the prior extraction', async () => {
+    const workflow = state();
+    workflow.evidence = [{
+      id: 'EV-rejected',
+      sourceId: 'SRC-1',
+      researchQuestionId: 'RQ-1',
+      excerpt: 'Previously extracted excerpt',
+      interpretation: 'Rejected interpretation',
+      strength: 'MEDIUM',
+      uncertainty: 'Human rejected this evidence.',
+      status: 'REJECTED',
+    }];
+    const called: string[] = [];
+    const executors = createRealMvpStepExecutors(services({
+      extractEvidence: async (source) => {
+        called.push(source.id);
+        return [];
+      },
+    }));
+
+    const result = await executors.extractEvidence(workflow);
+
+    expect(called).toEqual([]);
+    expect(result).toEqual(workflow.evidence);
+    expect(result[0]?.status).toBe('REJECTED');
+  });
+
+  it('does not start another extraction while evidence from that source is still pending review', async () => {
+    const workflow = state();
+    workflow.evidence = [{
+      id: 'EV-pending',
+      sourceId: 'SRC-1',
+      researchQuestionId: 'RQ-1',
+      excerpt: 'Pending excerpt',
+      interpretation: 'Pending interpretation',
+      strength: 'HIGH',
+      uncertainty: null,
+      status: 'REVIEW_REQUIRED',
+    }];
+    const called: string[] = [];
+    const executors = createRealMvpStepExecutors(services({
+      extractEvidence: async (source) => {
+        called.push(source.id);
+        return [];
+      },
+    }));
+
+    const result = await executors.extractEvidence(workflow);
+
+    expect(called).toEqual([]);
+    expect(result).toEqual(workflow.evidence);
+  });
 });

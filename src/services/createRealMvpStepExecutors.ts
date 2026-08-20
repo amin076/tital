@@ -46,7 +46,7 @@ function questionFor(
     (candidate) => candidate.id === researchQuestionId
   );
   if (!question) {
-    throw new Error(`Missing approved ResearchQuestion for provenance id "${researchQuestionId}".`);
+    throw new Error(`Missing approved ResearchQuestion for provenance id \"${researchQuestionId}\".`);
   }
   return question;
 }
@@ -76,13 +76,12 @@ export function createRealMvpStepExecutors(
 
     extractEvidence: async (state) => {
       const chain = selectApprovedProductionChain(state);
-      const missingSources = missingApprovedCoverage(
-        chain.sources,
-        chain.evidence,
-        (record) => record.sourceId
+      const attemptedSourceIds = new Set(state.evidence.map((record) => record.sourceId));
+      const sourcesNeedingFirstExtraction = chain.sources.filter(
+        (source) => !attemptedSourceIds.has(source.id)
       );
       const records: MvpWorkflowState['evidence'] = [];
-      for (const source of missingSources) {
+      for (const source of sourcesNeedingFirstExtraction) {
         records.push(...(await services.extractEvidence(source, questionFor(state, source.researchQuestionId))));
       }
       return [...state.evidence, ...records];
