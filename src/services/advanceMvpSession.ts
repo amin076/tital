@@ -22,6 +22,7 @@ function packageFor(session: MvpSession) {
     scenes: session.state.scenes,
     shots: session.state.shots,
     visualDecisions: session.state.visualDecisions,
+    coverageWaivers: session.state.coverageWaivers ?? [],
   });
 }
 
