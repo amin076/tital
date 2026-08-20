@@ -13,8 +13,14 @@ export function isRejectedRecord(record: StatusRecord): boolean {
   return record.status === 'REJECTED';
 }
 
+export function isStaleRecord(record: StatusRecord): boolean {
+  return record.status === 'STALE';
+}
+
 export function isPendingReviewRecord(record: StatusRecord): boolean {
-  return !isApprovedRecord(record) && !isRejectedRecord(record);
+  return record.status === 'DRAFT' ||
+    record.status === 'DISCOVERED' ||
+    record.status === 'REVIEW_REQUIRED';
 }
 
 export function approvedOnly<T extends StatusRecord>(records: readonly T[]): T[] {
@@ -29,6 +35,8 @@ export function hasPendingReview<T extends StatusRecord>(records: readonly T[]):
  * A review set is complete when every generated record has reached a terminal
  * human decision and at least one record remains approved/locked for the active
  * workflow. Rejected records stay in history without blocking progression.
+ * Stale records are intentionally not terminal review decisions: they force the
+ * workflow to recover fresh coverage rather than being re-approved in place.
  */
 export function reviewedSetReady<T extends StatusRecord>(records: readonly T[]): boolean {
   return approvedOnly(records).length > 0 && records.every(

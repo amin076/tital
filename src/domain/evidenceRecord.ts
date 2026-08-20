@@ -9,7 +9,7 @@ export const EvidenceRecordSchema = z.object({
   interpretation: z.string().min(1, 'Evidence interpretation must be a non-empty string'),
   strength: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   uncertainty: EvidenceUncertaintySchema,
-  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED']),
+  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'STALE']),
 });
 
 export type EvidenceRecord = z.infer<typeof EvidenceRecordSchema>;

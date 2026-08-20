@@ -7,7 +7,7 @@ export const ClaimRecordSchema = z.object({
   text: z.string().min(1, 'Claim text must be a non-empty string'),
   confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   uncertainty: z.string().min(1).nullable(),
-  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED']),
+  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'STALE']),
 });
 
 export type ClaimRecord = z.infer<typeof ClaimRecordSchema>;

@@ -6,7 +6,7 @@ export const ResearchQuestionSchema = z.object({
   question: z.string().min(1, "Question must be a non-empty string"),
   purpose: z.string().min(1, "Purpose must be a non-empty string"),
   priority: z.enum(["HIGH", "MEDIUM", "LOW"]),
-  status: z.enum(["REVIEW_REQUIRED", "APPROVED", "REJECTED"]),
+  status: z.enum(["REVIEW_REQUIRED", "APPROVED", "REJECTED", "STALE"]),
 });
 
 export type ResearchQuestion = z.infer<typeof ResearchQuestionSchema>;

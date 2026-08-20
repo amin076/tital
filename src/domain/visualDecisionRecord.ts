@@ -12,7 +12,7 @@ export const VisualDecisionRecordSchema = z.object({
   disclosure: z.string().min(1).nullable(),
   riskLevel: z.enum(['LOW', 'MEDIUM', 'HIGH']),
   decisionProvenance: CinematicDecisionProvenanceSchema.optional(),
-  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'LOCKED']),
+  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'LOCKED', 'STALE']),
 });
 
 export type VisualDecisionRecord = z.infer<typeof VisualDecisionRecordSchema>;
