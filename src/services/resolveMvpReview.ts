@@ -24,6 +24,16 @@ export class GapResolutionRequiredError extends Error {
   }
 }
 
+function groupsTouchedBySelection(
+  groups: readonly MvpReviewCoverageGroup[],
+  recordIds: readonly string[]
+): MvpReviewCoverageGroup[] {
+  const selected = new Set(recordIds);
+  return groups.filter((group) =>
+    group.pendingRecordIds.some((id) => selected.has(id))
+  );
+}
+
 function gapsClosedByRejection(
   groups: readonly MvpReviewCoverageGroup[],
   recordIds: readonly string[]
@@ -66,6 +76,9 @@ export async function resolveMvpReview(
   if (!gate) throw new Error('No human-review gate is currently active.');
 
   const recordIds = options.recordIds ?? gate.records.map((record) => record.id);
+  const selectedGroups = decision === 'REJECT'
+    ? groupsTouchedBySelection(gate.coverageGroups, recordIds)
+    : [];
   const gaps = decision === 'REJECT'
     ? gapsClosedByRejection(gate.coverageGroups, recordIds)
     : [];
@@ -74,11 +87,22 @@ export async function resolveMvpReview(
     throw new GapResolutionRequiredError(gaps);
   }
 
-  if (
-    options.gapResolution === 'WAIVE' &&
-    gaps.some((group) => !group.canWaive)
-  ) {
-    throw new Error('This review gate cannot be waived because the workflow requires at least one approved research question.');
+  if (options.gapResolution === 'RETRY') {
+    if (decision !== 'REJECT') {
+      throw new Error('Replacement retry is only valid for rejected review candidates.');
+    }
+    if (selectedGroups.length === 0 || selectedGroups.some((group) => !group.canRetry)) {
+      throw new Error('The selected review candidates do not support replacement retry.');
+    }
+  }
+
+  if (options.gapResolution === 'WAIVE') {
+    if (decision !== 'REJECT' || gaps.length === 0) {
+      throw new Error('A coverage waiver is only valid when rejection creates a workflow coverage gap.');
+    }
+    if (gaps.some((group) => !group.canWaive)) {
+      throw new Error('This review gate cannot be waived because the workflow requires at least one approved research question.');
+    }
   }
 
   const nowFactory = options.now ?? (() => new Date().toISOString());
@@ -92,14 +116,15 @@ export async function resolveMvpReview(
     eventIdFactory,
   });
 
-  if (decision !== 'REJECT' || gaps.length === 0) return reviewed;
+  if (decision !== 'REJECT') return reviewed;
 
   if (options.gapResolution === 'RETRY') {
     const scopedInstruction = options.reason?.trim() || undefined;
+    const retryGroups = selectedGroups;
     const retriedState = await retryMvpCoverage(
       reviewed.state,
       gate.recordType,
-      gaps,
+      retryGroups,
       recordIds,
       options.runtimeServices,
       {
@@ -117,11 +142,13 @@ export async function resolveMvpReview(
       reviewed,
       'RETRY_REQUESTED',
       gate.stage,
-      `Human rejected ${recordIds.length} ${gate.recordType} candidate(s) and explicitly requested replacement candidates for ${gaps.length} uncovered target(s).${scopedInstruction ? ' A scoped director instruction was supplied for the replacement.' : ''}`,
+      `Human rejected ${recordIds.length} ${gate.recordType} candidate(s) and explicitly requested replacement candidates for ${retryGroups.length} selected target(s).${gaps.length > 0 ? ` The rejection would otherwise have created ${gaps.length} coverage gap(s).` : ''}${scopedInstruction ? ' A scoped instruction was supplied for the replacement.' : ''}`,
       now,
       eventIdFactory()
     );
   }
+
+  if (gaps.length === 0) return reviewed;
 
   if (options.gapResolution === 'WAIVE') {
     const stage = CoverageWaiverStageSchema.parse(gate.stage);
