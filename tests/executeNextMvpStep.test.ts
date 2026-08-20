@@ -67,6 +67,22 @@ describe('executeNextMvpStep', () => {
     expect(result.state.sources[0].status).toBe('REVIEW_REQUIRED');
   });
 
+  it('does not report an evidence extraction when every approved source was already attempted and rejected', async () => {
+    const state = baseState();
+    state.researchQuestions = [{ id: 'RQ-1', filmBriefId: 'FB-1', question: 'Question', purpose: 'Purpose', priority: 'HIGH', status: 'APPROVED' }];
+    state.sources = [{ id: 'SRC-1', researchQuestionId: 'RQ-1', provider: 'PARALLEL', providerSearchId: 'search-1', url: 'https://example.com', title: 'Source', publishDate: null, excerpts: ['Excerpt'], retrievedAt: '2026-08-15T00:00:00.000Z', status: 'APPROVED' }];
+    state.evidence = [{ id: 'EV-1', sourceId: 'SRC-1', researchQuestionId: 'RQ-1', excerpt: 'Excerpt', interpretation: 'Rejected interpretation', strength: 'MEDIUM', uncertainty: 'Rejected during review.', status: 'REJECTED' }];
+    const deps = executors();
+    deps.extractEvidence = vi.fn(async () => state.evidence);
+
+    const result = await executeNextMvpStep(state, deps);
+
+    expect(result.disposition).toBe('AWAITING_HUMAN_REVIEW');
+    expect(result.state).toBe(state);
+    expect(result.message).toContain('No automatic re-extraction was performed');
+    expect(deps.extractEvidence).toHaveBeenCalledOnce();
+  });
+
   it('runs the deterministic audit only after all human approvals are complete', async () => {
     const state = baseState();
     state.researchQuestions = [{ id: 'RQ-1', filmBriefId: 'FB-1', question: 'Question', purpose: 'Purpose', priority: 'HIGH', status: 'APPROVED' }];
