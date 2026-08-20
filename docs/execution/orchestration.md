@@ -1,22 +1,21 @@
 # Orchestration
 
-Tital's MVP orchestration is implemented as deterministic TypeScript services. The central execution controller is **function-based rather than class-based**, and a persisted session layer now makes that governed state machine usable across separate CLI invocations.
+Tital orchestration is deterministic TypeScript application code. ADK/Gemini and Parallel generate proposals; they do not control the state machine.
 
-The key modules are:
+Key modules:
 
 ```text
 src/services/evaluateMvpWorkflow.ts
 src/services/executeNextMvpStep.ts
 src/services/createRealMvpStepExecutors.ts
 src/services/advanceMvpSession.ts
-src/services/reviewCurrentMvpGate.ts
-src/services/reviewMvpSession.ts
-src/persistence/jsonMvpSessionStore.ts
+src/services/resolveMvpReview.ts
+src/services/retryMvpCoverage.ts
+src/services/getCurrentMvpReviewGate.ts
+src/persistence/*MvpSessionStore.ts
 ```
 
-Together they decide what stage the project is in, whether automation is legally allowed to run, when execution must stop for human review, which real service should be called next, and how the resulting state is persisted.
-
-## Control Flow
+## Control flow
 
 ```mermaid
 graph TD
@@ -25,22 +24,21 @@ graph TD
     E --> C[executeNextMvpStep]
     C -->|automation allowed| X[MvpStepExecutors]
     C -->|review required| H[AWAITING_HUMAN_REVIEW]
-    C -->|audit stage| A[runAudit]
+    C -->|audit| A[runAudit]
     C -->|done| Z[COMPLETE]
     X --> R[createRealMvpStepExecutors]
-    R --> RS[Real Tital services]
-    RS --> NS[Updated MvpWorkflowState]
-    NS --> SAVE[JsonMvpSessionStore]
-    SAVE --> H
-    H --> HR[Explicit review decision]
-    HR --> SAVE
+    R --> EXT[Gemini / Parallel]
+    EXT --> NS[Updated state]
+    NS --> SAVE[Session store]
+    H --> HR[resolveMvpReview]
+    HR -->|approve| SAVE
+    HR -->|retry| RT[retryMvpCoverage]
+    HR -->|waive| W[CoverageWaiver]
 ```
 
-## `evaluateMvpWorkflow`
+## Stage evaluation
 
-`evaluateMvpWorkflow` is a deterministic state evaluator. It inspects the validated `MvpWorkflowState`, selects the approved provenance-connected chain, and determines the current workflow stage and next legal action.
-
-The stage model is:
+`evaluateMvpWorkflow` inspects validated state, approved provenance and applicable CoverageWaivers. It does not call external providers.
 
 ```text
 DEFINE
@@ -55,20 +53,11 @@ DEFINE
 → PACKAGE / COMPLETE
 ```
 
-Progression is coverage-aware. For example, one approved source for one research question does not satisfy source coverage for a second approved research question. Likewise, an approved downstream record whose required upstream provenance is no longer approved does not count as valid coverage.
+Progression is coverage-aware rather than count-based.
 
-The evaluator does not call Gemini or Parallel.
+## Execution controller
 
-## `executeNextMvpStep`
-
-`executeNextMvpStep` is the execution controller. It receives:
-
-```ts
-state: MvpWorkflowState
-executors: MvpStepExecutors
-```
-
-It can return:
+`executeNextMvpStep(state, executors)` returns one of:
 
 ```text
 EXECUTED_AUTOMATION
@@ -77,82 +66,107 @@ AUDIT_EXECUTED
 COMPLETE
 ```
 
-It executes at most the next legally allowed automated model/tool stage. When newly generated records require review, the controller returns the updated state and stops. It never silently approves model output.
+A normal model/tool-assisted continuation executes one eligible stage and then stops at the next human gate. Audit → package is the only automatic deterministic tail.
 
-When every candidate at a required gate has been rejected, rejection remains historical state. If approved coverage is now missing, a later continuation can generate replacement candidates instead of treating the rejected record as permanently satisfying the workflow.
+New automated generation invalidates a previous audit.
 
-Any new automated generation invalidates the stored audit.
+## Rejection and recovery
 
-## Real runtime wiring
+Rejected records remain historical state and are excluded from the approved chain.
 
-`createRealMvpStepExecutors.ts` implements `MvpStepExecutors` using the real Tital services. The adapter is incremental: it generates only missing approved coverage and preserves prior records/history.
+Important current rule:
 
-```mermaid
-graph LR
-    C[executeNextMvpStep]
-    I[MvpStepExecutors]
-    R[createRealMvpStepExecutors]
-    S[Domain services]
-    G[ADK / Gemini]
-    P[Parallel MCP]
-
-    C --> I --> R --> S
-    S --> G
-    S --> P
+```text
+REJECTED ≠ permission to regenerate
 ```
 
-Downstream model calls receive only approved, provenance-connected upstream records.
+Automatic generation is first-attempt-only. If rejection removes required coverage, `resolveMvpReview` requires an explicit human choice:
+
+- `RETRY` — targeted replacement through `retryMvpCoverage`;
+- `WAIVE` — intentional omission recorded as `CoverageWaiver`;
+- cancel — no state change.
+
+Targeted retry filters duplicate candidates before they enter review.
+
+## Director context in orchestration
+
+`MvpSession.projectInput` can contain a project `DirectorBrief`. When `advanceMvpSession` constructs the real executors, it supplies this brief to cinematic stages only:
+
+```text
+Scene generation
+Shot generation
+Visual Decision generation
+```
+
+A cinematic `RETRY` can additionally carry a scoped director instruction. The retry service combines project and scoped guidance for that target without modifying the project-level brief.
+
+Scientific/approved constraints remain higher priority than director guidance.
+
+## Bounded concurrency inside stages
+
+The old real executor used sequential loops for multiple independent external calls. The real executor now uses `mapWithConcurrency` for independent parent records inside the same stage.
+
+Safe examples:
+
+```text
+RQ 1 source search ─┐
+RQ 2 source search ─┼→ combine in deterministic order
+RQ 3 source search ─┘
+```
+
+The same pattern applies to Evidence/Claim/Script/Scene/Shot/Visual Decision batches when their parent records are independent.
+
+Default worker concurrency is `3`, configurable through `TITAL_EXTERNAL_CONCURRENCY` and clamped to `1..8`.
+
+This is internal I/O concurrency. It does not relax workflow dependencies or Cloud Run session-write safety.
+
+## Performance instrumentation
+
+When `advanceMvpSession` creates the real executor, it receives timing callbacks for external operations. The resulting automation event can persist:
+
+```text
+performance.durationMs
+performance.externalCallCount
+performance.operations[]
+```
+
+This provides an evidence base for later optimisation. Custom test executors continue to work without external-call timing details.
+
+See [../PERFORMANCE.md](../PERFORMANCE.md).
 
 ## Persisted session orchestration
 
-`MvpSession` wraps the workflow state with:
+`MvpSession` includes:
 
 ```text
 session ID
 raw film idea
+projectInput (including optional DirectorBrief)
 created / updated timestamps
 MvpWorkflowState
 optional ProductionPackage
-event history
+event history (+ optional timing traces)
 ```
 
-`advanceMvpSession` uses the execution controller and stops at the next human gate. It permits the deterministic tail to proceed from successful audit to package construction without inventing another human approval stage.
+Local storage can use `.tital/sessions/*.json`; hosted production can use user-scoped Cloud Storage through `CloudStorageMvpSessionStore`.
 
-`reviewMvpSession` applies the explicit current-gate review decision and records an event. Review/generation invalidates prior audit/package state so a stale pass cannot be silently reused.
+Review/generation invalidates stale audit/package state.
 
-Default local persistence is:
+## Production-package boundary
 
-```text
-.tital/sessions/<session-id>.json
-```
+The final package selects the governed approved chain plus explicit CoverageWaivers. Rejected/orphaned history remains in session state but is not presented as approved production content.
 
-See [Persisted MVP Sessions](persisted-mvp-session.md) for CLI commands and storage behavior.
-
-## Human gates
-
-The normal pattern remains:
-
-```text
-automated proposal
-→ validated application record
-→ persisted pending state
-→ explicit human review
-→ APPROVED or REJECTED
-→ next legal action
-```
-
-`SourceRecord` starts from:
-
-```text
-DISCOVERED
-```
-
-and requires explicit source review before evidence extraction.
-
-## Production Package boundary
-
-The final package contains the approved, provenance-connected chain used for production. Rejected or orphaned history remains in the persisted session but is excluded from the production package. The deterministic scientific audit is likewise run against the approved production chain.
+The deterministic audit runs against the approved production chain. A passed audit verifies implemented governance/provenance integrity, not independent scientific truth.
 
 ## Why this design matters
 
-Tital intentionally does not let an LLM control the workflow state machine. Models generate scientific and creative proposals; deterministic application code decides whether those proposals are valid, traceable, approved, persisted, and eligible to move downstream.
+Tital separates four authorities:
+
+```text
+external tools/models → propose
+application services  → validate/map/orchestrate
+human director/reviewer → approve/reject/retry/waive/direct
+persistence/audit      → record and verify governed state
+```
+
+That separation lets performance and creative control improve without giving the model control of evidence, identity, or workflow truth.
