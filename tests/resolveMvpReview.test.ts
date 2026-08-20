@@ -67,6 +67,24 @@ function sceneGapSession(): MvpSession {
   };
 }
 
+function scriptReplacementSession(): MvpSession {
+  const session = sceneGapSession();
+  return {
+    ...session,
+    state: {
+      ...session.state,
+      scriptLines: [
+        { id: 'SL-good', researchQuestionId: 'RQ-1', claimIds: ['CL-1'], text: 'A scientifically acceptable line.', uncertaintyDisclosure: null, status: 'APPROVED' },
+        { id: 'SL-bad', researchQuestionId: 'RQ-1', claimIds: ['CL-1'], text: 'A line the director wants replaced.', uncertaintyDisclosure: null, status: 'REVIEW_REQUIRED' },
+      ],
+      scenes: [],
+      shots: [],
+      visualDecisions: [],
+      audit: null,
+    },
+  };
+}
+
 describe('governed human review resolution', () => {
   it('requires an explicit decision when rejection would create a scene coverage gap', async () => {
     const session = sceneGapSession();
@@ -139,5 +157,41 @@ describe('governed human review resolution', () => {
     expect(resolved.state.coverageWaivers ?? []).toHaveLength(0);
     expect(resolved.events.some((event) => event.type === 'RETRY_REQUESTED')).toBe(true);
     expect(evaluateMvpWorkflow(resolved.state).stage).toBe('SCENES');
+  });
+
+  it('can request a replacement even when another approved record already covers the target', async () => {
+    const session = scriptReplacementSession();
+    const generateScriptLines = vi.fn(async () => [
+      {
+        id: 'SL-new',
+        researchQuestionId: 'RQ-1',
+        claimIds: ['CL-1'],
+        text: 'A clearer replacement line.',
+        uncertaintyDisclosure: null,
+        status: 'REVIEW_REQUIRED' as const,
+      },
+    ]);
+
+    const resolved = await resolveMvpReview(session, 'REJECT', {
+      recordIds: ['SL-bad'],
+      gapResolution: 'RETRY',
+      reason: 'Rewrite this line more clearly without changing the scientific proposition.',
+      runtimeServices: runtime({ generateScriptLines }),
+      now: () => '2026-08-20T01:00:00.000Z',
+      eventIdFactory: (() => {
+        let index = 0;
+        return () => `EVT-${++index}`;
+      })(),
+    });
+
+    expect(generateScriptLines).toHaveBeenCalledOnce();
+    expect(resolved.state.scriptLines).toEqual([
+      expect.objectContaining({ id: 'SL-good', status: 'APPROVED' }),
+      expect.objectContaining({ id: 'SL-bad', status: 'REJECTED' }),
+      expect.objectContaining({ id: 'SL-new', status: 'REVIEW_REQUIRED' }),
+    ]);
+    expect(resolved.events.at(-1)?.type).toBe('RETRY_REQUESTED');
+    expect(resolved.events.at(-1)?.message).toContain('selected target');
+    expect(evaluateMvpWorkflow(resolved.state).stage).toBe('SCRIPT');
   });
 });
