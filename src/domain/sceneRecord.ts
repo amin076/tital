@@ -10,7 +10,7 @@ export const SceneRecordSchema = z.object({
   visualSummary: z.string().min(1, 'Scene visual summary must be a non-empty string'),
   uncertaintyDisclosure: z.string().min(1).nullable(),
   decisionProvenance: CinematicDecisionProvenanceSchema.optional(),
-  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'LOCKED']),
+  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'LOCKED', 'STALE']),
 });
 
 export type SceneRecord = z.infer<typeof SceneRecordSchema>;
