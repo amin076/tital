@@ -26,6 +26,30 @@ const filmFormats = [
   'Investigative science film',
 ];
 
+const collaborationModes = [
+  ['AI_ASSISTED', 'AI-assisted — Tital proposes most cinematic choices'],
+  ['COLLABORATIVE', 'Collaborative — AI proposes inside my direction'],
+  ['DIRECTOR_LED', 'Director-led — treat my direction as the creative default'],
+] as const;
+
+const pacingOptions = [
+  ['CONTEMPLATIVE', 'Contemplative'],
+  ['BALANCED', 'Balanced'],
+  ['ENERGETIC', 'Energetic'],
+] as const;
+
+const cameraOptions = [
+  ['RESTRAINED', 'Restrained movement'],
+  ['BALANCED', 'Balanced movement'],
+  ['EXPRESSIVE', 'Expressive / dynamic movement'],
+] as const;
+
+const representationOptions = [
+  ['REAL_IMAGERY_FIRST', 'Real imagery / physical demonstration first'],
+  ['BALANCED', 'Balance real imagery and explanatory visuals'],
+  ['EXPLANATORY_VISUALS_FIRST', 'Explanatory animation / diagrams when useful'],
+] as const;
+
 export function NewProjectPanel({
   busy,
   onCreated,
@@ -48,6 +72,21 @@ export function NewProjectPanel({
   const [tone, setTone] = useState(
     'Engaging, cinematic, accessible, scientifically rigorous'
   );
+  const [collaborationMode, setCollaborationMode] = useState<
+    'AI_ASSISTED' | 'COLLABORATIVE' | 'DIRECTOR_LED'
+  >('COLLABORATIVE');
+  const [pacing, setPacing] = useState<
+    'CONTEMPLATIVE' | 'BALANCED' | 'ENERGETIC'
+  >('BALANCED');
+  const [cameraMovement, setCameraMovement] = useState<
+    'RESTRAINED' | 'BALANCED' | 'EXPRESSIVE'
+  >('BALANCED');
+  const [representationPreference, setRepresentationPreference] = useState<
+    'REAL_IMAGERY_FIRST' | 'BALANCED' | 'EXPLANATORY_VISUALS_FIRST'
+  >('BALANCED');
+  const [visualStyle, setVisualStyle] = useState('');
+  const [directorNotes, setDirectorNotes] = useState('');
+  const [avoid, setAvoid] = useState('');
 
   const trimmedIdea = rawIdea.trim();
   const parsedDuration = Number(durationMinutes);
@@ -66,6 +105,11 @@ export function NewProjectPanel({
     onBusyChange(true);
     onError(null);
     try {
+      const avoidItems = avoid
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .slice(0, 20);
       const view = await createSession({
         rawIdea: trimmedIdea,
         ...(title.trim() ? { title: title.trim() } : {}),
@@ -74,6 +118,15 @@ export function NewProjectPanel({
         audienceKnowledgeLevel: audienceKnowledgeLevel.trim(),
         format: format.trim(),
         tone: tone.trim(),
+        directorBrief: {
+          collaborationMode,
+          pacing,
+          cameraMovement,
+          representationPreference,
+          ...(visualStyle.trim() ? { visualStyle: visualStyle.trim() } : {}),
+          ...(directorNotes.trim() ? { notes: directorNotes.trim() } : {}),
+          avoid: avoidItems,
+        },
       });
       setRawIdea('');
       setTitle('');
@@ -100,10 +153,10 @@ export function NewProjectPanel({
           New project
         </Typography>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Shape the film before Tital starts researching
+          Shape the science and the visual direction before Tital starts researching
         </Typography>
         <Typography color="text.secondary" sx={{ maxWidth: 900 }}>
-          Set the creative and audience constraints up front. Tital will use Gemini to build the remaining FilmBrief around these choices, persist them with the session, and stop at the FilmBrief human-review gate.
+          Set audience and production constraints, then give Tital a compact Director Brief. The AI still proposes scenes, shots, and visual decisions, but it must work inside approved scientific constraints and your creative direction.
         </Typography>
       </Stack>
 
@@ -217,14 +270,112 @@ export function NewProjectPanel({
               value={tone}
               onChange={(event) => setTone(event.target.value)}
               disabled={busy}
-              helperText="Editable: describe the voice and viewing experience you want."
+              helperText="Describe the voice and viewing experience you want."
               slotProps={{ htmlInput: { maxLength: 400 } }}
             />
           </Box>
         </Box>
 
+        <Divider />
+
+        <Box>
+          <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 700 }}>
+            Director Brief
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, maxWidth: 900 }}>
+            These controls guide cinematic proposals; they never override evidence, uncertainty, or scientific visual-integrity rules. Keep them broad and use natural-language notes for the choices that matter to you.
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+              gap: 1.5,
+            }}
+          >
+            <TextField
+              select
+              label="Collaboration mode"
+              value={collaborationMode}
+              onChange={(event) => setCollaborationMode(event.target.value as typeof collaborationMode)}
+              disabled={busy}
+            >
+              {collaborationModes.map(([value, label]) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Pacing"
+              value={pacing}
+              onChange={(event) => setPacing(event.target.value as typeof pacing)}
+              disabled={busy}
+            >
+              {pacingOptions.map(([value, label]) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Camera behaviour"
+              value={cameraMovement}
+              onChange={(event) => setCameraMovement(event.target.value as typeof cameraMovement)}
+              disabled={busy}
+            >
+              {cameraOptions.map(([value, label]) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Representation preference"
+              value={representationPreference}
+              onChange={(event) => setRepresentationPreference(event.target.value as typeof representationPreference)}
+              disabled={busy}
+            >
+              {representationOptions.map(([value, label]) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
+            </TextField>
+          </Box>
+
+          <TextField
+            label="Visual language / style"
+            placeholder="Example: restrained observational documentary; natural light; macro details; minimal spectacle; neutral colour treatment."
+            value={visualStyle}
+            onChange={(event) => setVisualStyle(event.target.value)}
+            multiline
+            minRows={2}
+            fullWidth
+            disabled={busy}
+            slotProps={{ htmlInput: { maxLength: 1200 } }}
+            sx={{ mt: 1.5 }}
+          />
+          <TextField
+            label="Director notes"
+            placeholder="Example: The first 30 seconds should feel mysterious. Prefer physical demonstrations over abstract CGI when both explain the science equally well."
+            value={directorNotes}
+            onChange={(event) => setDirectorNotes(event.target.value)}
+            multiline
+            minRows={2}
+            fullWidth
+            disabled={busy}
+            slotProps={{ htmlInput: { maxLength: 2000 } }}
+            sx={{ mt: 1.5 }}
+          />
+          <TextField
+            label="Avoid"
+            placeholder="orbiting camera, sensational disaster imagery, excessive CGI"
+            value={avoid}
+            onChange={(event) => setAvoid(event.target.value)}
+            fullWidth
+            disabled={busy}
+            helperText="Optional comma-separated creative constraints (maximum 20)."
+            sx={{ mt: 1.5 }}
+          />
+        </Box>
+
         <Alert severity="info" variant="outlined">
-          These controls are not suggestions to the model. Tital enforces the values you provide when it assembles the FilmBrief, while Gemini proposes the scientific framing, learning goals, scope, constraints, and research requirements.
+          Scientific truth and approved constraints have priority over style. The Director Brief is persisted with the project and passed into Scene, Shot, and Visual Decision generation. If you reject the last candidate for a branch, you can also give a scoped instruction when requesting a replacement.
         </Alert>
 
         <Stack
