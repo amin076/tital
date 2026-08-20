@@ -71,6 +71,7 @@ export function getMvpSessionView(session: MvpSession) {
   return {
     summary: summarizeMvpSession(validated),
     rawIdea: validated.rawIdea,
+    projectInput: validated.projectInput ?? { rawIdea: validated.rawIdea },
     gate: getCurrentMvpReviewGate(validated.state),
     continueAction: continueActionFor(validated),
     workflowInsights: getMvpWorkflowInsights(validated.state),
