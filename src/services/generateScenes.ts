@@ -1,11 +1,17 @@
 import crypto from 'crypto';
 import { InMemoryRunner, stringifyContent } from '@google/adk';
 import { sceneDirectorAgent } from '../agents/sceneDirectorAgent.js';
+import type { CinematicGenerationContext } from '../domain/directorBrief.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SceneProposalListSchema, type SceneProposalList } from '../domain/sceneProposal.js';
 import { SceneRecordSchema, type SceneRecord } from '../domain/sceneRecord.js';
 import { ScriptLineRecordSchema, type ScriptLineRecord } from '../domain/scriptLineRecord.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
+import {
+  CINEMATIC_GUIDANCE_PRECEDENCE,
+  cinematicDecisionProvenance,
+  formatDirectorGuidance,
+} from './directorGuidance.js';
 
 export function validateScriptLinesForScenes(
   scriptLines: ScriptLineRecord[],
@@ -60,7 +66,10 @@ export function assembleSceneRecords(
   question: ResearchQuestion,
   scriptLines: ScriptLineRecord[],
   proposals: SceneProposalList,
-  options: { idFactory?: () => string } = {}
+  options: {
+    idFactory?: () => string;
+    directorGuidance?: CinematicGenerationContext;
+  } = {}
 ): SceneRecord[] {
   const validated = SceneProposalListSchema.parse(proposals);
   const idFactory = options.idFactory ?? (() => `SC-${crypto.randomUUID()}`);
@@ -85,6 +94,7 @@ export function assembleSceneRecords(
       purpose: proposal.purpose,
       visualSummary: proposal.visualSummary,
       uncertaintyDisclosure: proposal.uncertaintyDisclosure,
+      decisionProvenance: cinematicDecisionProvenance(options.directorGuidance),
       status: 'REVIEW_REQUIRED' as const,
     };
 
@@ -98,7 +108,8 @@ export function assembleSceneRecords(
 
 export async function callSceneDirectorAgent(
   scriptLines: ScriptLineRecord[],
-  question: ResearchQuestion
+  question: ResearchQuestion,
+  directorGuidance?: CinematicGenerationContext
 ): Promise<SceneProposalList> {
   const runner = new InMemoryRunner({ agent: sceneDirectorAgent });
   let responseText = '';
@@ -114,7 +125,7 @@ export async function callSceneDirectorAgent(
       newMessage: {
         parts: [
           {
-            text: `Create scene proposals for this approved research question using ONLY the supplied numbered approved script lines.\n\nResearchQuestion:\n${question.question}\n\nApproved numbered script lines:\n${JSON.stringify(numberedScriptLines, null, 2)}`,
+            text: `Create scene proposals for this approved research question using ONLY the supplied numbered approved script lines.\n\n${CINEMATIC_GUIDANCE_PRECEDENCE}\n\nHuman director guidance:\n${formatDirectorGuidance(directorGuidance)}\n\nResearchQuestion:\n${question.question}\n\nApproved numbered script lines:\n${JSON.stringify(numberedScriptLines, null, 2)}`,
           },
         ],
       },
@@ -133,11 +144,19 @@ export async function generateScenes(
   question: ResearchQuestion,
   modelCaller: (
     scriptLines: ScriptLineRecord[],
-    question: ResearchQuestion
+    question: ResearchQuestion,
+    directorGuidance?: CinematicGenerationContext
   ) => Promise<SceneProposalList> = callSceneDirectorAgent,
-  options: { idFactory?: () => string } = {}
+  options: {
+    idFactory?: () => string;
+    directorGuidance?: CinematicGenerationContext;
+  } = {}
 ): Promise<SceneRecord[]> {
   validateScriptLinesForScenes(scriptLines, question);
-  const proposals = await modelCaller(scriptLines, question);
+  const proposals = await modelCaller(
+    scriptLines,
+    question,
+    options.directorGuidance
+  );
   return assembleSceneRecords(question, scriptLines, proposals, options);
 }
