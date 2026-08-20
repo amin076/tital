@@ -27,12 +27,33 @@ export interface GateRecord {
   [key: string]: unknown;
 }
 
+export interface ReviewCoverageGroup {
+  targetType: 'WORKFLOW' | 'RESEARCH_QUESTION' | 'SCENE' | 'SHOT';
+  targetId: string;
+  targetLabel: string;
+  pendingRecordIds: string[];
+  approvedRecordCount: number;
+  canRetry: boolean;
+  canWaive: boolean;
+}
+
 export interface ReviewGate {
   stage: string;
   recordType: string;
   records: GateRecord[];
   canApprove: boolean;
   canReject: boolean;
+  coverageGroups: ReviewCoverageGroup[];
+}
+
+export interface CoverageWaiver {
+  id: string;
+  stage: string;
+  targetType: 'RESEARCH_QUESTION' | 'SCENE' | 'SHOT';
+  targetId: string;
+  reason: string;
+  rejectedRecordIds: string[];
+  createdAt: string;
 }
 
 export interface ContinueAction {
@@ -67,9 +88,11 @@ export interface CoverageInsight {
   parentLabel: string;
   childLabel: string;
   covered: number;
+  waived: number;
   total: number;
   complete: boolean;
   missingParentIds: string[];
+  waivedParentIds: string[];
 }
 
 export interface WorkflowInsights {
@@ -112,6 +135,7 @@ export interface ProductionPackage {
   scenes: GateRecord[];
   shots: GateRecord[];
   visualDecisions: GateRecord[];
+  coverageWaivers?: CoverageWaiver[];
   audit: ScientificAudit;
   generatedAt: string;
   status: 'BLOCKED' | 'READY_FOR_PRODUCTION';
@@ -125,9 +149,27 @@ export interface SessionView {
   continueAction: ContinueAction;
   workflowInsights: WorkflowInsights;
   approvedChain: ApprovedChain;
+  coverageWaivers: CoverageWaiver[];
   audit: ScientificAudit | null;
   productionPackage: ProductionPackage | null;
   recentEvents: SessionEvent[];
+}
+
+interface ApiErrorBody {
+  error?: string;
+  code?: string;
+  gaps?: ReviewCoverageGroup[];
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+    readonly gaps?: ReviewCoverageGroup[]
+  ) {
+    super(message);
+  }
 }
 
 async function request<T>(
@@ -145,10 +187,15 @@ async function request<T>(
     },
   });
 
-  const body = (await response.json()) as T & { error?: string };
+  const body = (await response.json()) as T & ApiErrorBody;
 
   if (!response.ok) {
-    throw new Error(body.error || `Request failed with status ${response.status}.`);
+    throw new ApiError(
+      body.error || `Request failed with status ${response.status}.`,
+      response.status,
+      body.code,
+      body.gaps
+    );
   }
 
   return body;
@@ -183,7 +230,8 @@ export function getSession(sessionId: string): Promise<SessionView> {
 export function reviewSession(
   sessionId: string,
   decision: 'APPROVE' | 'REJECT',
-  recordIds: string[]
+  recordIds: string[],
+  options: { gapResolution?: 'RETRY' | 'WAIVE'; reason?: string } = {}
 ): Promise<SessionView> {
   return request<SessionView>(
     `/api/sessions/${encodeURIComponent(sessionId)}/review`,
@@ -192,6 +240,8 @@ export function reviewSession(
       body: JSON.stringify({
         decision,
         recordIds,
+        gapResolution: options.gapResolution,
+        reason: options.reason,
       }),
     }
   );
