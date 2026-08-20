@@ -1,12 +1,18 @@
 import crypto from 'crypto';
 import { InMemoryRunner, stringifyContent } from '@google/adk';
 import { shotDirectorAgent } from '../agents/shotDirectorAgent.js';
+import type { CinematicGenerationContext } from '../domain/directorBrief.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SceneRecordSchema, type SceneRecord } from '../domain/sceneRecord.js';
 import { ScriptLineRecordSchema, type ScriptLineRecord } from '../domain/scriptLineRecord.js';
 import { ShotProposalListSchema, type ShotProposalList } from '../domain/shotProposal.js';
 import { ShotRecordSchema, type ShotRecord } from '../domain/shotRecord.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
+import {
+  CINEMATIC_GUIDANCE_PRECEDENCE,
+  cinematicDecisionProvenance,
+  formatDirectorGuidance,
+} from './directorGuidance.js';
 
 export function validateSceneForShots(
   scene: SceneRecord,
@@ -77,7 +83,10 @@ export function parseShotProposalList(rawText: string): ShotProposalList {
 export function assembleShotRecords(
   scene: SceneRecord,
   proposals: ShotProposalList,
-  options: { idFactory?: () => string } = {}
+  options: {
+    idFactory?: () => string;
+    directorGuidance?: CinematicGenerationContext;
+  } = {}
 ): ShotRecord[] {
   const validated = ShotProposalListSchema.parse(proposals);
   const idFactory = options.idFactory ?? (() => `SH-${crypto.randomUUID()}`);
@@ -104,6 +113,7 @@ export function assembleShotRecords(
       visualIntegrityCategory: proposal.visualIntegrityCategory,
       scientificConstraint: proposal.scientificConstraint,
       uncertaintyDisclosure: proposal.uncertaintyDisclosure,
+      decisionProvenance: cinematicDecisionProvenance(options.directorGuidance),
       status: 'REVIEW_REQUIRED' as const,
     };
 
@@ -119,7 +129,8 @@ export function assembleShotRecords(
 export async function callShotDirectorAgent(
   scene: SceneRecord,
   scriptLines: ScriptLineRecord[],
-  question: ResearchQuestion
+  question: ResearchQuestion,
+  directorGuidance?: CinematicGenerationContext
 ): Promise<ShotProposalList> {
   const runner = new InMemoryRunner({ agent: shotDirectorAgent });
   let responseText = '';
@@ -149,7 +160,7 @@ export async function callShotDirectorAgent(
       newMessage: {
         parts: [
           {
-            text: `Create shots for this approved scientific scene.\n\nResearchQuestion:\n${question.question}\n\nApproved Scene:\n${JSON.stringify(sceneForModel, null, 2)}\n\nApproved numbered Script Lines:\n${JSON.stringify(numberedScriptLines, null, 2)}`,
+            text: `Create shots for this approved scientific scene.\n\n${CINEMATIC_GUIDANCE_PRECEDENCE}\n\nHuman director guidance:\n${formatDirectorGuidance(directorGuidance)}\n\nResearchQuestion:\n${question.question}\n\nApproved Scene:\n${JSON.stringify(sceneForModel, null, 2)}\n\nApproved numbered Script Lines:\n${JSON.stringify(numberedScriptLines, null, 2)}`,
           },
         ],
       },
@@ -173,11 +184,20 @@ export async function generateShots(
   modelCaller: (
     scene: SceneRecord,
     scriptLines: ScriptLineRecord[],
-    question: ResearchQuestion
+    question: ResearchQuestion,
+    directorGuidance?: CinematicGenerationContext
   ) => Promise<ShotProposalList> = callShotDirectorAgent,
-  options: { idFactory?: () => string } = {}
+  options: {
+    idFactory?: () => string;
+    directorGuidance?: CinematicGenerationContext;
+  } = {}
 ): Promise<ShotRecord[]> {
   validateSceneForShots(scene, scriptLines, question);
-  const proposals = await modelCaller(scene, scriptLines, question);
+  const proposals = await modelCaller(
+    scene,
+    scriptLines,
+    question,
+    options.directorGuidance
+  );
   return assembleShotRecords(scene, proposals, options);
 }
