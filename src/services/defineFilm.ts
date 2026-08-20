@@ -146,6 +146,8 @@ export async function defineFilm(
   input: string | FilmProjectInput,
   modelCaller: (prompt: string) => Promise<ModelOutputBrief> = callDefineAgent
 ): Promise<FilmBrief> {
+  if (typeof input === 'string') validateRawIdea(input);
+
   const projectInput = normalizeFilmProjectInput(input);
   validateRawIdea(projectInput.rawIdea);
 
