@@ -43,10 +43,19 @@ export function validateSourceForEvidence(
   }
 }
 
+function normalizeEvidenceProposalEnvelope(payload: unknown): unknown {
+  // Gemini occasionally returns the requested evidence items as a bare JSON
+  // array instead of the documented { evidence: [...] } envelope. The intended
+  // transformation is unambiguous, so normalize only this exact shape and still
+  // run the full EvidenceProposalListSchema validation afterwards.
+  return Array.isArray(payload) ? { evidence: payload } : payload;
+}
+
 export function parseEvidenceProposalList(rawText: string): EvidenceProposalList {
   const payload = parseJsonFromModelResponse(rawText, 'Evidence extraction agent');
+  const normalizedPayload = normalizeEvidenceProposalEnvelope(payload);
 
-  const parsed = EvidenceProposalListSchema.safeParse(payload);
+  const parsed = EvidenceProposalListSchema.safeParse(normalizedPayload);
   if (!parsed.success) {
     throw new Error(`Evidence proposal validation failed: ${parsed.error.message}`);
   }
