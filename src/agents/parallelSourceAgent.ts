@@ -1,9 +1,10 @@
 import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from '../config/models.js';
 import { parallelSearchMcpToolset } from '../integrations/parallel/parallelMcp.js';
 
 export const parallelSourceAgent = new LlmAgent({
   name: 'parallel_source_agent',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'Discovers public-web sources for an approved scientific research question using Parallel Search MCP.',
   instruction: `
 You are Tital's source-discovery agent.
