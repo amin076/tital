@@ -3,10 +3,11 @@ import type { MvpWorkflowStage } from '../domain/mvpWorkflow.js';
 
 export interface MvpPerformanceStageInsight {
   stage: MvpWorkflowStage;
-  attempts: number;
+  executions: number;
   durationMs: number;
   externalCallCount: number;
   externalWorkMs: number;
+  internalWorkMs: number;
   averageCallMs: number;
   slowestCallMs: number;
   slowestOperationName: string | null;
@@ -17,10 +18,13 @@ export interface MvpPerformanceStageInsight {
 
 export interface MvpPerformanceInsights {
   measured: boolean;
-  measuredEventCount: number;
+  measuredExecutionCount: number;
+  measuredStageCount: number;
+  includesProjectCreation: boolean;
   durationMs: number;
   externalCallCount: number;
   externalWorkMs: number;
+  internalWorkMs: number;
   averageCallMs: number;
   slowestCallMs: number;
   slowestOperationName: string | null;
@@ -46,10 +50,13 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
   if (events.length === 0) {
     return {
       measured: false,
-      measuredEventCount: 0,
+      measuredExecutionCount: 0,
+      measuredStageCount: 0,
+      includesProjectCreation: false,
       durationMs: 0,
       externalCallCount: 0,
       externalWorkMs: 0,
+      internalWorkMs: 0,
       averageCallMs: 0,
       slowestCallMs: 0,
       slowestOperationName: null,
@@ -72,6 +79,7 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
   let durationMs = 0;
   let externalCallCount = 0;
   let externalWorkMs = 0;
+  let internalWorkMs = 0;
   let failedCallCount = 0;
   let slowestCallMs = 0;
   let slowestOperationName: string | null = null;
@@ -83,23 +91,30 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
       0
     );
     const operations = stageEvents.flatMap((event) => event.performance?.operations ?? []);
-    const stageExternalWorkMs = operations.reduce((sum, operation) => sum + operation.durationMs, 0);
-    const stageExternalCallCount = stageEvents.reduce(
-      (sum, event) => sum + (event.performance?.externalCallCount ?? 0),
+    const externalOperations = operations.filter((operation) => operation.kind !== 'INTERNAL');
+    const internalOperations = operations.filter((operation) => operation.kind === 'INTERNAL');
+    const stageExternalWorkMs = externalOperations.reduce(
+      (sum, operation) => sum + operation.durationMs,
       0
     );
-    const stageFailedCallCount = operations.filter((operation) => !operation.success).length;
-    const slowest = operations.reduce<(typeof operations)[number] | null>(
+    const stageInternalWorkMs = internalOperations.reduce(
+      (sum, operation) => sum + operation.durationMs,
+      0
+    );
+    const stageExternalCallCount = externalOperations.length;
+    const stageFailedCallCount = externalOperations.filter((operation) => !operation.success).length;
+    const slowest = externalOperations.reduce<(typeof externalOperations)[number] | null>(
       (current, operation) => (!current || operation.durationMs > current.durationMs ? operation : current),
       null
     );
 
     stages.push({
       stage,
-      attempts: stageEvents.length,
+      executions: stageEvents.length,
       durationMs: stageDurationMs,
       externalCallCount: stageExternalCallCount,
       externalWorkMs: stageExternalWorkMs,
+      internalWorkMs: stageInternalWorkMs,
       averageCallMs:
         stageExternalCallCount > 0 ? Math.round(stageExternalWorkMs / stageExternalCallCount) : 0,
       slowestCallMs: slowest?.durationMs ?? 0,
@@ -112,6 +127,7 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
     durationMs += stageDurationMs;
     externalCallCount += stageExternalCallCount;
     externalWorkMs += stageExternalWorkMs;
+    internalWorkMs += stageInternalWorkMs;
     failedCallCount += stageFailedCallCount;
 
     if (slowest && slowest.durationMs > slowestCallMs) {
@@ -123,13 +139,19 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
 
   stages.sort((a, b) => b.durationMs - a.durationMs);
   const slowestStage = stages[0]?.stage ?? null;
+  const includesProjectCreation = events.some(
+    (event) => event.stage === 'DEFINE' && event.type === 'SESSION_CREATED'
+  );
 
   return {
     measured: true,
-    measuredEventCount: events.length,
+    measuredExecutionCount: events.length,
+    measuredStageCount: byStage.size,
+    includesProjectCreation,
     durationMs,
     externalCallCount,
     externalWorkMs,
+    internalWorkMs,
     averageCallMs: externalCallCount > 0 ? Math.round(externalWorkMs / externalCallCount) : 0,
     slowestCallMs,
     slowestOperationName,
