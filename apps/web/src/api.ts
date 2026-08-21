@@ -102,6 +102,36 @@ export interface SessionEvent {
   };
 }
 
+export interface PerformanceStageInsight {
+  stage: string;
+  attempts: number;
+  durationMs: number;
+  externalCallCount: number;
+  externalWorkMs: number;
+  averageCallMs: number;
+  slowestCallMs: number;
+  slowestOperationName: string | null;
+  slowestTargetId: string | null;
+  parallelOverlapFactor: number | null;
+  failedCallCount: number;
+}
+
+export interface PerformanceInsights {
+  measured: boolean;
+  measuredEventCount: number;
+  durationMs: number;
+  externalCallCount: number;
+  externalWorkMs: number;
+  averageCallMs: number;
+  slowestCallMs: number;
+  slowestOperationName: string | null;
+  slowestTargetId: string | null;
+  slowestStage: string | null;
+  parallelOverlapFactor: number | null;
+  failedCallCount: number;
+  stages: PerformanceStageInsight[];
+}
+
 export interface WorkflowStepInsight {
   stage: string;
   label: string;
@@ -174,6 +204,7 @@ export interface SessionView {
   gate: ReviewGate | null;
   continueAction: ContinueAction;
   workflowInsights: WorkflowInsights;
+  performanceInsights: PerformanceInsights;
   approvedChain: ApprovedChain;
   coverageWaivers: CoverageWaiver[];
   audit: ScientificAudit | null;

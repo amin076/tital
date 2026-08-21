@@ -1,6 +1,7 @@
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import { getCurrentMvpReviewGate } from './getCurrentMvpReviewGate.js';
+import { getMvpPerformanceInsights } from './getMvpPerformanceInsights.js';
 import { getMvpWorkflowInsights } from './getMvpWorkflowInsights.js';
 import { selectApprovedProductionChain } from './mvpWorkflowGuards.js';
 import { summarizeMvpSession } from './summarizeMvpSession.js';
@@ -75,6 +76,7 @@ export function getMvpSessionView(session: MvpSession) {
     gate: getCurrentMvpReviewGate(validated.state),
     continueAction: continueActionFor(validated),
     workflowInsights: getMvpWorkflowInsights(validated.state),
+    performanceInsights: getMvpPerformanceInsights(validated),
     approvedChain: selectApprovedProductionChain(validated.state),
     coverageWaivers: validated.state.coverageWaivers ?? [],
     audit: validated.state.audit,
