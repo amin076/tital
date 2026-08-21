@@ -11,71 +11,103 @@ import {
 } from '@mui/material';
 import type { WorkflowInsights } from './api';
 
+function StepDot({ status }: { status: 'COMPLETE' | 'CURRENT' | 'UPCOMING' }) {
+  const complete = status === 'COMPLETE';
+  const current = status === 'CURRENT';
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        display: 'grid',
+        placeItems: 'center',
+        flex: '0 0 auto',
+        fontSize: 13,
+        fontWeight: 800,
+        color: complete || current ? '#fff' : 'text.secondary',
+        bgcolor: complete ? 'success.main' : current ? 'primary.main' : '#EEF2F4',
+        border: current ? '3px solid #D9E8F0' : '1px solid',
+        borderColor: complete ? 'success.main' : current ? 'primary.main' : 'divider',
+      }}
+    >
+      {complete ? '✓' : current ? '•' : ''}
+    </Box>
+  );
+}
+
 export function WorkflowInsightsPanel({
   insights,
 }: {
   insights: WorkflowInsights;
 }) {
+  const completedSteps = insights.steps.filter((step) => step.status === 'COMPLETE').length;
+  const stepProgress = insights.steps.length === 0 ? 0 : (completedSteps / insights.steps.length) * 100;
+
   return (
-    <Paper variant="outlined" sx={{ p: 2.5 }}>
-      <Typography variant="overline" color="text.secondary">
-        Workflow clarity
-      </Typography>
-      <Typography variant="h6">Progress and coverage</Typography>
+    <Paper variant="outlined" sx={{ p: { xs: 2.25, md: 3 } }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { md: 'flex-end' } }}>
+        <Box>
+          <Typography variant="overline" color="text.secondary">
+            Workflow clarity
+          </Typography>
+          <Typography variant="h5">Governed production progress</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, maxWidth: 760 }}>
+            Every stage stops at a deterministic review boundary. Approved, provenance-connected work advances; rejected or intentionally waived branches remain visible in governance history.
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary">{completedSteps}/{insights.steps.length} stages complete</Typography>
+          <Chip size="small" label={insights.stage} color={insights.stage === 'COMPLETE' ? 'success' : 'primary'} variant="outlined" />
+        </Stack>
+      </Stack>
+
+      <LinearProgress
+        variant="determinate"
+        value={stepProgress}
+        color={insights.stage === 'COMPLETE' ? 'success' : 'primary'}
+        sx={{ mt: 2, height: 5, borderRadius: 999, bgcolor: '#EAF0F3' }}
+      />
 
       <Box
+        className="tital-horizontal-scroll"
         sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-          gap: 1,
-          mt: 2,
+          display: 'flex',
+          overflowX: 'auto',
+          gap: 0,
+          mt: 2.25,
+          pb: 0.75,
         }}
       >
-        {insights.steps.map((step) => (
-          <Card
-            key={step.stage}
-            variant="outlined"
-            sx={{
-              borderColor:
-                step.status === 'CURRENT'
-                  ? 'primary.main'
-                  : step.status === 'COMPLETE'
-                    ? 'success.light'
-                    : 'divider',
-            }}
-          >
-            <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        {insights.steps.map((step, index) => (
+          <Stack key={step.stage} direction="row" sx={{ alignItems: 'center', flex: '0 0 auto' }}>
+            <Stack spacing={0.65} sx={{ width: 120, alignItems: 'center', textAlign: 'center' }}>
+              <StepDot status={step.status} />
+              <Typography variant="caption" sx={{ fontWeight: step.status === 'CURRENT' ? 800 : 650, color: step.status === 'UPCOMING' ? 'text.secondary' : 'text.primary' }}>
                 {step.label}
               </Typography>
-              <Chip
-                size="small"
-                sx={{ mt: 1 }}
-                label={
-                  step.status === 'COMPLETE'
-                    ? 'Done'
-                    : step.status === 'CURRENT'
-                      ? 'Current'
-                      : 'Upcoming'
-                }
-                color={
-                  step.status === 'COMPLETE'
-                    ? 'success'
-                    : step.status === 'CURRENT'
-                      ? 'primary'
-                      : 'default'
-                }
-                variant={step.status === 'UPCOMING' ? 'outlined' : 'filled'}
+            </Stack>
+            {index < insights.steps.length - 1 && (
+              <Box
+                aria-hidden
+                sx={{
+                  width: 34,
+                  height: 2,
+                  bgcolor: step.status === 'COMPLETE' ? 'success.light' : 'divider',
+                  mb: 2.3,
+                  mx: -1,
+                }}
               />
-            </CardContent>
-          </Card>
+            )}
+          </Stack>
         ))}
       </Box>
 
       {insights.blockedBy.length > 0 && (
         <Alert severity="warning" sx={{ mt: 2 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            Current blocker{insights.blockedBy.length > 1 ? 's' : ''}
+          <Typography variant="body2" sx={{ fontWeight: 750 }}>
+            Human action required
           </Typography>
           <Typography variant="body2">
             {insights.blockedBy.join(', ')}
@@ -83,94 +115,75 @@ export function WorkflowInsightsPanel({
         </Alert>
       )}
 
-      <Typography variant="subtitle1" sx={{ mt: 2.5, fontWeight: 700 }}>
-        Governed coverage
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-        A required branch advances with approved, provenance-connected coverage. A human may also explicitly waive a branch after rejecting its candidates; waived gaps stay visible in governance history instead of being silently regenerated.
-      </Typography>
+      <Box sx={{ mt: 3, pt: 2.5, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ justifyContent: 'space-between', alignItems: { sm: 'flex-end' } }}>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 760 }}>
+              Coverage integrity
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35, maxWidth: 820 }}>
+              Required branches stay connected to approved downstream work. Intentional omissions are explicit rather than silently regenerated.
+            </Typography>
+          </Box>
+        </Stack>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 1.25,
-          mt: 1.5,
-        }}
-      >
-        {insights.coverage.map((coverage) => {
-          const value = coverage.total === 0 ? 0 : (coverage.covered / coverage.total) * 100;
-          return (
-            <Card key={coverage.key} variant="outlined">
-              <CardContent sx={{ '&:last-child': { pb: 2 } }}>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}
-                >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      {coverage.label}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(245px, 1fr))',
+            gap: 1.25,
+            mt: 1.75,
+          }}
+        >
+          {insights.coverage.map((coverage) => {
+            const value = coverage.total === 0 ? 0 : (coverage.covered / coverage.total) * 100;
+            return (
+              <Card key={coverage.key} variant="outlined" sx={{ bgcolor: coverage.complete ? '#FBFDFC' : '#FFFFFF' }}>
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 760 }}>
+                        {coverage.label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {coverage.total === 0
+                          ? 'Not active yet'
+                          : `${coverage.covered} / ${coverage.total} ${coverage.parentLabel} resolved`}
+                      </Typography>
+                    </Box>
+                    {coverage.total > 0 && (
+                      <Chip
+                        size="small"
+                        label={coverage.complete ? 'Complete' : 'Needs attention'}
+                        color={coverage.complete ? 'success' : 'warning'}
+                        variant="outlined"
+                      />
+                    )}
+                  </Stack>
+
+                  <LinearProgress
+                    variant="determinate"
+                    value={value}
+                    color={coverage.complete ? 'success' : 'warning'}
+                    sx={{ mt: 1.4, height: 6, borderRadius: 999, bgcolor: '#EAF0F3' }}
+                  />
+
+                  {coverage.waived > 0 && (
+                    <Typography variant="caption" color="warning.dark" sx={{ display: 'block', mt: 1.2 }}>
+                      {coverage.waived} branch{coverage.waived === 1 ? '' : 'es'} intentionally waived by human review.
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {coverage.total === 0
-                        ? 'Not active yet'
-                        : `${coverage.covered} of ${coverage.total} ${coverage.parentLabel} resolved`}
-                    </Typography>
-                  </Box>
-                  {coverage.total > 0 && (
-                    <Chip
-                      size="small"
-                      label={coverage.complete ? 'Complete' : 'Incomplete'}
-                      color={coverage.complete ? 'success' : 'warning'}
-                      variant="outlined"
-                    />
                   )}
-                </Stack>
 
-                <LinearProgress
-                  variant="determinate"
-                  value={value}
-                  color={coverage.complete ? 'success' : 'primary'}
-                  sx={{ mt: 1.25, height: 7, borderRadius: 8 }}
-                />
-
-                {coverage.waived > 0 && (
-                  <Box sx={{ mt: 1.25 }}>
-                    <Typography variant="caption" color="info.main">
-                      Intentionally waived: {coverage.waived}
+                  {coverage.missingParentIds.length > 0 && (
+                    <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 1.2 }}>
+                      Missing {coverage.childLabel}: {coverage.missingParentIds.length} unresolved parent{coverage.missingParentIds.length === 1 ? '' : 's'}.
                     </Typography>
-                    <Stack direction="row" spacing={0.5} useFlexGap sx={{ mt: 0.5, flexWrap: 'wrap' }}>
-                      {coverage.waivedParentIds.slice(0, 6).map((id) => (
-                        <Chip key={id} size="small" label={id} color="info" variant="outlined" />
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
-
-                {coverage.missingParentIds.length > 0 && (
-                  <Box sx={{ mt: 1.25 }}>
-                    <Typography variant="caption" color="warning.main">
-                      Missing {coverage.childLabel} for:
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} useFlexGap sx={{ mt: 0.5, flexWrap: 'wrap' }}>
-                      {coverage.missingParentIds.slice(0, 6).map((id) => (
-                        <Chip key={id} size="small" label={id} variant="outlined" />
-                      ))}
-                      {coverage.missingParentIds.length > 6 && (
-                        <Chip
-                          size="small"
-                          label={`+${coverage.missingParentIds.length - 6} more`}
-                          variant="outlined"
-                        />
-                      )}
-                    </Stack>
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
       </Box>
     </Paper>
   );
