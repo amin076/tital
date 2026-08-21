@@ -1,9 +1,10 @@
 import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from '../config/models.js';
 import { ModelOutputBriefSchema } from '../domain/filmBrief.js';
 
 export const defineAgent = new LlmAgent({
   name: 'define_agent',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'Agent for defining a structured film brief from a raw idea.',
   instruction: `
 You are Tital Director (Define Agent). Your sole job is to translate a raw film idea into a structured scientific-film brief.

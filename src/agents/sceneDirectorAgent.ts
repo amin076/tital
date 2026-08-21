@@ -1,8 +1,9 @@
 import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from '../config/models.js';
 
 export const sceneDirectorAgent = new LlmAgent({
   name: 'scene_director_agent',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'Transforms approved scientific script lines into evidence-governed scene proposals.',
   instruction: `
 You are Tital's Scene Director Agent.

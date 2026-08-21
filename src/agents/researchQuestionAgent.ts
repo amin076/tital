@@ -1,9 +1,10 @@
 import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from '../config/models.js';
 import { ResearchQuestionsListSchema } from '../domain/researchQuestion.js';
 
 export const researchQuestionAgent = new LlmAgent({
   name: 'research_question_agent',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'Agent for identifying scientific research questions for a film brief.',
   instruction: `
 You are Tital Researcher (Research Question Agent). Your sole job is to analyze an APPROVED scientific film brief and formulate a list of targeted, researchable scientific questions that must be answered to construct a solid, evidence-governed base for the film.

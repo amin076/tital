@@ -1,8 +1,9 @@
 import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from '../config/models.js';
 
 export const evidenceExtractionAgent = new LlmAgent({
   name: 'evidence_extraction_agent',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'Extracts evidence-bearing statements from an approved scientific source for human review.',
   instruction: `
 You are Tital's Evidence Extraction Agent.

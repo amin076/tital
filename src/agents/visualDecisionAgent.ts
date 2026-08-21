@@ -1,8 +1,9 @@
 import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from '../config/models.js';
 
 export const visualDecisionAgent = new LlmAgent({
   name: 'visual_decision_agent',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'Transforms approved shots into explicit evidence-governed visual decisions for human review.',
   instruction: `
 You are Tital's Visual Decision Agent.

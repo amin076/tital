@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Tital All Things Agentic architecture</title>
+  <desc id="desc">Architecture diagram showing the Director Workspace on Cloud Run, Firebase authentication, governed orchestration, Google ADK agents using Gemini 3.5 Flash on Vertex AI, Parallel Search MCP, Cloud Storage, human review, deterministic audit, and the production package.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f4f7f9}.shell{fill:#123d58}.card{fill:#fff;stroke:#ccd8df;stroke-width:2}.google{fill:#eef5ff;stroke:#7ca7e5;stroke-width:2}.human{fill:#fff7e8;stroke:#d6a34a;stroke-width:2}.trust{fill:#edf8f5;stroke:#4c9a8f;stroke-width:2}.store{fill:#f4effb;stroke:#9c7cc3;stroke-width:2}.out{fill:#eff8ef;stroke:#67a76f;stroke-width:2}.t{font-family:Arial,Helvetica,sans-serif;fill:#102b3b}.white{fill:#fff}.h1{font-size:38px;font-weight:700}.h2{font-size:23px;font-weight:700}.body{font-size:17px}.small{font-size:14px;fill:#526b79}.arrow{stroke:#4d6978;stroke-width:3;fill:none;marker-end:url(#m)}.dash{stroke:#7c929d;stroke-width:2;stroke-dasharray:8 7;fill:none;marker-end:url(#m)}
+    </style>
+    <marker id="m" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#4d6978"/></marker>
+  </defs>
+  <rect class="bg" width="1600" height="900"/>
+  <rect class="shell" x="0" y="0" width="1600" height="105"/>
+  <text class="white h1" x="65" y="55">Tital — Evidence-Governed Scientific Film Director</text>
+  <text class="white body" x="67" y="82" opacity="0.82">All Things Agentic · Collaborative Partner · Gemini 3.5 Flash + Google ADK + Google Cloud</text>
+
+  <rect class="card" x="55" y="155" rx="20" width="270" height="155"/>
+  <text class="t h2" x="82" y="195">Director / Evaluator</text>
+  <text class="t body" x="82" y="232">Public demo</text>
+  <text class="t body" x="82" y="258">Authenticated workspace</text>
+  <text class="t body" x="82" y="284">Approve · Reject · Retry · Waive</text>
+
+  <rect class="google" x="410" y="145" rx="20" width="310" height="175"/>
+  <text class="t h2" x="440" y="186">Cloud Run</text>
+  <text class="t body" x="440" y="220">React 19 + MUI Director UI</text>
+  <text class="t body" x="440" y="248">Node API</text>
+  <text class="t body" x="440" y="276">same-origin /api/*</text>
+  <text class="small" x="440" y="302">Hosted production service</text>
+
+  <rect class="google" x="805" y="145" rx="20" width="280" height="175"/>
+  <text class="t h2" x="835" y="186">Firebase Auth</text>
+  <text class="t body" x="835" y="220">Email / Password</text>
+  <text class="t body" x="835" y="248">Backend ID-token verification</text>
+  <text class="t body" x="835" y="276">UID-scoped sessions</text>
+
+  <rect class="store" x="1180" y="145" rx="20" width="350" height="175"/>
+  <text class="t h2" x="1210" y="186">Google Cloud Storage</text>
+  <text class="t body" x="1210" y="220">Persistent governed session state</text>
+  <text class="t body" x="1210" y="248">Review history + performance traces</text>
+  <text class="t body" x="1210" y="276">Detached public demo snapshot</text>
+
+  <path class="arrow" d="M325 232 H410"/>
+  <path class="arrow" d="M720 205 H805"/>
+  <path class="arrow" d="M1085 232 H1180"/>
+
+  <rect class="trust" x="285" y="395" rx="22" width="440" height="250"/>
+  <text class="t h2" x="320" y="438">Governed Session Orchestrator</text>
+  <text class="t body" x="320" y="475">Typed workflow + coverage evaluation</text>
+  <text class="t body" x="320" y="505">Deterministic Zod validation</text>
+  <text class="t body" x="320" y="535">Application-owned IDs + provenance</text>
+  <text class="t body" x="320" y="565">Targeted retry + waiver + staleness</text>
+  <text class="t body" x="320" y="595">Bounded concurrency + timing traces</text>
+  <text class="small" x="320" y="624">Model proposes; application decides what can become trusted state.</text>
+
+  <rect class="google" x="810" y="385" rx="22" width="335" height="270"/>
+  <text class="t h2" x="845" y="428">Google ADK Agents</text>
+  <text class="t body" x="845" y="465">Define · Research · Evidence</text>
+  <text class="t body" x="845" y="493">Claims · Script · Scenes</text>
+  <text class="t body" x="845" y="521">Shots · Visual Decisions</text>
+  <rect class="card" x="845" y="548" rx="14" width="265" height="72"/>
+  <text class="t h2" x="872" y="578">Gemini 3.5 Flash</text>
+  <text class="small" x="872" y="602">Vertex AI · model gemini-3.5-flash</text>
+
+  <rect class="card" x="1230" y="395" rx="22" width="300" height="125"/>
+  <text class="t h2" x="1260" y="438">Parallel Search MCP</text>
+  <text class="t body" x="1260" y="472">web_search tool</text>
+  <text class="small" x="1260" y="498">Source discovery only; candidates validated</text>
+
+  <rect class="human" x="1230" y="560" rx="22" width="300" height="125"/>
+  <text class="t h2" x="1260" y="603">Human Review Gate</text>
+  <text class="t body" x="1260" y="637">Approve · Reject · Try another</text>
+  <text class="small" x="1260" y="663">Feedback changes the next allowed action</text>
+
+  <path class="arrow" d="M565 320 V395"/>
+  <path class="arrow" d="M725 515 H810"/>
+  <path class="arrow" d="M1145 466 H1230"/>
+  <path class="dash" d="M1230 622 H1150 V575"/>
+  <path class="dash" d="M1230 457 H1148"/>
+  <path class="dash" d="M810 600 H760 V600 H725"/>
+
+  <rect class="out" x="285" y="735" rx="22" width="440" height="120"/>
+  <text class="t h2" x="320" y="776">Governance & Provenance Audit</text>
+  <text class="t body" x="320" y="810">Approved-chain integrity · visual category · disclosure</text>
+  <text class="small" x="320" y="837">Deterministic audit; not independent scientific peer review</text>
+
+  <rect class="out" x="810" y="735" rx="22" width="335" height="120"/>
+  <text class="t h2" x="845" y="776">ProductionPackage</text>
+  <text class="t body" x="845" y="810">JSON · text · PDF · provenance trace</text>
+  <text class="small" x="845" y="837">READY_FOR_PRODUCTION only after governance gates</text>
+
+  <rect class="card" x="1230" y="735" rx="22" width="300" height="120"/>
+  <text class="t h2" x="1260" y="776">Public Demo Snapshot</text>
+  <text class="t body" x="1260" y="810">Detached · read-only · no login</text>
+  <text class="small" x="1260" y="837">Evaluators inspect a completed chain instantly</text>
+
+  <path class="arrow" d="M505 645 V735"/>
+  <path class="arrow" d="M725 795 H810"/>
+  <path class="arrow" d="M1145 795 H1230"/>
+</svg>

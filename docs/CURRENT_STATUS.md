@@ -1,14 +1,29 @@
 # Tital Current Status
 
-Status date: **2026-08-20**
+Status date: **2026-08-22**
 
-Tital is a working **evidence-governed scientific film director** with a hosted Cloud Run application, Cloud Storage session persistence, Firebase-authenticated live workflow, public landing/demo shell, human-governed recovery from rejected content, and a provenance chain from scientific idea to production package.
+Tital is a working, hosted **Evidence-Governed Scientific Film Director** with a public completed demo, an authenticated Director Workspace, persistent Cloud Storage state, Google ADK agents, human review gates, evidence-to-visual provenance, a deterministic governance/provenance audit, and a final production package.
 
 Core principle:
 
 > **Evidence → Story, not Story → Evidence.**
 
-Implemented chain:
+## Current submission stack
+
+| Area | Current state |
+|---|---|
+| LLM | `gemini-3.5-flash` centralized in `src/config/models.ts` on the All Things Agentic readiness branch; live post-deploy smoke test required before final submission claim |
+| Agent framework | Google ADK TypeScript |
+| Model access | Vertex AI |
+| Hosted application | Google Cloud Run |
+| Persistent state | Google Cloud Storage |
+| Authentication | Firebase Email/Password + Firebase Admin ID-token verification |
+| Source discovery | Parallel Search MCP |
+| Front end | React 19 + Vite + Material UI |
+| Validation | Zod + deterministic application-owned provenance mapping |
+| CI/CD | GitHub Actions + Google Workload Identity Federation + Cloud Run deployment |
+
+## Implemented workflow
 
 ```text
 FilmBrief
@@ -24,104 +39,34 @@ FilmBrief
 → ProductionPackage
 ```
 
-## Trust boundary
+Every generative transition is bounded by human review. Models do not own approval status, trusted record identity, or provenance links.
 
-The application, not the model, owns trusted IDs, statuses, provenance links, approval transitions, session ownership, workflow eligibility, audit execution, and final package construction.
+## Human collaboration
 
-The hardened model-reference rule is:
+Tital's Director Brief persists:
 
 ```text
-model sees numbered approved inputs
-→ model returns numbered references
-→ application maps numbers to trusted IDs
+collaborationMode
+pacing
+cameraMovement
+representationPreference
+visualStyle
+notes
+avoid[]
 ```
 
-This is used where the model must refer to approved upstream records. Parent identity is attached by application code whenever possible.
-
-## Implemented / validated areas
-
-| Area | Status | Notes |
-|---|---|---|
-| TypeScript / Node.js core | Implemented | Domain, services, orchestration, API and persistence. |
-| Google ADK + Gemini / Vertex AI | Implemented and live-validated | Specialized proposal-generating agents. |
-| Parallel Search MCP | Implemented and live-validated | Source discovery uses Parallel MCP; malformed candidates are isolated rather than failing a valid batch. |
-| React / Vite / MUI web UI | Implemented and live-validated | Human review, workflow progression, production results. |
-| Cloud Run | Deployed and live-validated | Hosted service in `australia-southeast1`. |
-| Cloud Storage persistence | Implemented and live-validated | Authenticated sessions persist across revisions. |
-| Firebase Email/Password auth | Implemented and live-validated | Client sign-in + backend ID-token verification. |
-| User session isolation | Implemented | Hosted user sessions are namespaced by Firebase `uid`. |
-| Public landing/demo shell | Implemented | Completed public demo requires safe promotion/configuration of a curated session snapshot. |
-| Human review gates | Implemented and live-validated | No silent model approval. |
-| Rejection recovery | Implemented and live-validated | No silent regeneration; explicit Retry / Waive / Cancel. |
-| Coverage waivers | Implemented and live-validated | Intentional omissions persist as `CoverageWaiver` governance records. |
-| Governance/provenance audit | Implemented | Deterministic integrity checks; not independent scientific peer review. |
-| Production package + exports | Implemented and live-validated | JSON, readable text, styled browser/PDF workflow. |
-| GitHub Actions WIF CI/CD | Implemented and validated | PR validation and main push deployment use short-lived Workload Identity Federation credentials. |
-| Project Director Brief | Implemented in current hardening | Project-level cinematic preferences feed Scene/Shot/Visual generation without overriding science. |
-| Cinematic decision provenance | Implemented in current hardening | Application records whether AI recommendation used Director Brief/scoped instruction. |
-| Bounded external-call concurrency | Implemented in current hardening | Independent calls inside a stage run with conservative bounded concurrency; true stage dependencies remain sequential. |
-| Runtime timing traces | Implemented in current hardening | New automation events can persist per-stage and per-external-call timing. |
-
-## Recent reliability fixes
-
-### Rejected Evidence regeneration loop
-
-A Source whose generated Evidence had all been rejected previously looked uncovered because coverage inspected only approved Evidence. The executor could therefore regenerate semantically identical Evidence with new IDs.
-
-Fix:
+The review workflow supports:
 
 ```text
-any Evidence attempt for a Source
-→ Source is not automatically re-extracted
-```
-
-Explicit human retry is required for a replacement.
-
-### Evidence coverage semantics
-
-Source approval means a Source is acceptable for consideration; it does **not** force a reviewer to approve some Evidence from every Source.
-
-Evidence coverage therefore requires approved Evidence for each required approved Research Question through approved provenance, not approved Evidence from every approved Source.
-
-### Rejection recovery generalized to every governed stage
-
-The same silent-regeneration risk existed downstream. Tital now treats rejected content as terminal history across Sources, Evidence, Claims, Script Lines, Scenes, Shots and Visual Decisions.
-
-If rejection would create a required coverage gap:
-
-```text
+Approve
 Reject
-→ warning
-→ Retry replacement | Waive intentional gap | Cancel
+Reject & try another + scoped replacement instruction
+Retry / Waive / Cancel when a required coverage gap is created
 ```
 
-Targeted retry applies duplicate filtering. Waive persists a `CoverageWaiver` rather than pretending the gap never existed.
+Rejected work remains history and is not silently regenerated. Intentional omissions remain visible as `CoverageWaiver` records.
 
-## Completed dinosaur E2E
-
-The hosted project **What Really Killed the Dinosaurs?** completed the governed workflow through `READY_FOR_PRODUCTION` and audit on 2026-08-20.
-
-The resulting package demonstrated:
-
-- five approved Research Questions;
-- real Parallel-discovered Sources;
-- Evidence → Claims → Script → Scenes → Shots → Visual Decisions;
-- explicit human rejection decisions;
-- one intentional Scene coverage waiver;
-- scientific-reconstruction / conceptual-visualization disclosures;
-- final governance/provenance audit.
-
-This run exposed and validated the coverage-gap/retry/waiver product requirement.
-
-Scientific caveat: a passed governance audit confirms chain integrity, not source authority or scientific truth. The dinosaur run also showed why future source-authority and uncertainty-preservation checks remain valuable.
-
-## Director control
-
-Tital should not treat a scientifically supported scene as having one objectively correct cinematic solution.
-
-The current Director-control increment adds a project-level `DirectorBrief` with compact structured preferences and free-text notes, inherited by Scene, Shot and Visual Decision generation. Scoped instructions can also guide targeted cinematic replacement retries.
-
-Precedence:
+Scientific precedence is explicit:
 
 ```text
 science / provenance / uncertainty / visual-integrity constraints
@@ -130,81 +75,123 @@ science / provenance / uncertainty / visual-integrity constraints
 > AI cinematic preference
 ```
 
-See [DIRECTOR_CONTROL.md](DIRECTOR_CONTROL.md).
+## Trusted-reference hardening
+
+Where a model must refer to upstream data, Tital prefers numbered semantic references and maps them to trusted application IDs after validation.
+
+```text
+model sees numbered approved inputs
+→ model returns numbered references
+→ deterministic service maps numbers to trusted IDs
+```
+
+This avoids asking a model to reproduce opaque UUID-like identifiers and prevents reference drift from becoming trusted state.
+
+## Public demo
+
+The public Dinosaur demo is **implemented, published, and anonymously browser-validated**.
+
+Project:
+
+**What Really Killed the Dinosaurs?**
+
+Status:
+
+```text
+COMPLETE
+READY_FOR_PRODUCTION
+```
+
+Approved package counts:
+
+- 5 Research Questions;
+- 15 Sources;
+- 24 Evidence records;
+- 13 Claims;
+- 11 Scientific Script lines;
+- 5 Scenes;
+- 9 Shots;
+- 9 Visual Decisions.
+
+The demo is a detached read-only snapshot created from a completed production package. It does not expose the authenticated user's mutable private session or private event history.
+
+## Director Workspace
+
+The authenticated application uses a three-zone production workspace on wide screens:
+
+```text
+Project navigation
+│
+├─ focused current work / human review
+│
+└─ contextual rail
+   ├─ current stage
+   ├─ Director Brief
+   └─ Runtime Performance Insights
+```
+
+The New Project form no longer dominates an existing project session, and raw event history is progressively disclosed rather than occupying the primary task surface.
 
 ## Performance status
 
-Static inspection found a clear application bottleneck: independent external calls within a stage were executed serially. Examples included source discovery per Research Question and Evidence extraction per Source.
+Tital now uses bounded concurrency for independent external calls **inside an already-authorized stage**, while preserving true workflow and human-review dependencies.
 
-The current performance increment adds conservative bounded concurrency and lightweight timing traces. No before/after percentage is claimed yet because the earlier dinosaur run did not contain comparable timing telemetry.
+Default external concurrency remains `3` until controlled `3` vs `4` benchmark runs justify a change.
 
-See [PERFORMANCE.md](PERFORMANCE.md).
-
-## Hosted architecture
+The first hosted Sky baseline recorded approximately:
 
 ```text
-Browser
-  ↓
-Cloud Run: tital
-  ├─ React production UI
-  └─ Node /api
-       ↓
-Firebase ID-token verification
-       ↓
-user-scoped session store
-       ↓
-Cloud Storage
-       ↓
-Vertex AI / Gemini + Parallel MCP when required
+measured Continue-stage wall time   2m29s
+external calls                      39
+external-call failures              0
+aggregate external-work overlap     2.28×
 ```
 
-The Cloud Run endpoint is public at the network layer; application-level authentication protects live session routes. Anonymous access is intended for the landing page and a curated read-only demo only.
-
-## Persistence
-
-Local development:
+The overlap ratio is:
 
 ```text
-.tital/sessions/<session-id>.json
+sum(external-call durations) / measured wall time
 ```
 
-Hosted authenticated layout:
+and is **not** presented as a before/after speedup claim.
 
-```text
-gs://<bucket>/<prefix>/users/<firebase-uid>/<session-id>.json
-```
+Benchmark V2 now also records:
 
-Current limitation: no optimistic locking/session-version precondition yet. Conservative Cloud Run request concurrency remains appropriate until concurrent-update protection is implemented.
+- FilmBrief project-creation timing for new sessions;
+- external vs internal measured work;
+- Parallel agent/MCP roundtrip vs SourceRecord normalization;
+- configured concurrency limit;
+- unique measured stage count vs execution count.
 
-## Authentication
+See `docs/PERFORMANCE.md` and `docs/PERFORMANCE_BENCHMARK_V2.md`.
 
-Public web configuration is supplied by `/api/public/config`. Firebase signs in the user; protected API requests send an ID token; Firebase Admin verifies it; decoded `uid` determines the session namespace.
+## Governance and staleness
 
-The Firebase Web configuration is not a secret. Service-account keys, access/refresh tokens, judge passwords and other real secrets must never be committed or exposed to browser code.
+The current trust model includes:
 
-## Public demo status
-
-The landing and read-only demo route exist, but the completed authenticated dinosaur session must not simply be referenced by `TITAL_DEMO_SESSION_ID` because `/api/public/demo` reads from the base public store while authenticated sessions live under user-scoped prefixes.
-
-The safe next step is a sanitized, immutable public-demo snapshot or an explicit promotion mechanism, followed by anonymous smoke testing.
-
-## Source verification limit
-
-Parallel MCP discovers public-web sources and preserves excerpts/metadata. Tital does **not yet** perform dedicated full-content retrieval/verification for every approved source before Evidence extraction.
-
-```text
-source discovery ≠ full source verification
-```
-
-Approved-source full-content verification remains a major scientific-quality milestone.
+- application-owned IDs and provenance;
+- rejection history;
+- explicit replacement retry;
+- explicit coverage waivers;
+- duplicate-resistant targeted retry;
+- `STALE` lifecycle support and deterministic downstream invalidation foundation;
+- audit invalidation when governed state changes;
+- production-package invalidation when trusted dependencies become stale.
 
 ## Audit scope
 
-The deterministic audit checks governance/provenance integrity such as broken links, unapproved upstream records, unsupported provenance, visual-category mismatch and required disclosure conditions.
+The final human-facing result is correctly described as a **Governance & provenance audit**.
 
-It does **not** independently establish scientific truth or source authority.
+It checks deterministic integrity conditions such as:
 
-High-value future semantic rules include:
+- broken provenance links;
+- unapproved upstream records entering the trusted chain;
+- visual-category consistency;
+- required disclosure conditions.
+
+It does **not** independently establish scientific truth, source authority, or expert peer-review quality.
+
+High-value future semantic checks include:
 
 ```text
 UNCERTAINTY_DROPPED
@@ -213,17 +200,44 @@ proposition-aware unsupported-claim detection
 source-authority / citation evaluation
 ```
 
-## Current major limitations
+## Current scientific-quality boundary
 
-- no dedicated full-source retrieval/verification stage;
-- no optimistic locking for concurrent session writes;
-- public demo promotion/snapshot still needs final implementation and live anonymous validation;
-- no complete general edit + downstream-staleness lifecycle;
-- no reusable cross-project Director Profile store yet;
-- no generalized lock/unlock/version-comparison UX for cinematic decisions;
-- no live before/after performance benchmark yet for the new concurrency path;
-- scientific audit remains governance/provenance validation, not peer review;
-- final film rendering remains outside Tital's current product boundary.
+Parallel Search MCP discovers public-web sources and preserves source metadata/excerpts, but Tital does not yet perform dedicated full-document retrieval and independent verification for every approved source.
+
+```text
+source discovery ≠ full source verification
+```
+
+This limitation must remain explicit in submission materials.
+
+## All Things Agentic readiness
+
+Prepared in `docs/hackathon/all-things-agentic/`:
+
+- Collaborative Partner submission narrative;
+- mandatory technology/compliance matrix;
+- architecture diagram and architecture explanation;
+- reproducible spin-up documentation;
+- timed ~4-minute demo script;
+- optional bonus social/blog drafts.
+
+Final human actions still required after readiness code merges:
+
+1. confirm CI and Cloud Run deployment of the Gemini 3.5 migration;
+2. run a small live production smoke flow proving structured output and Parallel MCP compatibility on Gemini 3.5 Flash;
+3. record/upload the demo video with visible Google Cloud proof;
+4. complete personal/legal Devpost eligibility fields;
+5. submit and re-check all URLs before the deadline.
+
+## Current major limits
+
+- dedicated approved-source full-content verification is not yet implemented;
+- optimistic locking for concurrent session mutation is not yet implemented;
+- Cloud Run request concurrency therefore remains conservative;
+- reusable cross-project Director Profiles are not yet implemented;
+- advanced cinematic lock/version comparison remains roadmap work;
+- the semantic scientific-consistency audit remains incomplete;
+- Tital produces a governed production package rather than rendering the final film.
 
 ## Validation commands
 
@@ -235,4 +249,4 @@ npm test
 npm run build
 ```
 
-Live Vertex/Parallel performance measurements remain deliberate because they consume external quota/credits.
+Live Vertex/Parallel calls are performed deliberately because they consume external quota/credits.
