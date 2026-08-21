@@ -99,6 +99,7 @@ export interface SessionEvent {
   performance?: {
     durationMs: number;
     externalCallCount: number;
+    concurrencyLimit?: number;
     operations: SessionPerformanceOperation[];
   };
 }
@@ -123,6 +124,7 @@ export interface PerformanceInsights {
   measuredExecutionCount: number;
   measuredStageCount: number;
   includesProjectCreation: boolean;
+  concurrencyLimits: number[];
   durationMs: number;
   externalCallCount: number;
   externalWorkMs: number;
