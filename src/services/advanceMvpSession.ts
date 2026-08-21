@@ -57,6 +57,9 @@ export async function advanceMvpSession(
     const result = await executeNextMvpStep(current.state, executors);
     const durationMs = Math.max(0, Math.round(performanceNow() - startedAt));
     const stepOperations = operations.slice(operationStart);
+    const externalCallCount = stepOperations.filter(
+      (operation) => operation.kind !== 'INTERNAL'
+    ).length;
 
     if (result.disposition === 'AWAITING_HUMAN_REVIEW') {
       return current;
@@ -83,7 +86,7 @@ export async function advanceMvpSession(
           message: result.message,
           performance: {
             durationMs,
-            externalCallCount: stepOperations.length,
+            externalCallCount,
             operations: stepOperations,
           },
         },
