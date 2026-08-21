@@ -20,6 +20,11 @@ function nice(value: string | undefined): string {
   return LABELS[value] ?? value.replaceAll('_', ' ').toLowerCase();
 }
 
+function currentContextLabel(view: SessionView): string {
+  if (view.summary.stage === 'COMPLETE') return 'Production ready';
+  return view.workflowInsights.steps.find((step) => step.status === 'CURRENT')?.label ?? view.summary.stage;
+}
+
 export function DirectorContextRail({ view }: { view: SessionView }) {
   const brief = view.projectInput.directorBrief;
 
@@ -28,8 +33,13 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
       <Paper variant="outlined" sx={{ p: 2.25 }}>
         <Typography variant="overline" color="text.secondary">Current context</Typography>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6">{view.workflowInsights.steps.find((step) => step.status === 'CURRENT')?.label ?? view.summary.stage}</Typography>
-          <Chip size="small" label={view.summary.stage} color={view.summary.stage === 'COMPLETE' ? 'success' : 'primary'} />
+          <Typography variant="h6">{currentContextLabel(view)}</Typography>
+          <Chip
+            size="small"
+            label={view.summary.stage}
+            color={view.summary.stage === 'COMPLETE' ? 'success' : 'primary'}
+            variant={view.summary.stage === 'COMPLETE' ? 'filled' : 'outlined'}
+          />
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           {view.summary.nextAction}
@@ -72,22 +82,41 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
             </Box>
             {(brief.visualStyle || brief.notes || brief.avoid.length > 0) && <Divider sx={{ my: 1.5 }} />}
             {brief.visualStyle && (
-              <Box sx={{ mb: 1 }}>
+              <Box sx={{ mb: 1.1 }}>
                 <Typography variant="caption" color="text.secondary">Visual language</Typography>
-                <Typography variant="body2">{brief.visualStyle}</Typography>
+                <Typography variant="body2" sx={{ lineHeight: 1.55 }}>{brief.visualStyle}</Typography>
               </Box>
             )}
             {brief.notes && (
-              <Box sx={{ mb: 1 }}>
+              <Box sx={{ mb: 1.1 }}>
                 <Typography variant="caption" color="text.secondary">Director notes</Typography>
-                <Typography variant="body2">{brief.notes}</Typography>
+                <Typography variant="body2" sx={{ lineHeight: 1.55 }}>{brief.notes}</Typography>
               </Box>
             )}
             {brief.avoid.length > 0 && (
               <Box>
                 <Typography variant="caption" color="text.secondary">Avoid</Typography>
                 <Stack direction="row" spacing={0.5} useFlexGap sx={{ mt: 0.5, flexWrap: 'wrap' }}>
-                  {brief.avoid.map((item) => <Chip key={item} size="small" label={item} variant="outlined" />)}
+                  {brief.avoid.map((item) => (
+                    <Chip
+                      key={item}
+                      size="small"
+                      label={item}
+                      variant="outlined"
+                      sx={{
+                        maxWidth: '100%',
+                        height: 'auto',
+                        alignItems: 'flex-start',
+                        '& .MuiChip-label': {
+                          display: 'block',
+                          whiteSpace: 'normal',
+                          overflowWrap: 'anywhere',
+                          py: 0.45,
+                          lineHeight: 1.35,
+                        },
+                      }}
+                    />
+                  ))}
                 </Stack>
               </Box>
             )}
