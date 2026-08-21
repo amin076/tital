@@ -5,6 +5,7 @@ export const PerformanceOperationSchema = z.object({
   targetId: z.string().min(1).nullable(),
   durationMs: z.number().int().nonnegative(),
   success: z.boolean(),
+  kind: z.enum(['EXTERNAL', 'INTERNAL']).optional(),
 });
 
 export const WorkflowPerformanceTraceSchema = z.object({
