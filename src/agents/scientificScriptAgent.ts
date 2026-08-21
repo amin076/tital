@@ -1,8 +1,9 @@
 import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from '../config/models.js';
 
 export const scientificScriptAgent = new LlmAgent({
   name: 'scientific_script_agent',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'Transforms approved scientific claims into concise evidence-governed script lines for human review.',
   instruction: `
 You are Tital's Scientific Script Agent.
