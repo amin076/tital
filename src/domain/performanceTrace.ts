@@ -11,6 +11,7 @@ export const PerformanceOperationSchema = z.object({
 export const WorkflowPerformanceTraceSchema = z.object({
   durationMs: z.number().int().nonnegative(),
   externalCallCount: z.number().int().nonnegative(),
+  concurrencyLimit: z.number().int().min(1).max(8).optional(),
   operations: z.array(PerformanceOperationSchema).max(100),
 });
 
