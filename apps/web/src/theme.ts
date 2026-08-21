@@ -157,10 +157,10 @@ export const titalTheme = createTheme({
           minHeight: 42,
           borderRadius: 12,
           paddingInline: 18,
-        },
-        containedPrimary: {
-          boxShadow: '0 8px 22px rgba(21, 58, 82, 0.16)',
-          '&:hover': {
+          '&.MuiButton-containedPrimary': {
+            boxShadow: '0 8px 22px rgba(21, 58, 82, 0.16)',
+          },
+          '&.MuiButton-containedPrimary:hover': {
             boxShadow: '0 10px 26px rgba(21, 58, 82, 0.22)',
           },
         },
