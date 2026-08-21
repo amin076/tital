@@ -8,6 +8,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Divider,
   Paper,
   Stack,
   Typography,
@@ -94,13 +95,13 @@ export function FinalResultsPanel({
   }
 
   return (
-    <Paper variant="outlined" sx={{ p: 2.5 }}>
+    <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 } }}>
       <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
         sx={{
           justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', md: 'center' },
+          alignItems: { xs: 'flex-start', sm: 'flex-start' },
         }}
       >
         <Box>
@@ -112,26 +113,32 @@ export function FinalResultsPanel({
             Generated {new Date(pkg.generatedAt).toLocaleString()}
           </Typography>
         </Box>
-        <Stack
-          direction="row"
-          spacing={1}
-          useFlexGap
-          sx={{ alignItems: 'center', flexWrap: 'wrap' }}
-        >
-          <Chip
-            label={pkg.status}
-            color={pkg.status === 'READY_FOR_PRODUCTION' ? 'success' : 'warning'}
-          />
-          <Button variant="contained" onClick={handlePrint}>
-            Print / Save PDF
-          </Button>
-          <Button variant="outlined" onClick={() => downloadTextReport(pkg)}>
-            Download text
-          </Button>
-          <Button variant="text" onClick={() => downloadJsonPackage(pkg)}>
-            Download JSON
-          </Button>
-        </Stack>
+        <Chip
+          label={pkg.status}
+          color={pkg.status === 'READY_FOR_PRODUCTION' ? 'success' : 'warning'}
+          sx={{ flexShrink: 0 }}
+        />
+      </Stack>
+
+      <Divider sx={{ my: 1.75 }} />
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1}
+        useFlexGap
+        sx={{ alignItems: { xs: 'stretch', sm: 'center' }, flexWrap: 'wrap' }}
+      >
+        <Typography variant="caption" color="text.secondary" sx={{ mr: { sm: 0.5 } }}>
+          Export production package
+        </Typography>
+        <Button variant="contained" onClick={handlePrint}>
+          Print / Save PDF
+        </Button>
+        <Button variant="outlined" onClick={() => downloadTextReport(pkg)}>
+          Download text
+        </Button>
+        <Button variant="outlined" onClick={() => downloadJsonPackage(pkg)}>
+          Download JSON
+        </Button>
       </Stack>
 
       {reportError && (
