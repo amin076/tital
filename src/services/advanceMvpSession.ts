@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import { MvpSessionSchema, type MvpSession, type MvpSessionEventType } from '../domain/mvpSession.js';
+import { resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
 import { buildProductionPackage } from './buildProductionPackage.js';
 import {
   createRealMvpStepExecutors,
@@ -14,6 +15,7 @@ export interface AdvanceMvpSessionOptions {
   now?: () => string;
   eventIdFactory?: () => string;
   performanceNow?: () => number;
+  externalConcurrency?: number;
 }
 
 function packageFor(session: MvpSession) {
@@ -38,10 +40,14 @@ export async function advanceMvpSession(
   let current = MvpSessionSchema.parse(session);
   const operations: PerformanceOperation[] = [];
   const performanceNow = options.performanceNow ?? (() => Date.now());
+  const concurrencyLimit = options.externalConcurrency ?? (
+    options.executors ? undefined : resolveExternalConcurrency(process.env.TITAL_EXTERNAL_CONCURRENCY)
+  );
   const executors = options.executors ?? createRealMvpStepExecutors(
     realMvpRuntimeServices,
     {
       directorBrief: current.projectInput?.directorBrief,
+      externalConcurrency: concurrencyLimit,
       onOperation: (operation) => operations.push(operation),
     }
   );
@@ -57,6 +63,9 @@ export async function advanceMvpSession(
     const result = await executeNextMvpStep(current.state, executors);
     const durationMs = Math.max(0, Math.round(performanceNow() - startedAt));
     const stepOperations = operations.slice(operationStart);
+    const externalCallCount = stepOperations.filter(
+      (operation) => operation.kind !== 'INTERNAL'
+    ).length;
 
     if (result.disposition === 'AWAITING_HUMAN_REVIEW') {
       return current;
@@ -83,7 +92,8 @@ export async function advanceMvpSession(
           message: result.message,
           performance: {
             durationMs,
-            externalCallCount: stepOperations.length,
+            externalCallCount,
+            ...(concurrencyLimit ? { concurrencyLimit } : {}),
             operations: stepOperations,
           },
         },

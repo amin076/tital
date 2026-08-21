@@ -2,6 +2,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Divider,
   MenuItem,
   Paper,
@@ -9,7 +10,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createSession, type SessionView } from './api';
 
 const knowledgeLevels = [
@@ -50,6 +51,14 @@ const representationOptions = [
   ['EXPLANATORY_VISUALS_FIRST', 'Explanatory animation / diagrams when useful'],
 ] as const;
 
+function parseAvoidItems(value: string): string[] {
+  return value
+    .split(/[,;\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
 export function NewProjectPanel({
   busy,
   onCreated,
@@ -88,6 +97,7 @@ export function NewProjectPanel({
   const [directorNotes, setDirectorNotes] = useState('');
   const [avoid, setAvoid] = useState('');
 
+  const avoidItems = useMemo(() => parseAvoidItems(avoid), [avoid]);
   const trimmedIdea = rawIdea.trim();
   const parsedDuration = Number(durationMinutes);
   const durationValid =
@@ -105,11 +115,6 @@ export function NewProjectPanel({
     onBusyChange(true);
     onError(null);
     try {
-      const avoidItems = avoid
-        .split(',')
-        .map((value) => value.trim())
-        .filter(Boolean)
-        .slice(0, 20);
       const view = await createSession({
         rawIdea: trimmedIdea,
         ...(title.trim() ? { title: title.trim() } : {}),
@@ -161,7 +166,7 @@ export function NewProjectPanel({
       </Stack>
 
       <Alert severity="warning" sx={{ mt: 2.5 }}>
-        Creating a project is a live runtime action and can consume Gemini / Vertex AI quota or credits.
+        Creating a project is a live runtime action and can consume Gemini / Vertex AI quota or credits. FilmBrief generation time is measured as part of the project performance profile.
       </Alert>
 
       <Stack spacing={2.25} sx={{ mt: 2.5 }}>
@@ -364,14 +369,39 @@ export function NewProjectPanel({
           />
           <TextField
             label="Avoid"
-            placeholder="orbiting camera, sensational disaster imagery, excessive CGI"
+            placeholder={'orbiting camera, sensational disaster imagery\nexcessive dramatic lighting'}
             value={avoid}
             onChange={(event) => setAvoid(event.target.value)}
             fullWidth
+            multiline
+            minRows={2}
             disabled={busy}
-            helperText="Optional comma-separated creative constraints (maximum 20)."
+            helperText="Separate creative constraints with commas, semicolons, or new lines (maximum 20). Phrases stay intact; spaces alone do not split a constraint."
             sx={{ mt: 1.5 }}
           />
+          {avoidItems.length > 0 && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary">Parsed constraints</Typography>
+              <Stack direction="row" spacing={0.6} useFlexGap sx={{ mt: 0.55, flexWrap: 'wrap' }}>
+                {avoidItems.map((item) => (
+                  <Chip
+                    key={item}
+                    size="small"
+                    label={item}
+                    variant="outlined"
+                    sx={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                      '& .MuiChip-label': {
+                        whiteSpace: 'normal',
+                        py: 0.35,
+                      },
+                    }}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          )}
         </Box>
 
         <Alert severity="info" variant="outlined">

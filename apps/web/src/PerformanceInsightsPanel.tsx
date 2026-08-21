@@ -2,7 +2,7 @@ import { Alert, Box, Chip, LinearProgress, Paper, Stack, Typography } from '@mui
 import type { PerformanceInsights } from './api';
 
 const STAGE_LABELS: Record<string, string> = {
-  DEFINE: 'Define',
+  DEFINE: 'FilmBrief',
   RESEARCH: 'Source discovery',
   EVIDENCE: 'Evidence',
   CLAIMS: 'Claims',
@@ -31,7 +31,7 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
       </Typography>
       <Typography variant="h6" sx={{ mt: 0.15 }}>{value}</Typography>
       {note && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.15 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.15, lineHeight: 1.35 }}>
           {note}
         </Typography>
       )}
@@ -44,28 +44,43 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
     return (
       <Paper variant="outlined" sx={{ p: 2.25 }}>
         <Typography variant="overline" color="text.secondary">Runtime performance</Typography>
-        <Typography variant="h6">No measured stage traces yet</Typography>
+        <Typography variant="h6">No measured executions yet</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-          New live automated stages record wall-clock duration and external-call timing. Older sessions that predate instrumentation remain explicitly unmeasured.
+          New live automated work records wall-clock duration and external-call timing. Older sessions that predate instrumentation remain explicitly unmeasured.
         </Typography>
       </Paper>
     );
   }
 
   const maxStageDuration = Math.max(...insights.stages.map((stage) => stage.durationMs), 1);
+  const concurrencyLabel = insights.concurrencyLimits.length === 0
+    ? null
+    : insights.concurrencyLimits.length === 1
+      ? `Concurrency limit ${insights.concurrencyLimits[0]}`
+      : `Concurrency limits ${insights.concurrencyLimits.join(', ')}`;
 
   return (
     <Paper variant="outlined" sx={{ p: 2.25 }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <Box>
+        <Box sx={{ minWidth: 0 }}>
           <Typography variant="overline" color="text.secondary">Runtime performance</Typography>
           <Typography variant="h6">Measured agent-call profile</Typography>
         </Box>
-        <Chip size="small" label={`${insights.measuredEventCount} measured stage${insights.measuredEventCount === 1 ? '' : 's'}`} color="secondary" variant="outlined" />
+        <Chip
+          size="small"
+          label={`${insights.measuredStageCount} stages · ${insights.measuredExecutionCount} executions`}
+          color="secondary"
+          variant="outlined"
+          sx={{ flexShrink: 0 }}
+        />
       </Stack>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1.5, mt: 2 }}>
-        <Stat label="Automated stage wall time" value={formatDuration(insights.durationMs)} note="Measured Continue executions only" />
+        <Stat
+          label="Measured automated runtime"
+          value={formatDuration(insights.durationMs)}
+          note={insights.includesProjectCreation ? 'Includes FilmBrief creation and later automated stages' : 'Legacy session: FilmBrief creation was not measured'}
+        />
         <Stat label="External calls" value={String(insights.externalCallCount)} note={`${insights.failedCallCount} failed`} />
         <Stat label="Slowest stage" value={insights.slowestStage ? STAGE_LABELS[insights.slowestStage] ?? insights.slowestStage : '—'} />
         <Stat
@@ -75,16 +90,32 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
         />
       </Box>
 
+      {concurrencyLabel && (
+        <Chip
+          size="small"
+          label={concurrencyLabel}
+          color="secondary"
+          variant="outlined"
+          sx={{ mt: 1.5 }}
+        />
+      )}
+
+      {!insights.includesProjectCreation && (
+        <Alert severity="info" variant="outlined" sx={{ mt: 1.75 }}>
+          This project predates project-creation timing, so the total excludes the initial FilmBrief generation call. New projects include it automatically.
+        </Alert>
+      )}
+
       <Box sx={{ mt: 2.25 }}>
         <Typography variant="subtitle2">Stage profile</Typography>
         <Stack spacing={1.15} sx={{ mt: 1.1 }}>
-          {insights.stages.slice(0, 8).map((stage) => (
+          {insights.stages.slice(0, 10).map((stage) => (
             <Box key={stage.stage}>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', justifyContent: 'space-between' }}>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
                   {STAGE_LABELS[stage.stage] ?? stage.stage}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'right' }}>
                   {formatDuration(stage.durationMs)} · {stage.externalCallCount} call{stage.externalCallCount === 1 ? '' : 's'}
                 </Typography>
               </Stack>
@@ -105,9 +136,14 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
                     slowest call {formatDuration(stage.slowestCallMs)}
                   </Typography>
                 )}
-                {stage.attempts > 1 && (
+                {stage.executions > 1 && (
                   <Typography variant="caption" color="text.secondary">
-                    {stage.attempts} attempts
+                    {stage.executions} executions
+                  </Typography>
+                )}
+                {stage.internalWorkMs > 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    internal measured work {formatDuration(stage.internalWorkMs)}
                   </Typography>
                 )}
               </Stack>
@@ -121,7 +157,7 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
             Slowest measured external call: {formatDuration(insights.slowestCallMs)}
           </Typography>
-          <Typography variant="caption">
+          <Typography variant="caption" sx={{ overflowWrap: 'anywhere' }}>
             {insights.slowestOperationName}{insights.slowestTargetId ? ` · ${insights.slowestTargetId}` : ''}
           </Typography>
         </Alert>

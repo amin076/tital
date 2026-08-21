@@ -8,6 +8,7 @@ import {
   type ParallelSourceCandidate,
   type ParallelSourceDiscovery,
 } from '../domain/parallelSourceDiscovery.js';
+import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SourceRecordSchema, type SourceRecord } from '../domain/sourceRecord.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
@@ -138,9 +139,54 @@ export async function discoverSourcesWithParallelMcp(
   options: {
     idFactory?: () => string;
     now?: () => string;
+    performanceNow?: () => number;
+    onOperation?: (operation: PerformanceOperation) => void;
   } = {}
 ): Promise<SourceRecord[]> {
   validateResearchQuestionForMcpDiscovery(question);
-  const discovery = await modelCaller(question);
-  return assembleMcpSourceRecords(question.id, discovery, options);
+  const performanceNow = options.performanceNow ?? (() => Date.now());
+
+  const roundTripStarted = performanceNow();
+  let discovery: ParallelSourceDiscovery;
+  try {
+    discovery = await modelCaller(question);
+    options.onOperation?.({
+      name: 'parallel.agent_roundtrip',
+      targetId: question.id,
+      durationMs: Math.max(0, Math.round(performanceNow() - roundTripStarted)),
+      success: true,
+      kind: 'EXTERNAL',
+    });
+  } catch (error) {
+    options.onOperation?.({
+      name: 'parallel.agent_roundtrip',
+      targetId: question.id,
+      durationMs: Math.max(0, Math.round(performanceNow() - roundTripStarted)),
+      success: false,
+      kind: 'EXTERNAL',
+    });
+    throw error;
+  }
+
+  const normalizationStarted = performanceNow();
+  try {
+    const records = assembleMcpSourceRecords(question.id, discovery, options);
+    options.onOperation?.({
+      name: 'parallel.source_normalization',
+      targetId: question.id,
+      durationMs: Math.max(0, Math.round(performanceNow() - normalizationStarted)),
+      success: true,
+      kind: 'INTERNAL',
+    });
+    return records;
+  } catch (error) {
+    options.onOperation?.({
+      name: 'parallel.source_normalization',
+      targetId: question.id,
+      durationMs: Math.max(0, Math.round(performanceNow() - normalizationStarted)),
+      success: false,
+      kind: 'INTERNAL',
+    });
+    throw error;
+  }
 }
