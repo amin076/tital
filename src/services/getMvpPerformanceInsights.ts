@@ -21,6 +21,7 @@ export interface MvpPerformanceInsights {
   measuredExecutionCount: number;
   measuredStageCount: number;
   includesProjectCreation: boolean;
+  concurrencyLimits: number[];
   durationMs: number;
   externalCallCount: number;
   externalWorkMs: number;
@@ -53,6 +54,7 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
       measuredExecutionCount: 0,
       measuredStageCount: 0,
       includesProjectCreation: false,
+      concurrencyLimits: [],
       durationMs: 0,
       externalCallCount: 0,
       externalWorkMs: 0,
@@ -142,12 +144,20 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
   const includesProjectCreation = events.some(
     (event) => event.stage === 'DEFINE' && event.type === 'SESSION_CREATED'
   );
+  const concurrencyLimits = Array.from(
+    new Set(
+      events
+        .map((event) => event.performance?.concurrencyLimit)
+        .filter((value): value is number => typeof value === 'number')
+    )
+  ).sort((a, b) => a - b);
 
   return {
     measured: true,
     measuredExecutionCount: events.length,
     measuredStageCount: byStage.size,
     includesProjectCreation,
+    concurrencyLimits,
     durationMs,
     externalCallCount,
     externalWorkMs,
