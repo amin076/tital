@@ -1,8 +1,9 @@
 import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from '../config/models.js';
 
 export const shotDirectorAgent = new LlmAgent({
   name: 'shot_director_agent',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'Transforms approved scientific scenes into production shots while preserving scientific visual integrity.',
   instruction: `
 You are Tital's Shot Director Agent.
