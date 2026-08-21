@@ -1,4 +1,14 @@
-import { Alert, Box, Button, Chip, Paper, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Divider,
+  Drawer,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
 import type { User } from 'firebase/auth';
 import { useEffect, useMemo, useState } from 'react';
 import { getIdToken, initializeTitalAuth, observeAuthState } from './auth';
@@ -10,6 +20,7 @@ export function DemoPublisher() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -25,6 +36,7 @@ export function DemoPublisher() {
   useEffect(() => {
     if (!user) {
       setSessions([]);
+      setOpen(false);
       return;
     }
     listSessions().then(setSessions).catch(() => undefined);
@@ -59,31 +71,96 @@ export function DemoPublisher() {
   if (!user || completed.length === 0) return null;
 
   return (
-    <Box sx={{ position: 'fixed', right: 16, bottom: 16, zIndex: 1400, width: { xs: 'calc(100% - 32px)', sm: 420 } }}>
-      <Paper elevation={8} sx={{ p: 2 }}>
-        <Stack spacing={1.25}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="overline" color="text.secondary">Demo publishing</Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Publish a completed project</Typography>
-            </Box>
-            <Chip size="small" label="Authenticated only" variant="outlined" />
-          </Stack>
-          <Typography variant="body2" color="text.secondary">
-            This creates a detached read-only snapshot in the public demo store. Personal project input, account identity, and session event history are not copied.
-          </Typography>
-          {completed.map((session) => (
-            <Stack key={session.sessionId} direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' } }}>
-              <Typography variant="body2" sx={{ flex: 1 }}>{session.title}</Typography>
-              <Button size="small" variant="contained" disabled={Boolean(busyId)} onClick={() => void publish(session)}>
-                {busyId === session.sessionId ? 'Publishing…' : 'Publish as demo'}
-              </Button>
-            </Stack>
-          ))}
-          {message && <Alert severity="success">{message} Refresh the public landing page to enable “Explore completed demo”.</Alert>}
-          {error && <Alert severity="error">{error}</Alert>}
-        </Stack>
+    <>
+      <Paper
+        className="tital-glass"
+        elevation={3}
+        sx={{
+          position: 'fixed',
+          right: 18,
+          bottom: 18,
+          zIndex: 1250,
+          p: 0.6,
+          borderRadius: 999,
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Button size="small" onClick={() => setOpen(true)} sx={{ borderRadius: 999, px: 1.7 }}>
+          Demo tools
+        </Button>
       </Paper>
-    </Box>
+
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={() => {
+          if (!busyId) setOpen(false);
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: '100%', sm: 440 },
+              p: { xs: 2.25, sm: 3 },
+              bgcolor: '#F8FAFB',
+            },
+          },
+        }}
+      >
+        <Stack spacing={2.25} sx={{ height: '100%' }}>
+          <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box>
+              <Typography variant="overline" color="text.secondary">Admin utility</Typography>
+              <Typography variant="h5">Public demo publishing</Typography>
+            </Box>
+            <Button size="small" variant="text" disabled={Boolean(busyId)} onClick={() => setOpen(false)}>
+              Close
+            </Button>
+          </Stack>
+
+          <Alert severity="info">
+            Publishing creates a detached read-only snapshot. Account identity, private project input, Director notes, and private event history are not copied.
+          </Alert>
+
+          <Divider />
+
+          <Stack spacing={1.25}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Completed projects
+            </Typography>
+            {completed.map((session) => (
+              <Paper key={session.sessionId} variant="outlined" sx={{ p: 1.75, bgcolor: '#FFFFFF' }}>
+                <Stack spacing={1.25}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 760 }}>{session.title}</Typography>
+                    <Stack direction="row" spacing={0.75} sx={{ mt: 0.75 }}>
+                      <Chip size="small" label="COMPLETE" color="success" variant="outlined" />
+                      <Chip size="small" label="READY" variant="outlined" />
+                    </Stack>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    disabled={Boolean(busyId)}
+                    onClick={() => void publish(session)}
+                    sx={{ alignSelf: 'flex-start' }}
+                  >
+                    {busyId === session.sessionId ? 'Publishing…' : 'Publish as public demo'}
+                  </Button>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+
+          {message && <Alert severity="success">{message} Refresh the public landing page to see the updated demo.</Alert>}
+          {error && <Alert severity="error">{error}</Alert>}
+
+          <Box sx={{ flex: 1 }} />
+          <Typography variant="caption" color="text.secondary">
+            Authenticated administration only. The public demo remains read-only.
+          </Typography>
+        </Stack>
+      </Drawer>
+    </>
   );
 }
