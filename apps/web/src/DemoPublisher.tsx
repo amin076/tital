@@ -94,12 +94,16 @@ export function DemoPublisher() {
       <Drawer
         anchor="right"
         open={open}
-        onClose={() => !busyId && setOpen(false)}
-        PaperProps={{
-          sx: {
-            width: { xs: '100%', sm: 440 },
-            p: { xs: 2.25, sm: 3 },
-            bgcolor: '#F8FAFB',
+        onClose={() => {
+          if (!busyId) setOpen(false);
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: '100%', sm: 440 },
+              p: { xs: 2.25, sm: 3 },
+              bgcolor: '#F8FAFB',
+            },
           },
         }}
       >
