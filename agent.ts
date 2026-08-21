@@ -1,8 +1,9 @@
-import {LlmAgent} from '@google/adk';
+import { LlmAgent } from '@google/adk';
+import { TITAL_GEMINI_MODEL } from './src/config/models.js';
 
 export const rootAgent = new LlmAgent({
   name: 'tital_director',
-  model: 'gemini-2.5-flash',
+  model: TITAL_GEMINI_MODEL,
   description: 'The first Tital agent for scientific-film planning.',
   instruction: `
 You are Tital Director, an assistant for planning short scientific films.
