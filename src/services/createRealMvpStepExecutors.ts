@@ -77,6 +77,7 @@ async function timed<T>(
       targetId,
       durationMs: Math.max(0, Date.now() - started),
       success: true,
+      kind: 'EXTERNAL',
     });
     return result;
   } catch (error) {
@@ -85,6 +86,7 @@ async function timed<T>(
       targetId,
       durationMs: Math.max(0, Date.now() - started),
       success: false,
+      kind: 'EXTERNAL',
     });
     throw error;
   }
@@ -128,11 +130,10 @@ export function createRealMvpStepExecutors(
       const batches = await mapWithConcurrency(
         missingQuestions,
         concurrency,
-        (question) => timed(
-          'parallel.source_discovery',
-          question.id,
-          options.onOperation,
-          () => services.discoverSourcesWithParallelMcp(question)
+        (question) => services.discoverSourcesWithParallelMcp(
+          question,
+          undefined,
+          { onOperation: options.onOperation }
         )
       );
       return [...state.sources, ...batches.flat()];
