@@ -87,6 +87,7 @@ export interface SessionPerformanceOperation {
   targetId: string | null;
   durationMs: number;
   success: boolean;
+  kind?: 'EXTERNAL' | 'INTERNAL';
 }
 
 export interface SessionEvent {
@@ -104,10 +105,11 @@ export interface SessionEvent {
 
 export interface PerformanceStageInsight {
   stage: string;
-  attempts: number;
+  executions: number;
   durationMs: number;
   externalCallCount: number;
   externalWorkMs: number;
+  internalWorkMs: number;
   averageCallMs: number;
   slowestCallMs: number;
   slowestOperationName: string | null;
@@ -118,10 +120,13 @@ export interface PerformanceStageInsight {
 
 export interface PerformanceInsights {
   measured: boolean;
-  measuredEventCount: number;
+  measuredExecutionCount: number;
+  measuredStageCount: number;
+  includesProjectCreation: boolean;
   durationMs: number;
   externalCallCount: number;
   externalWorkMs: number;
+  internalWorkMs: number;
   averageCallMs: number;
   slowestCallMs: number;
   slowestOperationName: string | null;
