@@ -53,6 +53,11 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
   }
 
   const maxStageDuration = Math.max(...insights.stages.map((stage) => stage.durationMs), 1);
+  const concurrencyLabel = insights.concurrencyLimits.length === 0
+    ? null
+    : insights.concurrencyLimits.length === 1
+      ? `Concurrency limit ${insights.concurrencyLimits[0]}`
+      : `Concurrency limits ${insights.concurrencyLimits.join(', ')}`;
 
   return (
     <Paper variant="outlined" sx={{ p: 2.25 }}>
@@ -84,6 +89,16 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
           note="External-call work ÷ wall time; not a before/after speedup"
         />
       </Box>
+
+      {concurrencyLabel && (
+        <Chip
+          size="small"
+          label={concurrencyLabel}
+          color="secondary"
+          variant="outlined"
+          sx={{ mt: 1.5 }}
+        />
+      )}
 
       {!insights.includesProjectCreation && (
         <Alert severity="info" variant="outlined" sx={{ mt: 1.75 }}>
