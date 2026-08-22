@@ -170,6 +170,24 @@ function PublicHome({
             >
               Tital researches a scientific question, builds an evidence-backed story, and lets the director govern every claim, scene, shot, and visual decision before a production package is released.
             </Typography>
+            <Stack
+              direction="row"
+              spacing={0.8}
+              useFlexGap
+              sx={{ mt: 2.25, flexWrap: 'wrap' }}
+              aria-label="Live Google runtime"
+            >
+              <Chip size="small" label={`Gemini 3.5 Flash · ${config.runtime.model}`} color="primary" />
+              <Chip size="small" label={config.runtime.agentFramework} variant="outlined" />
+              <Chip size="small" label={config.runtime.modelPlatform} variant="outlined" />
+              <Chip size="small" label={config.runtime.infrastructure} variant="outlined" />
+            </Stack>
+            {config.runtime.revision && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.8 }}>
+                Live service: {config.runtime.service ?? 'tital'} · revision {config.runtime.revision}
+                {config.runtime.releaseSha ? ` · release ${config.runtime.releaseSha.slice(0, 7)}` : ''}
+              </Typography>
+            )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.4} sx={{ mt: 3.4 }}>
               <Button variant="contained" size="large" onClick={onDemo} disabled={!config.demoAvailable}>
                 Explore completed demo

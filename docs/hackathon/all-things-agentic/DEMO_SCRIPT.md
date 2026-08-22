@@ -14,7 +14,8 @@ Before recording:
 - prepare Google Cloud Console on the Cloud Run `tital` service/revision;
 - optionally prepare GitHub Actions run showing successful Cloud Run deployment;
 - make browser zoom large enough that labels are readable in the final video;
-- verify the deployed revision uses Gemini 3.5 Flash with a live smoke test before recording.
+- confirm the landing runtime panel reports `gemini-3.5-flash`, Google ADK, Vertex AI, Cloud Run, and the expected release SHA;
+- verify the deployed revision uses Gemini 3.5 Flash with a live agent smoke test before recording.
 
 ## 0:00–0:22 — Problem + value proposition
 
@@ -29,6 +30,7 @@ Before recording:
 - hero: `From scientific evidence to cinematic decisions.`
 - Evidence → Story pipeline card;
 - `AI proposes. Evidence constrains. Directors decide.`
+- runtime proof chips for Gemini 3.5 Flash, Google ADK, Vertex AI, and Cloud Run.
 
 ## 0:22–0:48 — What makes it agentic
 
@@ -67,13 +69,14 @@ Before recording:
 
 > This is where Tital fits the Collaborative Partner track. The director sets a persistent creative operating envelope — collaboration mode, pacing, camera behaviour, representation preference, visual language, and explicit things to avoid.
 
-> At every generative stage the agent pauses. The director can approve, reject, or reject and ask for another proposal with a scoped instruction. Rejection does not silently authorize regeneration.
+> At every generative stage the agent pauses. The director can approve, reject, or reject and ask for another proposal with a scoped instruction. That instruction stays local unless the director explicitly chooses to remember it for later cinematic proposals. Rejection does not silently authorize regeneration.
 
 **Show:**
 
 - Director Brief;
 - `Approve selected`, `Reject selected`, `Reject & try another`;
-- if safe, open the replacement dialog briefly to show the scoped feedback field; do not trigger a paid retry just for the video unless already planned.
+- open the replacement dialog briefly to show the scoped feedback field and the off-by-default `Remember this feedback` choice;
+- show the Director Feedback Memory panel in the Context rail if the smoke project already contains an opted-in instruction; do not trigger a paid retry only for recording.
 
 ## 1:58–2:32 — Evidence → Story provenance proof
 
@@ -134,6 +137,7 @@ Pause for two or three seconds on a real trace so judges can see it is data from
 
 - show `tital` Cloud Run service and its `.run.app` URL;
 - show a healthy/latest revision;
+- match the Cloud Run revision/release to the safe metadata already visible on Tital's public landing;
 - if easily available, show Vertex AI / application logs or the successful GitHub Actions `Deploy to Cloud Run` job.
 
 ## 3:40–3:53 — Closing

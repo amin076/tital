@@ -1,6 +1,6 @@
 # Deployment and Operations
 
-Status date: **2026-08-17**
+Status date: **2026-08-22**
 
 This document describes Tital's current hosted architecture, authentication boundary, persistence model, deployment process, GitHub Actions design, and operational failure handling.
 
@@ -9,7 +9,7 @@ This document describes Tital's current hosted architecture, authentication boun
 Tital is deployed as one Cloud Run service that serves both the production React build and the Node API:
 
 ```text
-Internet / authenticated developer proxy today
+Internet
                 ↓
           Cloud Run: tital
                 ↓
@@ -39,9 +39,11 @@ The following have been live-validated on Google Cloud:
 - Firebase Email/Password login;
 - Firebase ID-token verification by the backend;
 - per-user session namespace using Firebase `uid`;
-- public landing/demo shell with live workflow behind sign-in.
+- public landing plus detached read-only completed demo;
+- live workflow protected behind Firebase sign-in;
+- GitHub Actions deployment through Workload Identity Federation.
 
-The service remains private at the Cloud Run IAM layer while the authenticated public design is being hardened. Final public access should happen only after the release gates in `AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md` pass.
+The Cloud Run service is publicly reachable so judges can load the landing page and completed demo. Application authorization remains enforced separately: anonymous requests cannot access `/api/sessions*`, while `/api/public/*` and `/api/health` expose only deliberate public data.
 
 ## Production server configuration
 
@@ -137,7 +139,22 @@ Authorized judge/user
     └─ create/review/continue live governed projects
 ```
 
-The demo endpoint is enabled only when `TITAL_DEMO_SESSION_ID` is configured. The demo must be a curated completed session and must never expose another user's private namespace.
+The normal demo snapshot ID is `public-demo`; `TITAL_DEMO_SESSION_ID` is an optional override. Publishing is allowed only from an authenticated `READY_FOR_PRODUCTION` session with a passing governance/provenance audit. Promotion constructs a detached snapshot, clears private project input, event history, and Director Feedback Memory, and never exposes another user's private namespace.
+
+## Public runtime proof
+
+`GET /api/health` and `GET /api/public/config` expose a safe, non-secret runtime manifest:
+
+```text
+Gemini model
+model platform
+agent framework
+Cloud Run service/revision
+release Git commit SHA
+public persistence label
+```
+
+They do not expose private bucket names, object prefixes, service-account credentials, or tokens. The public landing page renders the model/framework/infrastructure values. After deployment, CI calls `/api/health` and fails unless the model is `gemini-3.5-flash`, the framework is Google ADK, the infrastructure is Cloud Run, and the release SHA matches the triggering main-branch commit.
 
 ## Environment variables
 
@@ -153,7 +170,8 @@ TITAL_AUTH_REQUIRED=true
 TITAL_FIREBASE_PROJECT_ID
 TITAL_FIREBASE_API_KEY
 TITAL_FIREBASE_AUTH_DOMAIN
-TITAL_DEMO_SESSION_ID   optional until demo is prepared
+TITAL_DEMO_SESSION_ID   optional override; defaults to public-demo
+TITAL_RELEASE_SHA       injected by deployment workflow
 ```
 
 Cloud Run provides `PORT` automatically.
@@ -193,7 +211,7 @@ gcloud run deploy tital `
   --memory=1Gi
 ```
 
-During hardening, Cloud Run IAM remains private and testing can use:
+For private operational debugging, an authenticated developer can still use:
 
 ```powershell
 gcloud run services proxy tital `
@@ -223,6 +241,7 @@ pull request / push
 → deploy only on approved branch/manual condition
 → Google Cloud authentication with OIDC/WIF
 → Cloud Run source deployment
+→ deployed health/model/revision/release verification
 ```
 
 ### Why Workload Identity Federation
@@ -279,9 +298,9 @@ Persist no partial generated batch. Retry from the last valid session state. Dis
 
 Current risk until optimistic locking exists. Keep conservative concurrency and avoid multiple simultaneous Continue requests on the same session. Planned solution: session version/generation preconditions and conflict response.
 
-## Public release checklist
+## Public release regression checklist
 
-Before switching the Cloud Run service to anonymous network access:
+Before every submission-facing release:
 
 ```text
 CI green

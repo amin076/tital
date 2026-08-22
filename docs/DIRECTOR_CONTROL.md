@@ -1,6 +1,6 @@
 # Director Control and Human–AI Cinematic Decision Making
 
-Status: **implemented first increment + researched design direction**
+Status: **Director Brief, governed alternatives, and project-scoped feedback memory implemented**
 
 Tital is an evidence-governed scientific film director, not an autonomous replacement for a human film director. Scientific evidence can constrain what is safe to say or show, but it does not uniquely determine framing, lens language, movement, rhythm, visual tone, or the preferred balance of photography, reconstruction, diagrams, and animation.
 
@@ -122,7 +122,31 @@ Prefer a macro photographic treatment over a diagram.
 Keep this scene observational and avoid spectacular CGI.
 ```
 
-The scoped instruction applies to the replacement request and has narrower scope than the project Director Brief.
+The scoped instruction always applies to the replacement request and has narrower scope than the project Director Brief.
+
+## Implemented: explicit Director Feedback Memory
+
+The retry dialog now includes an explicit choice:
+
+```text
+Remember this feedback for later scene, shot, and visual proposals in this project
+```
+
+When selected, Tital persists a project-scoped `DirectorFeedback` record containing:
+
+```text
+id
+instruction
+capturedAt
+stage
+rejectedRecordIds[]
+```
+
+Remembered instructions are injected into later Scene, Shot, and Visual Decision generation alongside the Director Brief. They are visible in the Director Context rail, limited to the current project, and recorded in application-owned cinematic decision provenance as a feedback count.
+
+If the director does not select the memory option, the instruction remains scoped to that single replacement. This prevents Tital from silently turning one-off criticism into a permanent preference.
+
+Public demo promotion clears Director Feedback Memory because review instructions may contain private human-authored material.
 
 ## Precedence and conflict handling
 
@@ -131,7 +155,7 @@ Cinematic agents receive this priority order:
 ```text
 1. approved scientific content, provenance, uncertainty and visual-integrity constraints
 2. approved production constraints
-3. project Director Brief and scoped director instruction
+3. project Director Brief, explicitly remembered project feedback, and scoped director instruction
 4. AI cinematic preference
 ```
 
@@ -146,7 +170,8 @@ New `SceneRecord`, `ShotRecord`, and `VisualDecisionRecord` objects can carry op
   "recommendationSource": "AI",
   "evidenceGoverned": true,
   "directorBriefApplied": true,
-  "directorInstruction": "Use a quiet macro shot instead."
+  "directorInstruction": "Use a quiet macro shot instead.",
+  "learnedFeedbackCount": 2
 }
 ```
 
@@ -189,6 +214,8 @@ Project Director Brief (implemented)
 Scene / Shot / Visual generation
         ↓ overridden by
 Scoped director instruction (implemented in retry backend)
+        ↓ optionally remembered by explicit choice
+Project Director Feedback Memory (implemented)
 ```
 
 A separate persistent Sequence model is not justified yet. Scenes already group script material, and introducing another domain layer before a real use case would complicate provenance and migration.
@@ -230,8 +257,8 @@ Advanced camera/lens/reference controls should be introduced only when they mate
 
 High-value follow-ups:
 
-1. expose the scoped replacement-instruction field directly in the retry dialog (backend support now exists);
-2. render cinematic decision provenance in the human-readable review/report surfaces;
+1. render complete cinematic decision provenance in more human-readable review/report surfaces;
+2. allow a director to remove or revise remembered project feedback with explicit downstream staleness handling;
 3. add explicit conflict messaging when director guidance cannot satisfy scientific constraints;
 4. measure whether simultaneous alternatives are worth their latency/cost;
 5. later add reusable Director Profiles and reference-media assets with versioned provenance.

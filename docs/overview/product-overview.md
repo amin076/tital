@@ -129,8 +129,9 @@ Important current limits include:
 - reusable cross-project Director Profile storage;
 - simultaneous side-by-side cinematic alternatives as a standard workflow;
 - generalized lock/unlock/version comparison UX;
-- safe promotion/sanitized snapshot for the anonymous completed public demo;
 - final film rendering.
+
+The downstream invalidation foundation and sanitized anonymous-demo promotion are implemented. The remaining edit limitation is the generalized user-facing edit/version-comparison lifecycle.
 
 ## Primary user
 

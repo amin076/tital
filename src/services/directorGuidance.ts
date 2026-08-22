@@ -24,6 +24,12 @@ export function formatDirectorGuidance(
   if (parsed.scopedInstruction) {
     lines.push(`Scoped director instruction for this replacement/generation: ${parsed.scopedInstruction}`);
   }
+  if ((parsed.learnedPreferences ?? []).length > 0) {
+    lines.push('Director preferences explicitly remembered from earlier review feedback:');
+    for (const preference of parsed.learnedPreferences ?? []) {
+      lines.push(`- ${preference}`);
+    }
+  }
 
   return lines.length > 0
     ? lines.join('\n')
@@ -39,6 +45,7 @@ export function cinematicDecisionProvenance(
     evidenceGoverned: true,
     directorBriefApplied: Boolean(parsed?.directorBrief),
     directorInstruction: parsed?.scopedInstruction ?? null,
+    learnedFeedbackCount: parsed?.learnedPreferences?.length ?? 0,
   };
 }
 
@@ -46,7 +53,7 @@ export const CINEMATIC_GUIDANCE_PRECEDENCE = `
 Priority order for cinematic decisions:
 1. Approved scientific content, provenance, uncertainty, and scientific visual-integrity constraints.
 2. Explicit production constraints already approved in Tital.
-3. The human director's project brief and any scoped director instruction.
+3. The human director's project brief, any explicitly remembered project feedback, and any scoped director instruction.
 4. Your own cinematic recommendation.
 
 Never violate levels 1-2 to satisfy levels 3-4. If a director preference cannot be satisfied without overstating the science, choose a scientifically safe alternative rather than silently weakening the constraint.

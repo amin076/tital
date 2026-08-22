@@ -1,4 +1,5 @@
 import type { DirectorBrief } from '../domain/directorBrief.js';
+import type { DirectorFeedback } from '../domain/mvpSession.js';
 import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
 import { mapWithConcurrency, resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
@@ -34,6 +35,7 @@ export interface MvpRuntimeServices {
 
 export interface MvpRuntimeExecutionOptions {
   directorBrief?: DirectorBrief;
+  directorFeedback?: DirectorFeedback[];
   externalConcurrency?: number;
   onOperation?: (operation: PerformanceOperation) => void;
 }
@@ -99,8 +101,14 @@ export function createRealMvpStepExecutors(
   const concurrency = options.externalConcurrency ?? resolveExternalConcurrency(
     process.env.TITAL_EXTERNAL_CONCURRENCY
   );
-  const projectDirectorGuidance = options.directorBrief
-    ? { directorBrief: options.directorBrief }
+  const learnedPreferences = (options.directorFeedback ?? []).map(
+    (feedback) => feedback.instruction
+  );
+  const projectDirectorGuidance = options.directorBrief || learnedPreferences.length > 0
+    ? {
+        ...(options.directorBrief ? { directorBrief: options.directorBrief } : {}),
+        ...(learnedPreferences.length > 0 ? { learnedPreferences } : {}),
+      }
     : undefined;
 
   return {

@@ -7,7 +7,7 @@ Tital is designed as a **governed agentic workflow**, not a chat transcript. Sem
 ## Hosted architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     U[Director / Evaluator]
     WEB[React 19 + MUI\nDirector Workspace]
     API[Node API\nCloud Run]
@@ -19,9 +19,11 @@ flowchart LR
     PAR[Parallel Search MCP\nweb_search]
     VALID[Zod + deterministic mapping\ntrusted IDs / provenance]
     HUMAN[Human Review Gate\nApprove / Reject / Try another / Waive]
+    MEMORY[Opt-in Director Feedback Memory\nproject-scoped + public-snapshot sanitized]
     AUDIT[Deterministic\nGovernance & Provenance Audit]
     PKG[ProductionPackage\nJSON / text / PDF]
     DEMO[Detached Public Demo Snapshot]
+    RUNTIME[Safe Runtime Proof\nmodel + framework + revision + release]
 
     U --> WEB --> API
     API --> AUTH
@@ -30,8 +32,10 @@ flowchart LR
     ORCH --> ADK --> GEM
     ADK --> PAR
     ADK --> VALID --> HUMAN --> ORCH
+    HUMAN --> MEMORY --> ORCH
     ORCH --> AUDIT --> PKG
     PKG --> DEMO --> WEB
+    API --> RUNTIME
 ```
 
 Static submission image: [`architecture.svg`](./architecture.svg)
@@ -106,18 +110,16 @@ Consequences:
 
 Tital's primary hackathon track is **Collaborative Partner** because feedback changes future agent behaviour.
 
-```text
-Director Brief
-    ↓
-AI proposal
-    ↓
-Human review
- ┌───────┬────────┬────────────────────┐
-Approve  Reject   Reject & try another
- │        │              │
-advance   terminal       scoped instruction
-                         ↓
-                  targeted replacement
+```mermaid
+flowchart TB
+    B[Director Brief + opted-in feedback] --> P[AI proposal]
+    P --> H{Human review}
+    H -->|Approve| A[Advance]
+    H -->|Reject| R[Terminal history]
+    H -->|Try another| S[Scoped instruction]
+    S --> T[Targeted replacement]
+    S -->|Explicit remember choice| M[Project feedback memory]
+    M --> B
 ```
 
 If a rejection removes the last required coverage for a branch, the human must explicitly choose retry or intentional waiver.
@@ -132,7 +134,11 @@ Conceptually:
 gs://<private-bucket>/sessions/users/<firebase-uid>/<session-id>.json
 ```
 
-A public demo is generated as a detached read-only snapshot from a completed production package. It does not expose the authenticated user's mutable session or private event history.
+A public demo is generated as a detached read-only snapshot from a completed production package. It does not expose the authenticated user's mutable session, private event history, or project-scoped Director Feedback Memory.
+
+## Runtime and release proof
+
+`/api/public/config` and `/api/health` expose only safe deployment facts: the central model ID, Vertex AI platform, Google ADK framework, Cloud Run service/revision, and release commit. Private bucket names, credentials, user IDs, and prompt/session content are not exposed. The main deployment job performs a post-deploy assertion against the health endpoint and fails if the exact model/framework/infrastructure/release do not match the commit being deployed.
 
 ## Failure handling
 

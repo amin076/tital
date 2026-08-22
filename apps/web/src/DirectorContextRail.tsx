@@ -124,6 +124,32 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
         )}
       </Paper>
 
+      <Paper variant="outlined" sx={{ p: 2.25 }}>
+        <Typography variant="overline" color="text.secondary">Director feedback memory</Typography>
+        <Typography variant="h6">Preferences learned by explicit choice</Typography>
+        {view.directorFeedback.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            No review instruction has been marked for reuse yet. Replacement feedback remains scoped unless the director chooses to remember it.
+          </Typography>
+        ) : (
+          <Stack spacing={1} sx={{ mt: 1.25 }}>
+            {view.directorFeedback.slice(-5).reverse().map((feedback) => (
+              <Box key={feedback.id} sx={{ p: 1.1, borderRadius: 2.5, bgcolor: '#F5F8FA', border: '1px solid', borderColor: 'divider' }}>
+                <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                  <Chip size="small" label={feedback.stage} variant="outlined" />
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(feedback.capturedAt).toLocaleDateString()}
+                  </Typography>
+                </Stack>
+                <Typography variant="body2" sx={{ mt: 0.7, lineHeight: 1.5 }}>
+                  {feedback.instruction}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        )}
+      </Paper>
+
       <PerformanceInsightsPanel insights={view.performanceInsights} />
     </Stack>
   );

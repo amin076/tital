@@ -79,7 +79,7 @@ continue
 → continue
 ```
 
-Rejected records are retained in session history. They do not permanently block the project when an approved replacement provides the required downstream coverage. For example, if all discovered sources for a research question are rejected, the next `continue` can run another Parallel discovery attempt while preserving the rejected source records.
+Rejected records are retained in session history. They do not authorize silent regeneration. If a rejection removes required downstream coverage, the reviewer must explicitly choose targeted `RETRY` or persist a `CoverageWaiver`; approved replacements can then satisfy the branch while rejected records remain visible history.
 
 The FilmBrief schema does not include `REJECTED`. Therefore `review ... reject` at the FilmBrief gate fails clearly instead of inventing an unsupported status. Revise or restart the brief when it is unacceptable.
 

@@ -12,7 +12,7 @@ Core principle:
 
 | Area | Current state |
 |---|---|
-| LLM | `gemini-3.5-flash` centralized in `src/config/models.ts` on the All Things Agentic readiness branch; live post-deploy smoke test required before final submission claim |
+| LLM | `gemini-3.5-flash` centralized in `src/config/models.ts`; deterministic compliance coverage is green and a live post-deploy semantic smoke flow remains required before final submission |
 | Agent framework | Google ADK TypeScript |
 | Model access | Vertex AI |
 | Hosted application | Google Cloud Run |
@@ -21,7 +21,7 @@ Core principle:
 | Source discovery | Parallel Search MCP |
 | Front end | React 19 + Vite + Material UI |
 | Validation | Zod + deterministic application-owned provenance mapping |
-| CI/CD | GitHub Actions + Google Workload Identity Federation + Cloud Run deployment |
+| CI/CD | GitHub Actions + Google Workload Identity Federation + Cloud Run deployment + post-deploy model/revision/release verification |
 
 ## Implemented workflow
 
@@ -61,10 +61,11 @@ The review workflow supports:
 Approve
 Reject
 Reject & try another + scoped replacement instruction
+Explicitly remember selected feedback for later cinematic proposals
 Retry / Waive / Cancel when a required coverage gap is created
 ```
 
-Rejected work remains history and is not silently regenerated. Intentional omissions remain visible as `CoverageWaiver` records.
+Rejected work remains history and is not silently regenerated. Intentional omissions remain visible as `CoverageWaiver` records. A retry instruction is reused downstream only when the director selects the memory option; remembered instructions are persisted as project-scoped `DirectorFeedback` records and are visible in the Context rail.
 
 Scientific precedence is explicit:
 
@@ -127,6 +128,7 @@ Project navigation
 └─ contextual rail
    ├─ current stage
    ├─ Director Brief
+   ├─ Director Feedback Memory
    └─ Runtime Performance Insights
 ```
 
@@ -221,6 +223,13 @@ Prepared in `docs/hackathon/all-things-agentic/`:
 - timed ~4-minute demo script;
 - optional bonus social/blog drafts.
 
+Submission hardening now also includes:
+
+- public safe runtime metadata for model, framework, Cloud Run revision, and release SHA;
+- a CI post-deploy health assertion that the deployed release uses `gemini-3.5-flash`, Google ADK, Cloud Run, and the triggering commit;
+- project-scoped Director Feedback Memory with explicit user opt-in;
+- deterministic regression coverage for runtime metadata, feedback persistence/scope, and public-demo sanitization.
+
 Final human actions still required after readiness code merges:
 
 1. confirm CI and Cloud Run deployment of the Gemini 3.5 migration;
@@ -244,9 +253,9 @@ Final human actions still required after readiness code merges:
 Every merge/deploy must pass:
 
 ```bash
-npm run typecheck
-npm test
-npm run build
+npm run verify:submission
 ```
+
+Current local deterministic result on 2026-08-22: **48 test files / 228 tests passed**, core and web typechecks passed, and both web and server production builds succeeded.
 
 Live Vertex/Parallel calls are performed deliberately because they consume external quota/credits.

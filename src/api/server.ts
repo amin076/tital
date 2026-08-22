@@ -21,6 +21,10 @@ import {
   type AuthenticatedUser,
 } from './auth.js';
 import { resolveTitalServerConfig } from './runtimeConfig.js';
+import {
+  publicPersistenceLabel,
+  resolvePublicRuntimeMetadata,
+} from './publicRuntimeMetadata.js';
 import { tryServeBuiltWebApp } from './staticWeb.js';
 
 const ReviewRequestSchema = z.object({
@@ -28,12 +32,14 @@ const ReviewRequestSchema = z.object({
   recordIds: z.array(z.string().min(1)).optional(),
   gapResolution: z.enum(['RETRY', 'WAIVE']).optional(),
   reason: z.string().trim().max(1000).optional(),
+  rememberInstruction: z.boolean().optional(),
 });
 
 const config = resolveTitalServerConfig();
 const authConfig = resolveTitalAuthConfig();
 const baseStore = createMvpSessionStore();
 const demoSessionId = process.env.TITAL_DEMO_SESSION_ID?.trim() || PUBLIC_DEMO_SESSION_ID;
+const publicRuntime = resolvePublicRuntimeMetadata();
 
 class HttpError extends Error {
   constructor(
@@ -148,9 +154,10 @@ async function handleRequest(
       status: 'ok',
       service: 'tital-api',
       web: 'same-origin',
-      sessionStore: baseStore.description,
+      persistence: publicPersistenceLabel(baseStore.description),
       authRequired: authConfig.required,
       demoAvailable: await publicDemoAvailable(),
+      runtime: publicRuntime,
     });
     return;
   }
@@ -166,6 +173,7 @@ async function handleRequest(
           }
         : null,
       demoAvailable: await publicDemoAvailable(),
+      runtime: publicRuntime,
     });
     return;
   }
@@ -205,6 +213,7 @@ async function handleRequest(
         recordIds: body.recordIds,
         gapResolution: body.gapResolution,
         reason: body.reason,
+        rememberInstruction: body.rememberInstruction,
       });
     } catch (error: unknown) {
       if (error instanceof GapResolutionRequiredError) {

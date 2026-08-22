@@ -1,6 +1,6 @@
 # Real Execution Paths
 
-Status date: **2026-08-20**
+Status date: **2026-08-22**
 
 Tital now has a complete persisted web execution path in addition to development CLI entry points. The hosted path uses the same deterministic workflow services as local development.
 
@@ -72,9 +72,9 @@ Source discovery        → Gemini + Parallel MCP
 Evidence extraction     → Gemini
 Claims                  → Gemini
 Script Lines            → Gemini
-Scenes                  → Gemini + Director Brief
-Shots                   → Gemini + Director Brief
-Visual Decisions        → Gemini + Director Brief
+Scenes                  → Gemini + Director Brief + opted-in feedback
+Shots                   → Gemini + Director Brief + opted-in feedback
+Visual Decisions        → Gemini + Director Brief + opted-in feedback
 Audit                   → deterministic TypeScript
 ```
 
@@ -174,6 +174,7 @@ For Scene, Shot, or Visual Decision replacement, a scoped director instruction c
 
 ```text
 project Director Brief
++ previously opted-in project feedback
 + scoped replacement instruction
 + approved scientific context
 → cinematic agent proposal
@@ -181,7 +182,9 @@ project Director Brief
 → human review
 ```
 
-The backend support exists in the governed retry path. A dedicated retry-dialog text input remains a UI follow-up.
+The retry dialog includes the scoped instruction field and an off-by-default memory choice. When selected, the successful retry appends a project-scoped `DirectorFeedback` record; later cinematic proposals receive it as a learned preference and the Director Context rail makes the memory inspectable.
+
+Public demo promotion removes this project-scoped feedback memory before the detached snapshot is written.
 
 ## Downstream trust pattern
 
@@ -222,7 +225,7 @@ The completed dinosaur run reached `READY_FOR_PRODUCTION` through this hosted pa
 
 ## Public demo path
 
-Implemented shell:
+Implemented detached snapshot path:
 
 ```text
 anonymous browser
@@ -232,7 +235,7 @@ anonymous browser
 → read-only completed SessionView / results
 ```
 
-Important store boundary: authenticated sessions are stored under `users/<uid>`, while `/api/public/demo` reads from the base public store. A completed user session therefore needs a safe promotion/sanitized snapshot mechanism before it can be published anonymously.
+Authenticated sessions are stored under `users/<uid>`, while `/api/public/demo` reads from the base public store. The implemented promotion service accepts only an authenticated `READY_FOR_PRODUCTION` session with a passing audit, constructs a detached snapshot, and removes private project input, event history, and Director Feedback Memory before publishing it anonymously.
 
 ## Local path
 

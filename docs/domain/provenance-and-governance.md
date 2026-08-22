@@ -65,6 +65,7 @@ recommendationSource: AI
 evidenceGoverned: true
 directorBriefApplied: true | false
 directorInstruction: string | null
+learnedFeedbackCount: number
 ```
 
 This distinguishes:
@@ -72,6 +73,7 @@ This distinguishes:
 - scientific requirement;
 - AI cinematic recommendation;
 - persistent Director Brief influence;
+- explicitly remembered project feedback influence;
 - scoped director instruction;
 - final human approval represented by record status.
 
@@ -82,7 +84,7 @@ The model does not author these provenance fields.
 ```text
 approved evidence / uncertainty / visual-integrity constraint
 > approved production constraint
-> human Director Brief / scoped note
+> human Director Brief / opted-in project feedback / scoped note
 > AI cinematic preference
 ```
 
@@ -100,6 +102,7 @@ Application code owns:
 - statuses and legal review transitions;
 - coverage evaluation;
 - CoverageWaiver creation;
+- Director Feedback creation only after explicit opt-in;
 - cinematic decision-provenance metadata;
 - audit execution and ProductionPackage construction.
 

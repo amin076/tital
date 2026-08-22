@@ -17,6 +17,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   List,
   ListItemButton,
   ListItemText,
@@ -289,6 +290,7 @@ export function App() {
   const [waiverReason, setWaiverReason] = useState('');
   const [replacementDialogOpen, setReplacementDialogOpen] = useState(false);
   const [replacementInstruction, setReplacementInstruction] = useState('');
+  const [rememberReplacementInstruction, setRememberReplacementInstruction] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
 
   const refreshSessions = useCallback(async () => {
@@ -338,7 +340,7 @@ export function App() {
     return view.gate.coverageGroups.filter((group) => group.approvedRecordCount === 0 && group.pendingRecordIds.length > 0 && group.pendingRecordIds.every((id) => selectedRecordIds.has(id)));
   }
 
-  async function submitReview(decision: 'APPROVE' | 'REJECT', options: { gapResolution?: 'RETRY' | 'WAIVE'; reason?: string } = {}): Promise<void> {
+  async function submitReview(decision: 'APPROVE' | 'REJECT', options: { gapResolution?: 'RETRY' | 'WAIVE'; reason?: string; rememberInstruction?: boolean } = {}): Promise<void> {
     if (!selectedId || selectedCount === 0) return;
     setBusy(true);
     setError(null);
@@ -350,6 +352,7 @@ export function App() {
       setWaiverReason('');
       setReplacementDialogOpen(false);
       setReplacementInstruction('');
+      setRememberReplacementInstruction(false);
       await refreshSessions();
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.code === 'GAP_RESOLUTION_REQUIRED' && cause.gaps?.length) setGapDialog(cause.gaps);
@@ -373,6 +376,7 @@ export function App() {
   function runTryAnother(): void {
     if (!view?.gate || selectedCount === 0 || !view.gate.canReject) return;
     setReplacementInstruction('');
+    setRememberReplacementInstruction(false);
     setReplacementDialogOpen(true);
   }
 
@@ -436,10 +440,21 @@ export function App() {
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>The selected candidate remains in governance history as rejected. Tital generates a replacement for the same target only because you explicitly requested it.</Alert>
           <TextField fullWidth multiline minRows={3} label="Instruction for the replacement (optional)" value={replacementInstruction} onChange={(event) => setReplacementInstruction(event.target.value)} helperText="Describe what should change: wording, emphasis, camera behaviour, visual style, scientific caution, or another scoped preference." />
+          <FormControlLabel
+            sx={{ mt: 1.25, alignItems: 'flex-start' }}
+            control={(
+              <Checkbox
+                checked={rememberReplacementInstruction}
+                disabled={!replacementInstruction.trim()}
+                onChange={(event) => setRememberReplacementInstruction(event.target.checked)}
+              />
+            )}
+            label="Remember this feedback for later scene, shot, and visual proposals in this project"
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button disabled={busy} onClick={() => { setReplacementDialogOpen(false); setReplacementInstruction(''); }}>Cancel</Button>
-          <Button variant="contained" disabled={busy} onClick={() => void submitReview('REJECT', { gapResolution: 'RETRY', reason: replacementInstruction.trim() || undefined })}>Reject & generate replacement</Button>
+          <Button variant="contained" disabled={busy} onClick={() => void submitReview('REJECT', { gapResolution: 'RETRY', reason: replacementInstruction.trim() || undefined, rememberInstruction: Boolean(replacementInstruction.trim()) && rememberReplacementInstruction })}>Reject & generate replacement</Button>
         </DialogActions>
       </Dialog>
 

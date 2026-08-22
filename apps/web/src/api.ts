@@ -104,6 +104,14 @@ export interface SessionEvent {
   };
 }
 
+export interface DirectorFeedback {
+  id: string;
+  instruction: string;
+  capturedAt: string;
+  stage: string;
+  rejectedRecordIds: string[];
+}
+
 export interface PerformanceStageInsight {
   stage: string;
   executions: number;
@@ -208,6 +216,7 @@ export interface SessionView {
   summary: SessionSummary;
   rawIdea: string;
   projectInput: CreateSessionInput;
+  directorFeedback: DirectorFeedback[];
   gate: ReviewGate | null;
   continueAction: ContinueAction;
   workflowInsights: WorkflowInsights;
@@ -295,7 +304,11 @@ export function reviewSession(
   sessionId: string,
   decision: 'APPROVE' | 'REJECT',
   recordIds: string[],
-  options: { gapResolution?: 'RETRY' | 'WAIVE'; reason?: string } = {}
+  options: {
+    gapResolution?: 'RETRY' | 'WAIVE';
+    reason?: string;
+    rememberInstruction?: boolean;
+  } = {}
 ): Promise<SessionView> {
   return request<SessionView>(
     `/api/sessions/${encodeURIComponent(sessionId)}/review`,
@@ -306,6 +319,7 @@ export function reviewSession(
         recordIds,
         gapResolution: options.gapResolution,
         reason: options.reason,
+        rememberInstruction: options.rememberInstruction,
       }),
     }
   );

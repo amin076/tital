@@ -98,7 +98,9 @@ Shot generation
 Visual Decision generation
 ```
 
-A cinematic `RETRY` can additionally carry a scoped director instruction. The retry service combines project and scoped guidance for that target without modifying the project-level brief.
+A cinematic `RETRY` can additionally carry a scoped director instruction. The retry service combines project, previously opted-in feedback, and current scoped guidance for that target without modifying the project-level brief.
+
+If `rememberInstruction` is explicitly true, `resolveMvpReview` persists the current instruction as `DirectorFeedback` after the retry succeeds. The option is off by default. Later cinematic executors receive the accumulated project feedback; detached public demo promotion clears it.
 
 Scientific/approved constraints remain higher priority than director guidance.
 
@@ -142,6 +144,7 @@ See [../PERFORMANCE.md](../PERFORMANCE.md).
 session ID
 raw film idea
 projectInput (including optional DirectorBrief)
+optional DirectorFeedback records
 created / updated timestamps
 MvpWorkflowState
 optional ProductionPackage
@@ -165,7 +168,7 @@ Tital separates four authorities:
 ```text
 external tools/models → propose
 application services  → validate/map/orchestrate
-human director/reviewer → approve/reject/retry/waive/direct
+human director/reviewer → approve/reject/retry/waive/direct/remember
 persistence/audit      → record and verify governed state
 ```
 

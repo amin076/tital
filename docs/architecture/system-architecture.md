@@ -1,6 +1,6 @@
 # System Architecture
 
-Status date: **2026-08-20**
+Status date: **2026-08-22**
 
 Tital is a hosted TypeScript/Node.js evidence-governed scientific-film application with a React UI, Node HTTP API, persisted project sessions, deterministic workflow control, specialized Google ADK agents, Gemini/Vertex AI execution, Parallel Search MCP source discovery, Firebase authentication, and Cloud Storage persistence.
 
@@ -23,8 +23,10 @@ graph TD
     GI[Gemini / Vertex AI]
     PM[Parallel Search MCP]
     HG[Human review / Director decisions]
+    FM[Opt-in Director Feedback Memory]
     AU[Governance / provenance audit]
     PP[ProductionPackage]
+    RM[Safe runtime/release metadata]
 
     U --> CR --> WEB --> API
     API --> AUTH
@@ -33,7 +35,9 @@ graph TD
     DS --> DA --> GI
     DA --> PM
     DS --> HG --> STORE
+    HG --> FM --> DS
     WC --> AU --> PP
+    API --> RM
 ```
 
 ## Human-facing web application
@@ -46,6 +50,7 @@ graph TD
 - readable human-review cards;
 - selective approve/reject;
 - coverage-aware Retry / Waive / Cancel recovery;
+- an off-by-default option to remember retry feedback plus an inspectable Director Feedback Memory panel;
 - governed Continue actions;
 - workflow/coverage views;
 - final ProductionPackage inspection and exports;
@@ -89,6 +94,7 @@ The Cloud Run endpoint can remain public at the network layer while live `/api/s
 ```text
 raw idea
 projectInput (+ optional DirectorBrief)
+optional project-scoped DirectorFeedback records
 workflow state
 approved/rejected history
 CoverageWaivers
@@ -147,7 +153,7 @@ Visual Decisions
 
 Audit and ProductionPackage construction are deterministic, not LLM-driven.
 
-Cinematic agents can consume a project Director Brief and scoped replacement instruction. Scientific constraints have higher precedence than style guidance.
+Cinematic agents can consume a project Director Brief, explicitly remembered project feedback, and a scoped replacement instruction. Scientific constraints have higher precedence than style guidance.
 
 ## Director-control layer
 
@@ -157,12 +163,15 @@ Human cinematic direction is intentionally represented separately from scientifi
 approved science
 → scientific / uncertainty / representation constraints
 → project Director Brief
+→ explicitly remembered Director Feedback
 → optional scoped director instruction
 → AI cinematic proposal
 → human approval/rejection
 ```
 
-New Scene/Shot/Visual Decision records may carry optional `decisionProvenance` recording whether AI recommendations used human director guidance.
+New Scene/Shot/Visual Decision records may carry optional `decisionProvenance` recording whether AI recommendations used human director guidance and how many remembered feedback records were supplied.
+
+Remembered retry guidance is opt-in and project-scoped. It is sanitized from detached public demo snapshots.
 
 See [../DIRECTOR_CONTROL.md](../DIRECTOR_CONTROL.md).
 
@@ -244,15 +253,17 @@ per-user namespaces
 GitHub Actions validation
 Workload Identity Federation deployment identity
 public landing/demo shell
+safe public model/framework/service/revision/release metadata
+post-deploy health assertion against the exact release commit
 ```
 
 Remaining infrastructure/product limitations include:
 
 ```text
-safe promotion/sanitized snapshot for the anonymous completed demo
 optimistic locking for concurrent session mutation
 general schema migration strategy
-general edit → downstream staleness lifecycle
 reusable cross-project Director Profile persistence
 final video rendering
 ```
+
+The detached anonymous demo promotion path and downstream `STALE` invalidation foundation are implemented. A generalized user-facing edit/version-comparison lifecycle remains future work.

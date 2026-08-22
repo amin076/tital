@@ -21,6 +21,8 @@ FilmProjectInput (+ optional DirectorBrief)
 
 `CoverageWaiver` records can resolve an intentional human-approved coverage omission without pretending that approved downstream content exists.
 
+`DirectorFeedback` records preserve only retry guidance that the director explicitly opted in to reuse for later cinematic proposals.
+
 ## `FilmProjectInput` and `DirectorBrief`
 
 `FilmProjectInput` preserves the user's project setup rather than treating it as disposable prompt text. It includes the raw scientific idea and optional title/duration/audience/format/tone controls.
@@ -38,6 +40,20 @@ avoid[]
 ```
 
 The Director Brief is creative guidance. It does not override scientific provenance, uncertainty, or visual-integrity constraints.
+
+## `DirectorFeedback`
+
+Project-scoped feedback memory is stored separately from the Director Brief:
+
+```text
+id
+instruction
+capturedAt
+stage
+rejectedRecordIds[]
+```
+
+A scoped retry instruction is not remembered by default. When the director selects the explicit memory option, the application persists a `DirectorFeedback` record in `MvpSession.directorFeedback`. Later Scene, Shot, and Visual Decision generation receives the accumulated instructions as learned preferences. Detached public demo snapshots remove the collection.
 
 ## Core record responsibilities
 
@@ -99,6 +115,7 @@ recommendationSource = AI
 evidenceGoverned = true
 directorBriefApplied: boolean
 directorInstruction: string | null
+learnedFeedbackCount: number
 ```
 
 Human approval remains represented by the parent record status. Provenance says how a proposal was formed; status says what the human decided.
@@ -176,4 +193,4 @@ LLM proposal
 → human review
 ```
 
-The model does not write trusted IDs, statuses, coverage waivers, or cinematic decision-provenance metadata.
+The model does not write trusted IDs, statuses, coverage waivers, Director Feedback records, or cinematic decision-provenance metadata.

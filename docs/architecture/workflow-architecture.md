@@ -1,6 +1,6 @@
 # Workflow Architecture
 
-Status date: **2026-08-20**
+Status date: **2026-08-22**
 
 Tital has four related structures that must not be confused:
 
@@ -233,7 +233,7 @@ New automation events may contain lightweight timing data for the automated step
 
 ## Current editing limitation
 
-Tital supports rejection, replacement, and intentional omission during the governed workflow, but does not yet implement a complete general post-approval editing/staleness system.
+Tital supports rejection, replacement, intentional omission, `STALE` record states, and deterministic downstream invalidation when trusted upstream state changes. It does not yet expose a complete general post-approval editing/version-comparison UX.
 
 Future behavior should support:
 
@@ -248,4 +248,4 @@ General lock/unlock/version comparison must be designed together with that stale
 
 ## Current deployment status
 
-Tital is hosted on Cloud Run with Firebase-authenticated live routes and Cloud Storage persistence. The public landing/demo shell is implemented; publishing a completed authenticated project as anonymous demo still requires safe promotion/sanitized snapshot handling and live anonymous validation.
+Tital is hosted on Cloud Run with Firebase-authenticated live routes and Cloud Storage persistence. The public landing and detached read-only demo are implemented and anonymously browser-validated. Authenticated operators can promote only a completed `READY_FOR_PRODUCTION` project; the promotion service sanitizes project input, event history, and project-scoped Director Feedback Memory before writing the public snapshot.

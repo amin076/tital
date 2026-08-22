@@ -40,7 +40,8 @@ TITAL_AUTH_REQUIRED=true
 TITAL_FIREBASE_PROJECT_ID
 TITAL_FIREBASE_API_KEY
 TITAL_FIREBASE_AUTH_DOMAIN
-TITAL_DEMO_SESSION_ID   optional until a curated demo is configured
+TITAL_DEMO_SESSION_ID   optional override; defaults to public-demo
+TITAL_RELEASE_SHA       deployment commit injected by CI
 ```
 
 Cloud Run supplies `PORT` automatically. Hosted server logic binds to `0.0.0.0` when Cloud Run `PORT` is present.

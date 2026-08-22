@@ -24,9 +24,13 @@ Repository: **https://github.com/amin076/tital**
 - [x] Google ADK architecture.
 - [x] Parallel Search MCP source-discovery action.
 - [x] Human-gated persisted workflow.
+- [x] Explicit opt-in Director Feedback Memory for later cinematic proposals.
+- [x] Public demo sanitizes project-scoped feedback memory.
 - [x] CI/CD with Cloud Run deployment.
 - [x] Code migration prepared for `gemini-3.5-flash`.
 - [x] Regression check prepared to prevent accidental 2.5 agent-model drift.
+- [x] Public runtime/release metadata and post-deploy health assertion prepared.
+- [x] Local submission verification passes: typecheck, 228 tests, web build, and server build.
 - [ ] PR CI for the Gemini 3.5 submission branch passes.
 - [ ] Submission branch is merged and production deployment is green.
 - [ ] Live Gemini 3.5 production smoke test passes.

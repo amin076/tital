@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { FilmProjectInputSchema } from '../src/domain/filmProjectInput.js';
+import {
+  cinematicDecisionProvenance,
+  formatDirectorGuidance,
+} from '../src/services/directorGuidance.js';
 import { generateShots } from '../src/services/generateShots.js';
 
 const question = {
@@ -53,6 +57,21 @@ describe('director control', () => {
     ]);
   });
 
+  it('carries explicitly remembered review feedback into later cinematic guidance', () => {
+    const context = {
+      learnedPreferences: [
+        'Prefer authentic observation footage over reconstruction when both are available.',
+        'Keep camera movement restrained during uncertainty disclosures.',
+      ],
+    };
+
+    expect(formatDirectorGuidance(context)).toContain(
+      'Director preferences explicitly remembered from earlier review feedback'
+    );
+    expect(formatDirectorGuidance(context)).toContain('Keep camera movement restrained');
+    expect(cinematicDecisionProvenance(context).learnedFeedbackCount).toBe(2);
+  });
+
   it('passes scoped director guidance to shot generation and records provenance', async () => {
     const directorGuidance = {
       directorBrief: {
@@ -98,6 +117,7 @@ describe('director control', () => {
       evidenceGoverned: true,
       directorBriefApplied: true,
       directorInstruction: 'Replace the rejected shot with a quiet macro shot.',
+      learnedFeedbackCount: 0,
     });
   });
 });

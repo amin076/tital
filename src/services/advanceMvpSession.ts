@@ -47,6 +47,7 @@ export async function advanceMvpSession(
     realMvpRuntimeServices,
     {
       directorBrief: current.projectInput?.directorBrief,
+      directorFeedback: current.directorFeedback ?? [],
       externalConcurrency: concurrencyLimit,
       onOperation: (operation) => operations.push(operation),
     }

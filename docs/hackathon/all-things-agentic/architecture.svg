@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
   <title id="title">Tital All Things Agentic architecture</title>
-  <desc id="desc">Architecture diagram showing the Director Workspace on Cloud Run, Firebase authentication, governed orchestration, Google ADK agents using Gemini 3.5 Flash on Vertex AI, Parallel Search MCP, Cloud Storage, human review, deterministic audit, and the production package.</desc>
+  <desc id="desc">Architecture diagram showing the Director Workspace on Cloud Run, safe runtime proof, Firebase authentication, governed orchestration, opt-in director feedback memory, Google ADK agents using Gemini 3.5 Flash on Vertex AI, Parallel Search MCP, Cloud Storage, human review, deterministic audit, and the production package.</desc>
   <defs>
     <style>
       .bg{fill:#f4f7f9}.shell{fill:#123d58}.card{fill:#fff;stroke:#ccd8df;stroke-width:2}.google{fill:#eef5ff;stroke:#7ca7e5;stroke-width:2}.human{fill:#fff7e8;stroke:#d6a34a;stroke-width:2}.trust{fill:#edf8f5;stroke:#4c9a8f;stroke-width:2}.store{fill:#f4effb;stroke:#9c7cc3;stroke-width:2}.out{fill:#eff8ef;stroke:#67a76f;stroke-width:2}.t{font-family:Arial,Helvetica,sans-serif;fill:#102b3b}.white{fill:#fff}.h1{font-size:38px;font-weight:700}.h2{font-size:23px;font-weight:700}.body{font-size:17px}.small{font-size:14px;fill:#526b79}.arrow{stroke:#4d6978;stroke-width:3;fill:none;marker-end:url(#m)}.dash{stroke:#7c929d;stroke-width:2;stroke-dasharray:8 7;fill:none;marker-end:url(#m)}
@@ -23,7 +23,7 @@
   <text class="t body" x="440" y="220">React 19 + MUI Director UI</text>
   <text class="t body" x="440" y="248">Node API</text>
   <text class="t body" x="440" y="276">same-origin /api/*</text>
-  <text class="small" x="440" y="302">Hosted production service</text>
+  <text class="small" x="440" y="302">Runtime proof: model · framework · revision · release</text>
 
   <rect class="google" x="805" y="145" rx="20" width="280" height="175"/>
   <text class="t h2" x="835" y="186">Firebase Auth</text>
@@ -46,7 +46,7 @@
   <text class="t body" x="320" y="475">Typed workflow + coverage evaluation</text>
   <text class="t body" x="320" y="505">Deterministic Zod validation</text>
   <text class="t body" x="320" y="535">Application-owned IDs + provenance</text>
-  <text class="t body" x="320" y="565">Targeted retry + waiver + staleness</text>
+  <text class="t body" x="320" y="565">Retry + waiver + staleness + feedback memory</text>
   <text class="t body" x="320" y="595">Bounded concurrency + timing traces</text>
   <text class="small" x="320" y="624">Model proposes; application decides what can become trusted state.</text>
 
@@ -67,7 +67,7 @@
   <rect class="human" x="1230" y="560" rx="22" width="300" height="125"/>
   <text class="t h2" x="1260" y="603">Human Review Gate</text>
   <text class="t body" x="1260" y="637">Approve · Reject · Try another</text>
-  <text class="small" x="1260" y="663">Feedback changes the next allowed action</text>
+  <text class="small" x="1260" y="663">Explicit opt-in can guide later cinematic proposals</text>
 
   <path class="arrow" d="M565 320 V395"/>
   <path class="arrow" d="M725 515 H810"/>
@@ -77,7 +77,7 @@
   <path class="dash" d="M810 600 H760 V600 H725"/>
 
   <rect class="out" x="285" y="735" rx="22" width="440" height="120"/>
-  <text class="t h2" x="320" y="776">Governance & Provenance Audit</text>
+  <text class="t h2" x="320" y="776">Governance &amp; Provenance Audit</text>
   <text class="t body" x="320" y="810">Approved-chain integrity · visual category · disclosure</text>
   <text class="small" x="320" y="837">Deterministic audit; not independent scientific peer review</text>
 

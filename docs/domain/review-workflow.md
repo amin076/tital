@@ -75,18 +75,20 @@ Keep this replacement observational and realistic.
 
 That instruction is passed only to the targeted cinematic generation together with the project's Director Brief. Scientific evidence, uncertainty, and approved visual-integrity constraints have higher precedence than artistic preferences.
 
+The replacement dialog also exposes an off-by-default `Remember this feedback` choice. If selected, the application persists the instruction as project-scoped `DirectorFeedback` after the retry succeeds. If not selected, the instruction remains scoped to that replacement only.
+
 ## Director Brief versus review decisions
 
 The project-level `DirectorBrief` describes persistent cinematic preferences. It influences initial Scene, Shot, and Visual Decision proposals.
 
-A scoped retry instruction is narrower and applies to a specific replacement request. It does not rewrite the project-wide Director Brief.
+A scoped retry instruction is narrower and applies to a specific replacement request. It does not rewrite the project-wide Director Brief. Explicitly remembered retry feedback sits between those two scopes: it can guide later cinematic proposals in the same project but does not become a cross-project profile.
 
 The precedence rule is:
 
 ```text
 scientific evidence / uncertainty / visual-integrity constraints
 > approved production constraints
-> scoped director instruction + project Director Brief
+> scoped director instruction + remembered project feedback + project Director Brief
 > AI cinematic preference
 ```
 
@@ -97,6 +99,7 @@ New Scene, Shot, and Visual Decision records can carry application-owned `decisi
 - the proposal originated from AI;
 - it remained evidence-governed;
 - a Director Brief was applied or not;
+- how many explicitly remembered feedback records were supplied;
 - a scoped director instruction was applied or not.
 
 Human approval remains represented by the record status; provenance does not imply approval.
