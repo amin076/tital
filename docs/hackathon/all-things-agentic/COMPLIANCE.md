@@ -6,7 +6,7 @@ This checklist maps the published hackathon requirements to concrete Tital evide
 
 | Requirement | Tital evidence | Status |
 |---|---|---|
-| Gemini 3.5 or newer | Central runtime model `src/config/models.ts` is `gemini-3.5-flash`; all LLM agents import that constant; regression test prevents 2.5 drift; public runtime metadata and the deploy workflow verify the exact model/release | ✅ implementation + automated verification ready; live agent smoke test required after deployment |
+| Gemini 3.5 or newer | Central runtime model `src/config/models.ts` is `gemini-3.5-flash`; all LLM agents import that constant; regression test prevents 2.5 drift; public runtime metadata and the deploy workflow verify the exact model/release | ✅ deployed + automated runtime assertion passed; live semantic agent smoke test still required |
 | Google Agent Framework | `@google/adk` TypeScript agents for Define, Research Questions, Source Discovery, Evidence, Claims, Script, Scenes, Shots, Visual Decisions | ✅ |
 | Google Cloud infrastructure | Hosted Node + React service on Cloud Run; Cloud Storage persistence; Firebase authentication; Workload Identity Federation deployment | ✅ |
 | Agent beyond a standard chat loop | Typed multi-stage workflow with action/tool calls, persistence, human interrupts, review, coverage, audit, and package release | ✅ |
@@ -37,7 +37,7 @@ Evidence:
 | Other data sources | Parallel Search MCP documented | ✅ |
 | Findings/learnings | `SUBMISSION.md` | ✅ |
 | Public code repository | `https://github.com/amin076/tital` | ✅ |
-| Spin-up instructions | Root `README.md`, strengthened for hackathon reproducibility | ✅ after this branch merges |
+| Spin-up instructions | Root `README.md`, strengthened for hackathon reproducibility | ✅ |
 | Architecture diagram | `architecture.svg` + `ARCHITECTURE.md` | ✅ prepared |
 | ~4-minute demo video | `DEMO_SCRIPT.md` + recording checklist | 🟡 human recording/upload required |
 | Proof backend runs on Google Cloud | Cloud Run URL + GitHub deployment workflow; public landing/health expose safe model, framework, service, revision, and release metadata; demo script includes Cloud Run/Vertex proof shot | ✅ evidence exists / 🟡 Console proof must be shown in video |
@@ -64,8 +64,8 @@ Before using the words **“powered by Gemini 3.5 Flash”** in the final video/
 - [x] Local typecheck, 228 deterministic tests, web build, and server build pass on the readiness branch.
 - [x] Safe runtime/release proof is implemented in the public landing and `/api/health`.
 - [x] Main deployment workflow contains an exact post-deploy model/framework/infrastructure/release assertion.
-- [ ] PR CI passes after the final readiness changes.
-- [ ] Main deploy to Cloud Run succeeds.
+- [x] Final-readiness PR #29 CI passed.
+- [x] Main workflow #61 deployed to Cloud Run and passed the exact post-deploy runtime assertion.
 - [ ] Create one new project through the production UI.
 - [ ] FilmBrief generation succeeds on `gemini-3.5-flash`.
 - [ ] Approve FilmBrief and run Research Question generation.

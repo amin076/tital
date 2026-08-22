@@ -230,13 +230,14 @@ Submission hardening now also includes:
 - project-scoped Director Feedback Memory with explicit user opt-in;
 - deterministic regression coverage for runtime metadata, feedback persistence/scope, and public-demo sanitization.
 
-Final human actions still required after readiness code merges:
+Final human actions still required:
 
-1. confirm CI and Cloud Run deployment of the Gemini 3.5 migration;
-2. run a small live production smoke flow proving structured output and Parallel MCP compatibility on Gemini 3.5 Flash;
-3. record/upload the demo video with visible Google Cloud proof;
-4. complete personal/legal Devpost eligibility fields;
-5. submit and re-check all URLs before the deadline.
+1. run a small signed-in production smoke flow proving structured output and Parallel MCP compatibility on Gemini 3.5 Flash;
+2. record/upload the demo video with visible Google Cloud proof;
+3. complete personal/legal Devpost eligibility fields;
+4. submit and re-check all URLs before the deadline.
+
+Final-readiness PR #29 and main workflow #61 passed on 2026-08-22. The Cloud Run deployment and its exact model/framework/infrastructure/release assertion completed successfully; the public landing then reported `gemini-3.5-flash`, Google ADK, Vertex AI, Cloud Run revision `tital-00028-dqn`, and code release `f667387`.
 
 ## Current major limits
 
