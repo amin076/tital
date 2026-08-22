@@ -6,7 +6,7 @@ This checklist maps the published hackathon requirements to concrete Tital evide
 
 | Requirement | Tital evidence | Status |
 |---|---|---|
-| Gemini 3.5 or newer | Central runtime model `src/config/models.ts` is `gemini-3.5-flash`; all LLM agents import that constant; regression test prevents 2.5 drift; public runtime metadata and the deploy workflow verify the exact model/release | ✅ deployed + automated runtime assertion passed; live semantic agent smoke test still required |
+| Gemini 3.5 or newer | Central runtime model `src/config/models.ts` is `gemini-3.5-flash`; all LLM agents import that constant; regression test prevents 2.5 drift; public runtime metadata and the deploy workflow verify the exact model/release; authenticated Aurora E2E completed on `gemini-3.5-flash` / `VERTEX_AI` / Google ADK | ✅ deployed + automated runtime assertion passed + live semantic E2E passed |
 | Google Agent Framework | `@google/adk` TypeScript agents for Define, Research Questions, Source Discovery, Evidence, Claims, Script, Scenes, Shots, Visual Decisions | ✅ |
 | Google Cloud infrastructure | Hosted Node + React service on Cloud Run; Cloud Storage persistence; Firebase authentication; Workload Identity Federation deployment | ✅ |
 | Agent beyond a standard chat loop | Typed multi-stage workflow with action/tool calls, persistence, human interrupts, review, coverage, audit, and package release | ✅ |
@@ -41,6 +41,7 @@ Evidence:
 | Architecture diagram | `architecture.svg` + `ARCHITECTURE.md` | ✅ prepared |
 | ~4-minute demo video | `DEMO_SCRIPT.md` + recording checklist | 🟡 human recording/upload required |
 | Proof backend runs on Google Cloud | Cloud Run URL + GitHub deployment workflow; public landing/health expose safe model, framework, service, revision, and release metadata; demo script includes Cloud Run/Vertex proof shot | ✅ evidence exists / 🟡 Console proof must be shown in video |
+| Verified Gemini 3.5 E2E evidence | `docs/submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md` plus curated screenshots in `docs/submission/e2e-gemini-35-smoke-test/selected/` | ✅ |
 
 ## Production-readiness evidence
 
@@ -54,6 +55,8 @@ Evidence:
 - Firebase ID tokens protect live session APIs.
 - User sessions are namespaced by Firebase UID.
 - Completed Dinosaur project reached `READY_FOR_PRODUCTION`.
+- Authenticated Aurora Gemini 3.5 E2E reached `READY_FOR_PRODUCTION` on Cloud Run revision `tital-00030-8ht` at commit `3ded520f568ff8d86f9af83134c3e77f146019a8`.
+- Aurora governance/provenance audit passed with 0 issues and final refresh persistence passed.
 - Governance/provenance audit reports its scope honestly and does not claim independent scientific peer review.
 
 ## Gemini 3.5 migration acceptance checklist
@@ -61,19 +64,19 @@ Evidence:
 Before using the words **“powered by Gemini 3.5 Flash”** in the final video/submission, complete all of the following on the deployed revision:
 
 - [x] Central model migration and model-drift regression test are present.
-- [x] Local typecheck, 228 deterministic tests, web build, and server build pass on the readiness branch.
+- [x] Local typecheck, 239 deterministic tests, web build, and server build pass on main.
 - [x] Safe runtime/release proof is implemented in the public landing and `/api/health`.
 - [x] Main deployment workflow contains an exact post-deploy model/framework/infrastructure/release assertion.
 - [x] Final-readiness PR #29 CI passed.
 - [x] Main workflow #61 deployed to Cloud Run and passed the exact post-deploy runtime assertion.
-- [ ] Create one new project through the production UI.
-- [ ] FilmBrief generation succeeds on `gemini-3.5-flash`.
-- [ ] Approve FilmBrief and run Research Question generation.
-- [ ] Approve at least one Research Question and confirm Parallel MCP Source Discovery still works.
-- [ ] Run at least one downstream Gemini stage (Evidence or Claims) to confirm structured JSON parsing remains compatible.
-- [ ] Capture a screenshot/video frame showing the live deployed application after the migration.
+- [x] Create one new project through the production UI.
+- [x] FilmBrief generation succeeds on `gemini-3.5-flash`.
+- [x] Approve FilmBrief and run Research Question generation.
+- [x] Approve Research Questions and confirm Parallel MCP Source Discovery still works.
+- [x] Run downstream Gemini stages through Claims, Script, Scenes, Shots, and Visual Decisions; structured output parsing, validation, provenance, review gates, and persistence remained compatible.
+- [x] Capture screenshot evidence showing the live deployed application after the migration.
 
-A full second production package is desirable but not required merely to prove model compatibility if the existing public demo remains the main read-only showcase.
+The authenticated Aurora run completed a full production package and is documented in `docs/submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md`.
 
 ## Participant / legal self-attestation
 
@@ -103,12 +106,12 @@ If the Devpost form asks about prior work, reused code, teams, employers, or dev
 **GO** only when:
 
 ```text
-Gemini 3.5 live smoke test           PASS
+Gemini 3.5 live E2E smoke test       PASS
 CI + production deployment          PASS
 public demo                          PASS
 architecture diagram                ATTACHED
-video <= ~4 min                      UPLOADED / accessible
+video <= ~4 min                      PENDING UPLOAD
 Cloud proof visible in video         YES
 repo + README reproducibility        PASS
-Devpost personal eligibility         SELF-CONFIRMED
+Devpost personal eligibility         PENDING SELF-CONFIRMATION
 ```

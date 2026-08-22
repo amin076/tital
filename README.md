@@ -34,6 +34,24 @@ Submission kit:
 - [Architecture diagram (SVG)](./docs/hackathon/all-things-agentic/architecture.svg)
 - [~4-minute demo script](./docs/hackathon/all-things-agentic/DEMO_SCRIPT.md)
 
+### Verified Gemini 3.5 End-to-End Run
+
+The authenticated Aurora production run completed end to end on the deployed Cloud Run service after the ADK diagnostics fix and external Vertex AI spend-cap remediation.
+
+- Report: [Gemini 3.5 Aurora E2E report](./docs/submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md)
+- Curated evidence screenshots: [selected evidence folder](./docs/submission/e2e-gemini-35-smoke-test/selected/)
+- Runtime proof: [`runtime-health-gemini-35-metadata.json`](./docs/submission/e2e-gemini-35-smoke-test/selected/runtime-health-gemini-35-metadata.json)
+
+Verified production facts:
+
+- commit `3ded520f568ff8d86f9af83134c3e77f146019a8`
+- Cloud Run revision `tital-00030-8ht`
+- runtime `gemini-3.5-flash` on `VERTEX_AI` through Google ADK
+- Aurora Claims continuation succeeded from the preserved Evidence state
+- final package reached `READY_FOR_PRODUCTION`
+- governance/provenance audit passed with 0 issues
+- final refresh preserved the completed package state
+
 The repository includes a regression test that prevents Tital's LLM-agent files from silently drifting back to the older Gemini 2.5 model during submission hardening.
 The deployed public runtime also reports its provider/backend, model identifier, Google ADK framework, Cloud Run revision, and release commit through `/api/health`; CI fails if the deployed commit or required model does not match the main-branch release.
 

@@ -1,0 +1,4 @@
+# Preserve local read-only smoke-test evidence without committing the full
+# screenshot/report collection by default.
+*
+!.gitignore

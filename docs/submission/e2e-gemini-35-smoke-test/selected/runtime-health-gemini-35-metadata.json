@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "service": "tital-api",
+  "web": "same-origin",
+  "persistence": "Google Cloud Storage",
+  "authRequired": true,
+  "demoAvailable": true,
+  "runtime": {
+    "provider": "Google",
+    "backend": "VERTEX_AI",
+    "model": "gemini-3.5-flash",
+    "modelIdentifier": "gemini-3.5-flash",
+    "modelPlatform": "Vertex AI",
+    "agentFramework": "Google ADK",
+    "infrastructure": "Cloud Run",
+    "service": "tital",
+    "revision": "tital-00030-8ht",
+    "releaseSha": "3ded520f568ff8d86f9af83134c3e77f146019a8"
+  }
+}

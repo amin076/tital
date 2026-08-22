@@ -14,6 +14,8 @@ Repository: **https://github.com/amin076/tital**
 - [`architecture.svg`](./architecture.svg) — static architecture diagram for upload/screenshot.
 - [`DEMO_SCRIPT.md`](./DEMO_SCRIPT.md) — timed 3:40–3:55 video plan, Google Cloud proof shot, recording checklist.
 - [`BONUS_CONTENT.md`](./BONUS_CONTENT.md) — optional public LinkedIn/blog drafts for bonus consideration.
+- [`../../submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md`](../../submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md) — verified authenticated Gemini 3.5 Aurora E2E report.
+- [`../../submission/e2e-gemini-35-smoke-test/selected/`](../../submission/e2e-gemini-35-smoke-test/selected/) — curated submission screenshots and runtime metadata proof.
 
 ## Current readiness
 
@@ -30,10 +32,11 @@ Repository: **https://github.com/amin076/tital**
 - [x] Code migration deployed for `gemini-3.5-flash`.
 - [x] Regression check prevents accidental 2.5 agent-model drift.
 - [x] Public runtime/release metadata and post-deploy health assertion deployed.
-- [x] Local submission verification passes: typecheck, 228 tests, web build, and server build.
+- [x] Local submission verification passes: typecheck, 239 tests, web build, and server build.
 - [x] Final-readiness PR #29 CI passed.
 - [x] PR #29 merged and main workflow #61 completed its Cloud Run deploy and runtime assertion.
-- [ ] Live Gemini 3.5 production smoke test passes.
+- [x] Live authenticated Gemini 3.5 Aurora production E2E passed on commit `3ded520f568ff8d86f9af83134c3e77f146019a8`, Cloud Run revision `tital-00030-8ht`, runtime `gemini-3.5-flash` / `VERTEX_AI` / Google ADK.
+- [x] Aurora production package reached `READY_FOR_PRODUCTION`; governance/provenance audit passed with 0 issues; final refresh persistence passed.
 
 ### Submission materials
 
@@ -52,11 +55,10 @@ Repository: **https://github.com/amin076/tital**
 
 ## Recommended final order
 
-1. Sign in and run a small production smoke project through FilmBrief → Research Questions → Source Discovery → one downstream Gemini stage.
-2. Record the video using `DEMO_SCRIPT.md`.
-3. Open the Devpost form early and paste the narrative from `SUBMISSION.md`.
-4. Upload `architecture.svg` or a PNG export of it.
-5. Add hosted app + GitHub repo + video URLs.
-6. Complete personal eligibility fields.
-7. Submit early enough for the organizers' baseline review window if possible.
-8. Re-check every link and keep claims no broader than the production evidence.
+1. Record the video using `DEMO_SCRIPT.md`, including Cloud Run and runtime proof.
+2. Open the Devpost form early and paste the narrative from `SUBMISSION.md`.
+3. Upload `architecture.svg` or a PNG export of it.
+4. Add hosted app + GitHub repo + video URLs.
+5. Complete personal eligibility fields.
+6. Submit early enough for the organizers' baseline review window if possible.
+7. Re-check every link and keep claims no broader than the production evidence.

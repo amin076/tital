@@ -1,0 +1,7 @@
+# Keep the complete local smoke-test evidence on disk, but commit only the
+# report and curated submission evidence.
+*
+!.gitignore
+!gemini-35-e2e-report.md
+!selected/
+!selected/**

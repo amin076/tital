@@ -1,6 +1,6 @@
 # All Things Agentic Hackathon — Tital Submission Draft
 
-Status: **code and submission package deployed; automated runtime verification passed; live Gemini 3.5 Flash agent smoke test and demo-video recording remain the release gates**
+Status: **code and submission package deployed; automated runtime verification passed; authenticated Gemini 3.5 Flash Aurora E2E passed; demo-video recording remains the main release gate**
 
 ## Category
 
@@ -172,6 +172,27 @@ Retry feedback can be useful beyond one replacement, but silently turning it int
 
 Public visitors can explore the completed read-only dinosaur demo without authentication. Live project creation/review is protected by Firebase authentication.
 
+## Verified Gemini 3.5 end-to-end run
+
+The authenticated Aurora project `How Auroras Form: Solar Particles and Earth's Magnetic Field` was resumed after the ADK diagnostics fix and external Vertex AI spend-cap remediation, then completed on the deployed production service.
+
+Evidence:
+
+- Report: `docs/submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md`
+- Curated screenshots: `docs/submission/e2e-gemini-35-smoke-test/selected/`
+- Runtime proof: `docs/submission/e2e-gemini-35-smoke-test/selected/runtime-health-gemini-35-metadata.json`
+
+Verified production facts:
+
+- commit `3ded520f568ff8d86f9af83134c3e77f146019a8`
+- Cloud Run revision `tital-00030-8ht`
+- runtime `gemini-3.5-flash` / `VERTEX_AI` / Google ADK
+- original Claims empty-response symptom traced to a Vertex AI spend-cap provider failure and fixed with actionable ADK/provider diagnostics
+- post-fix Claims continuation succeeded on exactly one retry
+- final state `READY_FOR_PRODUCTION`
+- governance/provenance audit passed with 0 issues
+- final browser refresh preserved the completed package
+
 ## Repository
 
 `https://github.com/amin076/tital`
@@ -191,7 +212,7 @@ Use `architecture.svg` for the Devpost architecture-diagram field and `ARCHITECT
 ## Submission claims that are safe to make
 
 - Tital is a working hosted application on Cloud Run.
-- Tital is configured for Google ADK and Gemini 3.5 Flash; make the final runtime claim only after the deployed live-agent smoke test passes.
+- Tital is configured for Google ADK and Gemini 3.5 Flash on Vertex AI, verified in the deployed authenticated Aurora E2E run.
 - Tital uses Parallel Search MCP for source discovery.
 - Tital has explicit human review gates and persistent project state.
 - Tital produces a traceable governed production package.
