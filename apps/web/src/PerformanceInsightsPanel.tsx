@@ -39,6 +39,36 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
   );
 }
 
+function shortSha(value: string | null): string | null {
+  return value ? value.slice(0, 7) : null;
+}
+
+function RuntimeEnvironment({ insights }: { insights: PerformanceInsights }) {
+  const runtime = insights.runtime;
+  if (!runtime) return null;
+
+  return (
+    <Box sx={{ mt: 1.75 }}>
+      <Typography variant="subtitle2">Runtime environment</Typography>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 0.9, flexWrap: 'wrap' }}>
+        <Chip size="small" label={`${runtime.provider} ${runtime.backend}`} variant="outlined" />
+        <Chip size="small" label={runtime.modelIdentifier} color="secondary" variant="outlined" />
+        <Chip size="small" label={runtime.agentFramework} variant="outlined" />
+        <Chip size="small" label={runtime.modelPlatform} variant="outlined" />
+        {runtime.cloudRunRevision && (
+          <Chip size="small" label={`revision ${runtime.cloudRunRevision}`} variant="outlined" />
+        )}
+        {shortSha(runtime.releaseSha) && (
+          <Chip size="small" label={`release ${shortSha(runtime.releaseSha)}`} variant="outlined" />
+        )}
+      </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+        Last model execution {runtime.executionTimestamp}
+      </Typography>
+    </Box>
+  );
+}
+
 export function PerformanceInsightsPanel({ insights }: { insights: PerformanceInsights }) {
   if (!insights.measured) {
     return (
@@ -48,6 +78,7 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
           New live automated work records wall-clock duration and external-call timing. Older sessions that predate instrumentation remain explicitly unmeasured.
         </Typography>
+        <RuntimeEnvironment insights={insights} />
       </Paper>
     );
   }
@@ -68,7 +99,7 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
         </Box>
         <Chip
           size="small"
-          label={`${insights.measuredStageCount} stages · ${insights.measuredExecutionCount} executions`}
+          label={`${insights.measuredStageCount} stages - ${insights.measuredExecutionCount} executions`}
           color="secondary"
           variant="outlined"
           sx={{ flexShrink: 0 }}
@@ -82,13 +113,28 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
           note={insights.includesProjectCreation ? 'Includes FilmBrief creation and later automated stages' : 'Legacy session: FilmBrief creation was not measured'}
         />
         <Stat label="External calls" value={String(insights.externalCallCount)} note={`${insights.failedCallCount} failed`} />
-        <Stat label="Slowest stage" value={insights.slowestStage ? STAGE_LABELS[insights.slowestStage] ?? insights.slowestStage : '—'} />
+        <Stat label="Slowest stage" value={insights.slowestStage ? STAGE_LABELS[insights.slowestStage] ?? insights.slowestStage : '-'} />
         <Stat
           label="Parallel overlap"
-          value={insights.parallelOverlapFactor ? `${insights.parallelOverlapFactor.toFixed(2)}×` : '—'}
-          note="External-call work ÷ wall time; not a before/after speedup"
+          value={insights.parallelOverlapFactor ? `${insights.parallelOverlapFactor.toFixed(2)}x` : '-'}
+          note="External-call work divided by wall time; not a before/after speedup"
         />
       </Box>
+
+      <RuntimeEnvironment insights={insights} />
+
+      {insights.latestFailure && (
+        <Alert severity="warning" variant="outlined" sx={{ mt: 1.75 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            Latest external failure: {insights.latestFailure.category}
+          </Typography>
+          <Typography variant="caption" sx={{ display: 'block', mt: 0.25 }}>
+            {insights.latestFailure.detail ?? 'The provider failed before returning trusted structured content.'}
+            {insights.latestFailure.errorCode ? ` Code ${insights.latestFailure.errorCode}.` : ''}
+            {insights.latestFailure.finishReason ? ` Finish reason ${insights.latestFailure.finishReason}.` : ''}
+          </Typography>
+        </Alert>
+      )}
 
       {concurrencyLabel && (
         <Chip
@@ -116,7 +162,7 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
                   {STAGE_LABELS[stage.stage] ?? stage.stage}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'right' }}>
-                  {formatDuration(stage.durationMs)} · {stage.externalCallCount} call{stage.externalCallCount === 1 ? '' : 's'}
+                  {formatDuration(stage.durationMs)} - {stage.externalCallCount} call{stage.externalCallCount === 1 ? '' : 's'}
                 </Typography>
               </Stack>
               <LinearProgress
@@ -128,7 +174,7 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
               <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 0.4, flexWrap: 'wrap' }}>
                 {stage.parallelOverlapFactor && stage.externalCallCount > 1 && (
                   <Typography variant="caption" color="text.secondary">
-                    overlap {stage.parallelOverlapFactor.toFixed(2)}×
+                    overlap {stage.parallelOverlapFactor.toFixed(2)}x
                   </Typography>
                 )}
                 {stage.slowestCallMs > 0 && (
@@ -158,7 +204,7 @@ export function PerformanceInsightsPanel({ insights }: { insights: PerformanceIn
             Slowest measured external call: {formatDuration(insights.slowestCallMs)}
           </Typography>
           <Typography variant="caption" sx={{ overflowWrap: 'anywhere' }}>
-            {insights.slowestOperationName}{insights.slowestTargetId ? ` · ${insights.slowestTargetId}` : ''}
+            {insights.slowestOperationName}{insights.slowestTargetId ? ` - ${insights.slowestTargetId}` : ''}
           </Typography>
         </Alert>
       )}

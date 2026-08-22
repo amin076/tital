@@ -10,6 +10,7 @@ import { ShotRecordSchema } from './shotRecord.js';
 import { VisualDecisionRecordSchema } from './visualDecisionRecord.js';
 import { CoverageWaiverSchema } from './coverageWaiver.js';
 import { ScientificAuditReportSchema } from './scientificAudit.js';
+import { RuntimeAuditMetadataSchema } from './runtimeAuditMetadata.js';
 
 export const ProductionPackageSchema = z.object({
   filmBrief: FilmBriefSchema,
@@ -23,6 +24,7 @@ export const ProductionPackageSchema = z.object({
   visualDecisions: z.array(VisualDecisionRecordSchema),
   coverageWaivers: z.array(CoverageWaiverSchema).optional(),
   audit: ScientificAuditReportSchema,
+  runtimeAudit: RuntimeAuditMetadataSchema.optional(),
   generatedAt: z.string().min(1),
   status: z.enum(['BLOCKED', 'READY_FOR_PRODUCTION']),
 });

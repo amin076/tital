@@ -1,11 +1,12 @@
 import crypto from 'crypto';
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { sceneDirectorAgent } from '../agents/sceneDirectorAgent.js';
 import type { CinematicGenerationContext } from '../domain/directorBrief.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SceneProposalListSchema, type SceneProposalList } from '../domain/sceneProposal.js';
 import { SceneRecordSchema, type SceneRecord } from '../domain/sceneRecord.js';
 import { ScriptLineRecordSchema, type ScriptLineRecord } from '../domain/scriptLineRecord.js';
+import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 import {
   CINEMATIC_GUIDANCE_PRECEDENCE,
@@ -130,10 +131,9 @@ export async function callSceneDirectorAgent(
         ],
       },
     });
-    for await (const event of run) responseText += stringifyContent(event);
+    responseText = await collectAdkResponseText(run, { label: 'Scene director agent' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Scene ADK/model invocation failure: ${message}`);
+    throw toModelRuntimeError('Scene director agent', error);
   }
 
   return parseSceneProposalList(responseText);

@@ -7,6 +7,7 @@ import { ProductionPackageSchema } from './productionPackage.js';
 export const MvpSessionEventTypeSchema = z.enum([
   'SESSION_CREATED',
   'AUTOMATION_EXECUTED',
+  'AUTOMATION_FAILED',
   'REVIEW_DECISION',
   'RETRY_REQUESTED',
   'COVERAGE_WAIVED',

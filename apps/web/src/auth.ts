@@ -17,7 +17,10 @@ export interface PublicRuntimeConfig {
   } | null;
   demoAvailable: boolean;
   runtime: {
+    provider: 'Google';
+    backend: string;
     model: string;
+    modelIdentifier: string;
     modelPlatform: 'Vertex AI';
     agentFramework: 'Google ADK';
     infrastructure: 'Cloud Run' | 'Local Node.js';

@@ -401,7 +401,23 @@ Future semantic rules:
 
 ### Vertex/ADK failure
 
-Policy: do not partially persist generated stage output. Surface a bounded error; allow retry from the last persisted valid state.
+Policy: do not partially persist generated stage output. Surface a bounded error; persist an `AUTOMATION_FAILED` event with safe runtime metadata; allow retry from the last persisted valid state after the external blocker is fixed.
+
+ADK event handling:
+
+- inspect event-level `errorCode` and `errorMessage` before treating the response as text;
+- classify quota/billing, timeout, safety stop, authorization, and generic provider-runtime failures;
+- preserve finish reason and event count when available;
+- never expose credentials, raw prompts, private bucket paths, or raw provider payloads in UI/API errors;
+- keep malformed JSON and Zod schema failures separate from provider-runtime failures.
+
+Known live failure:
+
+```text
+Claim generation agent returned an empty response.
+```
+
+The Aurora hosted smoke test reached Claims with approved upstream records, but the Claims stage failed on the initial attempt and two retries. Cloud Run logs showed ADK calls using `gemini-3.5-flash` with backend `VERTEX_AI`; local reproduction of the same ADK path returned an ADK error event with Vertex spend-cap/quota denial and no content. The old response extraction ignored ADK error events and therefore misreported the provider failure as empty model JSON. Regression coverage now exercises valid claim output, malformed JSON, schema failure, empty content, safety stop, timeout classification, retry/failure persistence, provenance, and no partial Claims persistence.
 
 ### Quota or timeout
 

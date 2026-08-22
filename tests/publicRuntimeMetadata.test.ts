@@ -12,9 +12,13 @@ describe('public runtime metadata', () => {
         K_SERVICE: 'tital',
         K_REVISION: 'tital-00042-example',
         TITAL_RELEASE_SHA: '0123456789abcdef',
+        GOOGLE_GENAI_USE_VERTEXAI: 'true',
       })
     ).toEqual({
+      provider: 'Google',
+      backend: 'VERTEX_AI',
       model: 'gemini-3.5-flash',
+      modelIdentifier: 'gemini-3.5-flash',
       modelPlatform: 'Vertex AI',
       agentFramework: 'Google ADK',
       infrastructure: 'Cloud Run',

@@ -75,6 +75,13 @@ describe('buildProductionPackage', () => {
     expect(result.status).toBe('READY_FOR_PRODUCTION');
     expect(result.audit.passed).toBe(true);
     expect(result.generatedAt).toBe('2026-08-15T07:00:00.000Z');
+    expect(result.runtimeAudit).toMatchObject({
+      provider: 'Google',
+      modelIdentifier: 'gemini-3.5-flash',
+      agentFramework: 'Google ADK',
+      modelPlatform: 'Vertex AI',
+      executionTimestamp: '2026-08-15T07:00:00.000Z',
+    });
   });
 
   it('blocks packaging when a workflow record still needs review', () => {

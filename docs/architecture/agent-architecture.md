@@ -154,6 +154,8 @@ gemini.shot_generation
 
 `advanceMvpSession` stores the relevant operation timings on the automation event. This is intended for real baseline measurement before further optimisation, not as a replacement for full distributed tracing.
 
+External model operations now include non-secret runtime audit metadata: provider, ADK backend, model identifier, Google ADK, Vertex AI, Cloud Run service/revision, release SHA, and execution timestamp. Failed ADK/Vertex operations also record a safe failure category, provider error code when present, finish reason when present, and event count. Credentials, raw prompts, private bucket paths, and raw provider payloads are not persisted or rendered.
+
 See [../PERFORMANCE.md](../PERFORMANCE.md).
 
 ## Error-handling rule
@@ -181,7 +183,9 @@ See [../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](../AGENT_FAILURE_SCENARIOS_AN
 
 ## ADK execution pattern
 
-Most stages run an `LlmAgent` through `InMemoryRunner`, accumulate response events, parse structured proposals, and validate them before trusted state is created. Durable project state is handled separately by Tital persistence.
+Most stages run an `LlmAgent` through `InMemoryRunner`, inspect ADK response events for provider error metadata, accumulate textual content only after those checks, parse structured proposals, and validate them before trusted state is created. Durable project state is handled separately by Tital persistence.
+
+If ADK emits an error event with no content, Tital no longer reports a generic empty JSON response. It classifies quota/billing, timeout, safety stop, authorization, and provider-runtime failures, records an `AUTOMATION_FAILED` session event, and leaves governed state unchanged so the same project can resume from the failed stage after the external blocker is fixed.
 
 `defineAgent` uses ADK `outputSchema`. Other stages commonly parse JSON text through Zod proposal schemas. In every case, **unvalidated model text never becomes trusted application state**.
 
@@ -201,6 +205,7 @@ When adding or changing an agent:
 10. For cinematic agents, treat Director Brief, opted-in feedback, and scoped notes as guidance below scientific constraints.
 11. Do not silently regenerate rejected content.
 12. Turn every reproducible live failure into a regression test.
+13. Preserve ADK/Vertex failure metadata without exposing prompts, credentials, or private infrastructure values.
 
 ## Research alignment
 

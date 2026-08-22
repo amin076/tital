@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { scientificScriptAgent } from '../agents/scientificScriptAgent.js';
 import { ClaimRecordSchema, type ClaimRecord } from '../domain/claimRecord.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
@@ -8,6 +8,7 @@ import {
   type ScriptLineProposalList,
 } from '../domain/scriptLineProposal.js';
 import { ScriptLineRecordSchema, type ScriptLineRecord } from '../domain/scriptLineRecord.js';
+import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 
 export function validateClaimsForScript(
@@ -121,10 +122,9 @@ export async function callScientificScriptAgent(
         ],
       },
     });
-    for await (const event of run) responseText += stringifyContent(event);
+    responseText = await collectAdkResponseText(run, { label: 'Scientific script agent' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Scientific script ADK/model invocation failure: ${message}`);
+    throw toModelRuntimeError('Scientific script agent', error);
   }
 
   return parseScriptLineProposalList(responseText);

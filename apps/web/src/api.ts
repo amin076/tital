@@ -88,6 +88,28 @@ export interface SessionPerformanceOperation {
   durationMs: number;
   success: boolean;
   kind?: 'EXTERNAL' | 'INTERNAL';
+  runtime?: RuntimeAuditMetadata;
+  failure?: RuntimeFailureMetadata;
+}
+
+export interface RuntimeAuditMetadata {
+  provider: string;
+  backend: string;
+  modelIdentifier: string;
+  agentFramework: string;
+  modelPlatform: string;
+  cloudRunRevision: string | null;
+  cloudRunService: string | null;
+  releaseSha: string | null;
+  executionTimestamp: string;
+}
+
+export interface RuntimeFailureMetadata {
+  category: string;
+  errorCode?: string | null;
+  finishReason?: string | null;
+  eventCount?: number;
+  detail?: string;
 }
 
 export interface SessionEvent {
@@ -144,6 +166,8 @@ export interface PerformanceInsights {
   slowestStage: string | null;
   parallelOverlapFactor: number | null;
   failedCallCount: number;
+  runtime: RuntimeAuditMetadata | null;
+  latestFailure: RuntimeFailureMetadata | null;
   stages: PerformanceStageInsight[];
 }
 
@@ -208,6 +232,7 @@ export interface ProductionPackage {
   visualDecisions: GateRecord[];
   coverageWaivers?: CoverageWaiver[];
   audit: ScientificAudit;
+  runtimeAudit?: RuntimeAuditMetadata;
   generatedAt: string;
   status: 'BLOCKED' | 'READY_FOR_PRODUCTION';
 }

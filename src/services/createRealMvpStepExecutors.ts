@@ -2,6 +2,7 @@ import type { DirectorBrief } from '../domain/directorBrief.js';
 import type { DirectorFeedback } from '../domain/mvpSession.js';
 import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
+import { ModelRuntimeError } from '../utils/adkModelResponse.js';
 import { mapWithConcurrency, resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
 import type { MvpStepExecutors } from './executeNextMvpStep.js';
 import { discoverSourcesWithParallelMcp } from './discoverSourcesWithParallelMcp.js';
@@ -20,6 +21,7 @@ import {
   requiredShotsForVisualDecisions,
   selectApprovedProductionChain,
 } from './mvpWorkflowGuards.js';
+import { resolveRuntimeAuditMetadata } from './resolveRuntimeAuditMetadata.js';
 
 export interface MvpRuntimeServices {
   generateResearchQuestions: typeof generateResearchQuestions;
@@ -80,15 +82,29 @@ async function timed<T>(
       durationMs: Math.max(0, Date.now() - started),
       success: true,
       kind: 'EXTERNAL',
+      runtime: resolveRuntimeAuditMetadata(),
     });
     return result;
   } catch (error) {
+    const modelFailure = error instanceof ModelRuntimeError ? error.diagnostics : null;
     onOperation?.({
       name,
       targetId,
       durationMs: Math.max(0, Date.now() - started),
       success: false,
       kind: 'EXTERNAL',
+      runtime: modelFailure?.runtime ?? resolveRuntimeAuditMetadata(),
+      ...(modelFailure
+        ? {
+            failure: {
+              category: modelFailure.category,
+              errorCode: modelFailure.errorCode,
+              finishReason: modelFailure.finishReason,
+              eventCount: modelFailure.eventCount,
+              detail: modelFailure.detail,
+            },
+          }
+        : {}),
     });
     throw error;
   }

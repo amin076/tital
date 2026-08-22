@@ -51,6 +51,22 @@ describe('Approved Evidence → Claim governed generation', () => {
     expect(parseClaimProposalList(fenced)).toEqual(proposals);
   });
 
+  it('fails safely when claim generation returns no structured content', () => {
+    expect(() => parseClaimProposalList('')).toThrow('Claim generation agent returned an empty response');
+  });
+
+  it('rejects malformed claim JSON', () => {
+    expect(() => parseClaimProposalList('{ "claims": [')).toThrow(
+      'Claim generation agent returned malformed JSON'
+    );
+  });
+
+  it('rejects claim output that violates the governed schema', () => {
+    expect(() => parseClaimProposalList(JSON.stringify({ claims: [{ text: 'Missing provenance.' }] }))).toThrow(
+      'Claim proposal validation failed'
+    );
+  });
+
   it('rejects non-approved evidence before model invocation', async () => {
     const evidence = [{ ...approvedEvidence[0], status: 'REVIEW_REQUIRED' as const }];
     const modelCaller = vi.fn(async () => proposals);

@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  RuntimeAuditMetadataSchema,
+  RuntimeFailureMetadataSchema,
+} from './runtimeAuditMetadata.js';
 
 export const PerformanceOperationSchema = z.object({
   name: z.string().min(1),
@@ -6,6 +10,8 @@ export const PerformanceOperationSchema = z.object({
   durationMs: z.number().int().nonnegative(),
   success: z.boolean(),
   kind: z.enum(['EXTERNAL', 'INTERNAL']).optional(),
+  runtime: RuntimeAuditMetadataSchema.optional(),
+  failure: RuntimeFailureMetadataSchema.optional(),
 });
 
 export const WorkflowPerformanceTraceSchema = z.object({

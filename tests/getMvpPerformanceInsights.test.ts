@@ -13,6 +13,7 @@ describe('getMvpPerformanceInsights', () => {
     expect(result.stages).toEqual([]);
     expect(result.parallelOverlapFactor).toBeNull();
     expect(result.includesProjectCreation).toBe(false);
+    expect(result.runtime?.modelIdentifier).toBe('gemini-3.5-flash');
   });
 
   it('aggregates stage wall time, external work, failures, and overlap without calling it speedup', () => {
@@ -45,7 +46,28 @@ describe('getMvpPerformanceInsights', () => {
             externalCallCount: 2,
             operations: [
               { name: 'gemini.claim_generation', targetId: 'RQ-1', durationMs: 4_000, success: true },
-              { name: 'gemini.claim_generation', targetId: 'RQ-2', durationMs: 3_000, success: false },
+              {
+                name: 'gemini.claim_generation',
+                targetId: 'RQ-2',
+                durationMs: 3_000,
+                success: false,
+                runtime: {
+                  provider: 'Google',
+                  backend: 'VERTEX_AI',
+                  modelIdentifier: 'gemini-3.5-flash',
+                  agentFramework: 'Google ADK',
+                  modelPlatform: 'Vertex AI',
+                  cloudRunRevision: 'tital-00042-test',
+                  cloudRunService: 'tital',
+                  releaseSha: 'abcdef',
+                  executionTimestamp: '2026-08-21T00:01:00.000Z',
+                },
+                failure: {
+                  category: 'QUOTA_OR_BILLING',
+                  errorCode: '403',
+                  detail: 'Quota unavailable.',
+                },
+              },
             ],
           },
         },
@@ -64,6 +86,8 @@ describe('getMvpPerformanceInsights', () => {
     expect(result.slowestStage).toBe('EVIDENCE');
     expect(result.slowestCallMs).toBe(8_000);
     expect(result.slowestTargetId).toBe('SRC-1');
+    expect(result.runtime?.cloudRunRevision).toBe('tital-00042-test');
+    expect(result.latestFailure?.category).toBe('QUOTA_OR_BILLING');
     expect(result.stages[0]?.stage).toBe('EVIDENCE');
     expect(result.stages[0]?.parallelOverlapFactor).toBe(2.1);
   });

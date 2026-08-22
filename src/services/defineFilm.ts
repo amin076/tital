@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { defineAgent } from '../agents/defineAgent.js';
 import {
   FilmBriefSchema,
@@ -11,6 +11,8 @@ import {
   normalizeFilmProjectInput,
   type FilmProjectInput,
 } from '../domain/filmProjectInput.js';
+import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
+import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 
 /**
  * Validates that a raw idea is not empty or pure whitespace.
@@ -111,25 +113,12 @@ export async function callDefineAgent(prompt: string): Promise<ModelOutputBrief>
       newMessage: { parts: [{ text: prompt }] },
     });
 
-    for await (const event of run) {
-      responseText += stringifyContent(event);
-    }
-  } catch (error: any) {
-    throw new Error(`ADK/model invocation failure: ${error.message}`);
+    responseText = await collectAdkResponseText(run, { label: 'FilmBrief define agent' });
+  } catch (error) {
+    throw toModelRuntimeError('FilmBrief define agent', error);
   }
 
-  if (!responseText) {
-    throw new Error('ADK/model invocation failure: Model returned empty response.');
-  }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(responseText.trim());
-  } catch (error: any) {
-    throw new Error(
-      `Malformed/unparseable model output: Failed to parse JSON response. Raw output: "${responseText}". Error: ${error.message}`
-    );
-  }
+  const parsedJson = parseJsonFromModelResponse(responseText, 'FilmBrief define agent');
 
   const parseResult = ModelOutputBriefSchema.safeParse(parsedJson);
   if (!parseResult.success) {

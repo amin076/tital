@@ -1,10 +1,11 @@
 import crypto from 'crypto';
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { visualDecisionAgent } from '../agents/visualDecisionAgent.js';
 import type { CinematicGenerationContext } from '../domain/directorBrief.js';
 import { ShotRecordSchema, type ShotRecord } from '../domain/shotRecord.js';
 import { VisualDecisionProposalSchema, type VisualDecisionProposal } from '../domain/visualDecisionProposal.js';
 import { VisualDecisionRecordSchema, type VisualDecisionRecord } from '../domain/visualDecisionRecord.js';
+import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 import {
   CINEMATIC_GUIDANCE_PRECEDENCE,
@@ -118,12 +119,9 @@ export async function callVisualDecisionAgent(
       },
     });
 
-    for await (const event of run) {
-      responseText += stringifyContent(event);
-    }
+    responseText = await collectAdkResponseText(run, { label: 'Visual decision agent' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Visual decision ADK/model invocation failure: ${message}`);
+    throw toModelRuntimeError('Visual decision agent', error);
   }
 
   return parseVisualDecisionProposal(responseText);

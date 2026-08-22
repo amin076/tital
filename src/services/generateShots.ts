@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { shotDirectorAgent } from '../agents/shotDirectorAgent.js';
 import type { CinematicGenerationContext } from '../domain/directorBrief.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
@@ -7,6 +7,7 @@ import { SceneRecordSchema, type SceneRecord } from '../domain/sceneRecord.js';
 import { ScriptLineRecordSchema, type ScriptLineRecord } from '../domain/scriptLineRecord.js';
 import { ShotProposalListSchema, type ShotProposalList } from '../domain/shotProposal.js';
 import { ShotRecordSchema, type ShotRecord } from '../domain/shotRecord.js';
+import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 import {
   CINEMATIC_GUIDANCE_PRECEDENCE,
@@ -166,12 +167,9 @@ export async function callShotDirectorAgent(
       },
     });
 
-    for await (const event of run) {
-      responseText += stringifyContent(event);
-    }
+    responseText = await collectAdkResponseText(run, { label: 'Shot director agent' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Shot ADK/model invocation failure: ${message}`);
+    throw toModelRuntimeError('Shot director agent', error);
   }
 
   return parseShotProposalList(responseText);

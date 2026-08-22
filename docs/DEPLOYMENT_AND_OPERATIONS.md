@@ -149,6 +149,7 @@ The normal demo snapshot ID is `public-demo`; `TITAL_DEMO_SESSION_ID` is an opti
 
 ```text
 Gemini model
+provider/backend
 model platform
 agent framework
 Cloud Run service/revision
@@ -156,7 +157,21 @@ release Git commit SHA
 public persistence label
 ```
 
-They do not expose private bucket names, object prefixes, service-account credentials, or tokens. The public landing page renders the model/framework/infrastructure values. After deployment, CI calls `/api/health` and fails unless the model is `gemini-3.5-flash`, the framework is Google ADK, the infrastructure is Cloud Run, and the release SHA matches the triggering main-branch commit.
+They do not expose private bucket names, object prefixes, service-account credentials, or tokens. The public landing page renders the model/framework/infrastructure values. Authenticated project runtime records also render non-secret execution metadata for audited model calls: provider `Google`, backend `VERTEX_AI`, model identifier `gemini-3.5-flash`, Google ADK, Vertex AI, Cloud Run revision, release SHA, and execution timestamp. After deployment, CI calls `/api/health` and fails unless the model is `gemini-3.5-flash`, the framework is Google ADK, the infrastructure is Cloud Run, and the release SHA matches the triggering main-branch commit.
+
+## ADK/Vertex runtime failures
+
+Tital treats ADK event streams as structured runtime evidence, not just text fragments. Model-backed stages inspect each event for ADK error code/message, finish reason, and blocked/safety reason before parsing JSON content.
+
+Failure policy:
+
+- quota, spend-cap, billing, timeout, safety stop, authorization, and provider-runtime errors fail the current stage closed;
+- `advanceMvpSession` records an `AUTOMATION_FAILED` event with timing, failed external operation metadata, provider/backend, model identifier, Cloud Run revision, release SHA, execution timestamp, safe failure category, error code when present, and finish reason when present;
+- the API saves that failed event before returning a non-2xx response to the UI;
+- no partial generated records are persisted, no empty output is approved, and no fallback model is used;
+- malformed JSON, schema failure, and provenance failure remain deterministic validation errors.
+
+Observed production regression on 2026-08-22: the Aurora project reached Claims with approved Film Brief, Research Questions, Sources, and Evidence, but three claim-generation attempts produced ADK/Vertex no-content failures that were previously surfaced as `Claim generation agent returned an empty response.` Cloud Run logs and local reproduction showed ADK requests using model `gemini-3.5-flash`, backend `VERTEX_AI`, and Vertex returning a spend-cap/quota-style error event with no content. The fix classifies that provider failure directly and persists auditable failure metadata.
 
 ## Environment variables
 

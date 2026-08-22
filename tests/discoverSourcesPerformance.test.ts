@@ -41,21 +41,29 @@ describe('Parallel source-discovery performance detail', () => {
     );
 
     expect(sources).toHaveLength(1);
-    expect(operations).toEqual([
+    expect(operations[0]).toMatchObject(
       {
         name: 'parallel.agent_roundtrip',
         targetId: 'RQ-1',
         durationMs: 5_000,
         success: true,
         kind: 'EXTERNAL',
-      },
+        runtime: {
+          provider: 'Google',
+          modelIdentifier: 'gemini-3.5-flash',
+          agentFramework: 'Google ADK',
+          modelPlatform: 'Vertex AI',
+        },
+      }
+    );
+    expect(operations[1]).toEqual(
       {
         name: 'parallel.source_normalization',
         targetId: 'RQ-1',
         durationMs: 300,
         success: true,
         kind: 'INTERNAL',
-      },
-    ]);
+      }
+    );
   });
 });

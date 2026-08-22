@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import { MvpSessionSchema, type MvpSession, type MvpSessionEventType } from '../domain/mvpSession.js';
+import { ModelRuntimeError } from '../utils/adkModelResponse.js';
 import { resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
 import { buildProductionPackage } from './buildProductionPackage.js';
 import {
@@ -18,6 +19,17 @@ export interface AdvanceMvpSessionOptions {
   externalConcurrency?: number;
 }
 
+export class MvpSessionAdvanceError extends Error {
+  constructor(
+    message: string,
+    readonly session: MvpSession,
+    readonly statusCode: number,
+    readonly code: string
+  ) {
+    super(message);
+  }
+}
+
 function packageFor(session: MvpSession) {
   return buildProductionPackage({
     filmBrief: session.state.filmBrief,
@@ -31,6 +43,29 @@ function packageFor(session: MvpSession) {
     visualDecisions: session.state.visualDecisions,
     coverageWaivers: session.state.coverageWaivers ?? [],
   });
+}
+
+function safeAutomationFailureMessage(error: unknown): string {
+  if (error instanceof ModelRuntimeError) return error.message;
+  if (!(error instanceof Error)) {
+    return 'The next automated stage failed before producing trusted workflow state. No project records were changed.';
+  }
+
+  const message = error.message;
+  if (
+    message.includes('returned malformed JSON') ||
+    message.includes('returned an empty response') ||
+    message.includes('validation failed') ||
+    message.includes('schema') ||
+    message.includes('references') ||
+    message.includes('provenance') ||
+    message.includes('not approved') ||
+    message.includes('outside the supplied')
+  ) {
+    return `${message} No project records were changed.`;
+  }
+
+  return 'The next automated stage failed before producing trusted workflow state. No project records were changed.';
 }
 
 export async function advanceMvpSession(
@@ -61,7 +96,45 @@ export async function advanceMvpSession(
     const stageBefore = evaluateMvpWorkflow(current.state).stage;
     const startedAt = performanceNow();
     const operationStart = operations.length;
-    const result = await executeNextMvpStep(current.state, executors);
+    let result;
+    try {
+      result = await executeNextMvpStep(current.state, executors);
+    } catch (error) {
+      const durationMs = Math.max(0, Math.round(performanceNow() - startedAt));
+      const stepOperations = operations.slice(operationStart);
+      const externalCallCount = stepOperations.filter(
+        (operation) => operation.kind !== 'INTERNAL'
+      ).length;
+      const now = nowFactory();
+      const clientMessage = safeAutomationFailureMessage(error);
+      const failed = MvpSessionSchema.parse({
+        ...current,
+        updatedAt: now,
+        events: [
+          ...current.events,
+          {
+            id: eventIdFactory(),
+            type: 'AUTOMATION_FAILED',
+            at: now,
+            stage: stageBefore,
+            message: clientMessage,
+            performance: {
+              durationMs,
+              externalCallCount,
+              ...(concurrencyLimit ? { concurrencyLimit } : {}),
+              operations: stepOperations,
+            },
+          },
+        ],
+      });
+
+      throw new MvpSessionAdvanceError(
+        clientMessage,
+        failed,
+        error instanceof ModelRuntimeError ? 502 : 500,
+        error instanceof ModelRuntimeError ? error.code : 'AUTOMATION_FAILED'
+      );
+    }
     const durationMs = Math.max(0, Math.round(performanceNow() - startedAt));
     const stepOperations = operations.slice(operationStart);
     const externalCallCount = stepOperations.filter(

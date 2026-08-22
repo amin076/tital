@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { FilmProjectInputSchema } from '../domain/filmProjectInput.js';
 import { createMvpSessionStore } from '../persistence/createMvpSessionStore.js';
 import type { MvpSessionStore } from '../persistence/mvpSessionStore.js';
-import { advanceMvpSession } from '../services/advanceMvpSession.js';
+import {
+  advanceMvpSession,
+  MvpSessionAdvanceError,
+} from '../services/advanceMvpSession.js';
 import { createMvpSession } from '../services/createMvpSession.js';
 import {
   createPublicDemoSession,
@@ -258,9 +261,21 @@ async function handleRequest(
   if (request.method === 'POST' && continueMatch) {
     const sessionId = sessionIdFrom(continueMatch);
     const session = await loadSessionOr404(store, sessionId);
-    const advanced = await advanceMvpSession(session);
-    await store.save(advanced);
-    sendJson(response, 200, getMvpSessionView(advanced));
+    try {
+      const advanced = await advanceMvpSession(session);
+      await store.save(advanced);
+      sendJson(response, 200, getMvpSessionView(advanced));
+    } catch (error) {
+      if (error instanceof MvpSessionAdvanceError) {
+        await store.save(error.session);
+        sendJson(response, error.statusCode, {
+          error: error.message,
+          code: error.code,
+        });
+        return;
+      }
+      throw error;
+    }
     return;
   }
 

@@ -1,10 +1,11 @@
 import crypto from 'crypto';
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { claimGenerationAgent } from '../agents/claimGenerationAgent.js';
 import { ClaimRecordSchema, type ClaimRecord } from '../domain/claimRecord.js';
 import { ClaimProposalListSchema, type ClaimProposalList } from '../domain/claimProposal.js';
 import { EvidenceRecordSchema, type EvidenceRecord } from '../domain/evidenceRecord.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
+import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 
 export function validateEvidenceForClaims(
@@ -120,10 +121,9 @@ export async function callClaimGenerationAgent(
         ],
       },
     });
-    for await (const event of run) responseText += stringifyContent(event);
+    responseText = await collectAdkResponseText(run, { label: 'Claim generation agent' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Claim ADK/model invocation failure: ${message}`);
+    throw toModelRuntimeError('Claim generation agent', error);
   }
 
   return parseClaimProposalList(responseText);

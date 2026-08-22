@@ -1,5 +1,10 @@
 import type { MvpSession, MvpSessionEvent } from '../domain/mvpSession.js';
+import type {
+  RuntimeAuditMetadata,
+  RuntimeFailureMetadata,
+} from '../domain/runtimeAuditMetadata.js';
 import type { MvpWorkflowStage } from '../domain/mvpWorkflow.js';
+import { resolveRuntimeAuditMetadata } from './resolveRuntimeAuditMetadata.js';
 
 export interface MvpPerformanceStageInsight {
   stage: MvpWorkflowStage;
@@ -14,6 +19,8 @@ export interface MvpPerformanceStageInsight {
   slowestTargetId: string | null;
   parallelOverlapFactor: number | null;
   failedCallCount: number;
+  runtime: RuntimeAuditMetadata | null;
+  latestFailure: RuntimeFailureMetadata | null;
 }
 
 export interface MvpPerformanceInsights {
@@ -33,6 +40,8 @@ export interface MvpPerformanceInsights {
   slowestStage: MvpWorkflowStage | null;
   parallelOverlapFactor: number | null;
   failedCallCount: number;
+  runtime: RuntimeAuditMetadata | null;
+  latestFailure: RuntimeFailureMetadata | null;
   stages: MvpPerformanceStageInsight[];
 }
 
@@ -66,6 +75,8 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
       slowestStage: null,
       parallelOverlapFactor: null,
       failedCallCount: 0,
+      runtime: resolveRuntimeAuditMetadata(),
+      latestFailure: null,
       stages: [],
     };
   }
@@ -86,6 +97,8 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
   let slowestCallMs = 0;
   let slowestOperationName: string | null = null;
   let slowestTargetId: string | null = null;
+  let runtime: RuntimeAuditMetadata | null = null;
+  let latestFailure: RuntimeFailureMetadata | null = null;
 
   for (const [stage, stageEvents] of byStage) {
     const stageDurationMs = stageEvents.reduce(
@@ -105,6 +118,10 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
     );
     const stageExternalCallCount = externalOperations.length;
     const stageFailedCallCount = externalOperations.filter((operation) => !operation.success).length;
+    for (const operation of externalOperations) {
+      if (operation.runtime) runtime = operation.runtime;
+      if (operation.failure) latestFailure = operation.failure;
+    }
     const slowest = externalOperations.reduce<(typeof externalOperations)[number] | null>(
       (current, operation) => (!current || operation.durationMs > current.durationMs ? operation : current),
       null
@@ -124,6 +141,8 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
       slowestTargetId: slowest?.targetId ?? null,
       parallelOverlapFactor: roundedRatio(stageExternalWorkMs, stageDurationMs),
       failedCallCount: stageFailedCallCount,
+      runtime,
+      latestFailure,
     });
 
     durationMs += stageDurationMs;
@@ -169,6 +188,8 @@ export function getMvpPerformanceInsights(session: MvpSession): MvpPerformanceIn
     slowestStage,
     parallelOverlapFactor: roundedRatio(externalWorkMs, durationMs),
     failedCallCount,
+    runtime: runtime ?? resolveRuntimeAuditMetadata(),
+    latestFailure,
     stages,
   };
 }

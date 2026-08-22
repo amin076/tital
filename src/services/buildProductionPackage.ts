@@ -9,8 +9,10 @@ import { ShotRecordSchema, type ShotRecord } from '../domain/shotRecord.js';
 import { VisualDecisionRecordSchema, type VisualDecisionRecord } from '../domain/visualDecisionRecord.js';
 import { CoverageWaiverSchema, type CoverageWaiver } from '../domain/coverageWaiver.js';
 import { ProductionPackageSchema, type ProductionPackage } from '../domain/productionPackage.js';
+import type { RuntimeAuditMetadata } from '../domain/runtimeAuditMetadata.js';
 import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
 import { runScientificAudit } from './runScientificAudit.js';
+import { resolveRuntimeAuditMetadata } from './resolveRuntimeAuditMetadata.js';
 import {
   isProductionWorkflowReady,
   selectApprovedProductionChain,
@@ -31,7 +33,11 @@ export interface ProductionPackageInput {
 
 export function buildProductionPackage(
   input: ProductionPackageInput,
-  options: { now?: () => string; auditIdFactory?: () => string } = {}
+  options: {
+    now?: () => string;
+    auditIdFactory?: () => string;
+    runtimeAudit?: RuntimeAuditMetadata;
+  } = {}
 ): ProductionPackage {
   FilmBriefSchema.parse(input.filmBrief);
   input.researchQuestions.forEach((record) => ResearchQuestionSchema.parse(record));
@@ -59,6 +65,7 @@ export function buildProductionPackage(
     ...chain,
     coverageWaivers: input.coverageWaivers ?? [],
     audit,
+    runtimeAudit: options.runtimeAudit ?? resolveRuntimeAuditMetadata(process.env, options.now),
     generatedAt: (options.now ?? (() => new Date().toISOString()))(),
     status: audit.passed && workflowReady ? 'READY_FOR_PRODUCTION' : 'BLOCKED',
   });

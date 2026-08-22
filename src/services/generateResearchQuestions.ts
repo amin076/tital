@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { researchQuestionAgent } from '../agents/researchQuestionAgent.js';
 import { FilmBriefSchema, type FilmBrief } from '../domain/filmBrief.js';
 import {
@@ -8,6 +8,8 @@ import {
   type ResearchQuestion,
   type ResearchQuestionsList,
 } from '../domain/researchQuestion.js';
+import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
+import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 
 /**
  * Validates the film brief and ensures it is APPROVED before proceeding to research.
@@ -77,24 +79,12 @@ export async function callResearchQuestionAgent(filmBrief: FilmBrief): Promise<R
       },
     });
 
-    for await (const event of run) {
-      responseText += stringifyContent(event);
-    }
-  } catch (error: any) {
-    throw new Error(`ADK/model invocation failure: ${error.message}`);
+    responseText = await collectAdkResponseText(run, { label: 'Research question agent' });
+  } catch (error) {
+    throw toModelRuntimeError('Research question agent', error);
   }
 
-  if (!responseText) {
-    throw new Error("ADK/model invocation failure: Model returned empty response.");
-  }
-
-  // Parse structured JSON output
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(responseText.trim());
-  } catch (error: any) {
-    throw new Error(`Malformed/unparseable model output: Failed to parse JSON response. Raw output: "${responseText}". Error: ${error.message}`);
-  }
+  const parsedJson = parseJsonFromModelResponse(responseText, 'Research question agent');
 
   return parsedJson as ResearchQuestionsList;
 }

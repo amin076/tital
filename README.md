@@ -35,7 +35,7 @@ Submission kit:
 - [~4-minute demo script](./docs/hackathon/all-things-agentic/DEMO_SCRIPT.md)
 
 The repository includes a regression test that prevents Tital's LLM-agent files from silently drifting back to the older Gemini 2.5 model during submission hardening.
-The deployed public runtime also reports its model, Google ADK framework, Cloud Run revision, and release commit through `/api/health`; CI fails if the deployed commit or required model does not match the main-branch release.
+The deployed public runtime also reports its provider/backend, model identifier, Google ADK framework, Cloud Run revision, and release commit through `/api/health`; CI fails if the deployed commit or required model does not match the main-branch release.
 
 ## Why Tital exists
 
@@ -440,7 +440,11 @@ PR / push
 → deployed `/api/health` model/revision/release verification
 ```
 
-The public landing surface reads the same safe runtime metadata and displays `gemini-3.5-flash`, Google ADK, Vertex AI, and Cloud Run. Private bucket paths and credentials are not exposed.
+The public landing surface reads the same safe runtime metadata and displays `gemini-3.5-flash`, Google ADK, Vertex AI, and Cloud Run. Authenticated project runtime records also expose auditable non-secret execution metadata: provider `Google`, backend `VERTEX_AI`, model identifier, framework, Cloud Run revision, release SHA, and execution timestamp. Private bucket paths and credentials are not exposed.
+
+## Runtime failure handling
+
+ADK event streams are inspected for provider error events before JSON parsing. If Vertex AI or ADK returns no content because of quota/billing, safety stop, timeout, authentication, or another provider runtime failure, Tital fails the stage closed, records an `AUTOMATION_FAILED` activity entry, preserves the last valid workflow state, and returns a safe actionable error to the UI. Deterministic malformed JSON, schema validation, and provenance failures still fail at the strict parser/schema boundary; Tital does not fabricate claims or silently fall back to another model.
 
 ## Production Package
 

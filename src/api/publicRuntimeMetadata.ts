@@ -1,7 +1,11 @@
 import { TITAL_GEMINI_MODEL } from '../config/models.js';
+import { resolveRuntimeBackend } from '../services/resolveRuntimeAuditMetadata.js';
 
 export interface PublicRuntimeMetadata {
+  provider: 'Google';
+  backend: string;
   model: typeof TITAL_GEMINI_MODEL;
+  modelIdentifier: typeof TITAL_GEMINI_MODEL;
   modelPlatform: 'Vertex AI';
   agentFramework: 'Google ADK';
   infrastructure: 'Cloud Run' | 'Local Node.js';
@@ -22,7 +26,10 @@ export function resolvePublicRuntimeMetadata(
   const releaseSha = trimmed(env, 'TITAL_RELEASE_SHA');
 
   return {
+    provider: 'Google',
+    backend: resolveRuntimeBackend(env),
     model: TITAL_GEMINI_MODEL,
+    modelIdentifier: TITAL_GEMINI_MODEL,
     modelPlatform: 'Vertex AI',
     agentFramework: 'Google ADK',
     infrastructure: service || env.PORT ? 'Cloud Run' : 'Local Node.js',

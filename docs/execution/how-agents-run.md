@@ -24,8 +24,9 @@ The Tital repository has two main agent entry points:
 Within the deterministic services, agents are called using the `InMemoryRunner` from the ADK. This allows the services to call agents programmatically and capture their output.
 
 ```typescript
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { defineAgent } from '../agents/defineAgent.js';
+import { collectAdkResponseText } from '../utils/adkModelResponse.js';
 
 // ...
 
@@ -35,9 +36,9 @@ const run = runner.runEphemeral({
   newMessage: { parts: [{ text: rawIdea }] },
 });
 
-for await (const event of run) {
-  responseText += stringifyContent(event);
-}
+const responseText = await collectAdkResponseText(run, {
+  label: 'FilmBrief define agent',
+});
 ```
 
-This pattern is used throughout the Tital services to orchestrate the interaction between the deterministic logic and the AI agents.
+The collector inspects ADK error events before extracting text. Quota/billing, timeout, safety stop, authorization, and other provider-runtime failures are classified as safe runtime errors rather than being misreported as empty JSON. Only non-empty content then reaches the strict JSON parser and Zod proposal schemas.

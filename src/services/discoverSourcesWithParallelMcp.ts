@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { InMemoryRunner, stringifyContent } from '@google/adk';
+import { InMemoryRunner } from '@google/adk';
 import { z } from 'zod';
 import { parallelSourceAgent } from '../agents/parallelSourceAgent.js';
 import {
@@ -11,7 +11,9 @@ import {
 import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SourceRecordSchema, type SourceRecord } from '../domain/sourceRecord.js';
+import { collectAdkResponseText, ModelRuntimeError, toModelRuntimeError } from '../utils/adkModelResponse.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
+import { resolveRuntimeAuditMetadata } from './resolveRuntimeAuditMetadata.js';
 
 const ParallelSourceDiscoveryEnvelopeSchema = z.object({
   providerSearchId: z.string().trim().min(1).nullable(),
@@ -122,12 +124,9 @@ export async function callParallelSourceAgent(question: ResearchQuestion): Promi
       },
     });
 
-    for await (const event of run) {
-      responseText += stringifyContent(event);
-    }
+    responseText = await collectAdkResponseText(run, { label: 'Parallel MCP agent' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Parallel MCP/ADK invocation failure: ${message}`);
+    throw toModelRuntimeError('Parallel MCP agent', error);
   }
 
   return parseParallelSourceDiscovery(responseText);
@@ -156,14 +155,28 @@ export async function discoverSourcesWithParallelMcp(
       durationMs: Math.max(0, Math.round(performanceNow() - roundTripStarted)),
       success: true,
       kind: 'EXTERNAL',
+      runtime: resolveRuntimeAuditMetadata(),
     });
   } catch (error) {
+    const modelFailure = error instanceof ModelRuntimeError ? error.diagnostics : null;
     options.onOperation?.({
       name: 'parallel.agent_roundtrip',
       targetId: question.id,
       durationMs: Math.max(0, Math.round(performanceNow() - roundTripStarted)),
       success: false,
       kind: 'EXTERNAL',
+      runtime: modelFailure?.runtime ?? resolveRuntimeAuditMetadata(),
+      ...(modelFailure
+        ? {
+            failure: {
+              category: modelFailure.category,
+              errorCode: modelFailure.errorCode,
+              finishReason: modelFailure.finishReason,
+              eventCount: modelFailure.eventCount,
+              detail: modelFailure.detail,
+            },
+          }
+        : {}),
     });
     throw error;
   }
