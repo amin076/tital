@@ -45,6 +45,8 @@ The following have been live-validated on Google Cloud:
 
 The Cloud Run service is publicly reachable so judges can load the landing page and completed demo. Application authorization remains enforced separately: anonymous requests cannot access `/api/sessions*`, while `/api/public/*` and `/api/health` expose only deliberate public data.
 
+Release evidence captured on 2026-08-22: final-readiness PR #29 passed CI, main workflow #61 completed the Cloud Run deployment and post-deploy runtime assertion, and the public landing reported `gemini-3.5-flash`, Google ADK, Vertex AI, revision `tital-00028-dqn`, and code release `f667387`. Current revision/release values are rendered dynamically and may advance after later main-branch documentation or product changes.
+
 ## Production server configuration
 
 `src/api/runtimeConfig.ts` resolves local and hosted defaults.

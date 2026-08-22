@@ -27,12 +27,12 @@ Repository: **https://github.com/amin076/tital**
 - [x] Explicit opt-in Director Feedback Memory for later cinematic proposals.
 - [x] Public demo sanitizes project-scoped feedback memory.
 - [x] CI/CD with Cloud Run deployment.
-- [x] Code migration prepared for `gemini-3.5-flash`.
-- [x] Regression check prepared to prevent accidental 2.5 agent-model drift.
-- [x] Public runtime/release metadata and post-deploy health assertion prepared.
+- [x] Code migration deployed for `gemini-3.5-flash`.
+- [x] Regression check prevents accidental 2.5 agent-model drift.
+- [x] Public runtime/release metadata and post-deploy health assertion deployed.
 - [x] Local submission verification passes: typecheck, 228 tests, web build, and server build.
-- [ ] PR CI for the Gemini 3.5 submission branch passes.
-- [ ] Submission branch is merged and production deployment is green.
+- [x] Final-readiness PR #29 CI passed.
+- [x] PR #29 merged and main workflow #61 completed its Cloud Run deploy and runtime assertion.
 - [ ] Live Gemini 3.5 production smoke test passes.
 
 ### Submission materials
@@ -52,13 +52,11 @@ Repository: **https://github.com/amin076/tital**
 
 ## Recommended final order
 
-1. Merge this readiness branch only after CI is green.
-2. Confirm Cloud Run deployment of the merged commit.
-3. Run a small production smoke project through FilmBrief → Research Questions → Source Discovery → one downstream Gemini stage.
-4. Record the video using `DEMO_SCRIPT.md`.
-5. Open the Devpost form early and paste the narrative from `SUBMISSION.md`.
-6. Upload `architecture.svg` or a PNG export of it.
-7. Add hosted app + GitHub repo + video URLs.
-8. Complete personal eligibility fields.
-9. Submit early enough for the organizers' baseline review window if possible.
-10. Keep polishing the entry until the final deadline without changing claims beyond what production evidence supports.
+1. Sign in and run a small production smoke project through FilmBrief → Research Questions → Source Discovery → one downstream Gemini stage.
+2. Record the video using `DEMO_SCRIPT.md`.
+3. Open the Devpost form early and paste the narrative from `SUBMISSION.md`.
+4. Upload `architecture.svg` or a PNG export of it.
+5. Add hosted app + GitHub repo + video URLs.
+6. Complete personal eligibility fields.
+7. Submit early enough for the organizers' baseline review window if possible.
+8. Re-check every link and keep claims no broader than the production evidence.

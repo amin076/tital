@@ -179,6 +179,21 @@ generic persistence label
 
 CI rejects a deployment whose health response does not match `gemini-3.5-flash`, Google ADK, Cloud Run, and the triggering commit SHA. Private bucket paths are not returned.
 
+Verified readiness release on 2026-08-22:
+
+```text
+PR                              #29 merged
+main workflow                   #61 passed
+Cloud Run deploy                PASS
+post-deploy runtime assertion   PASS
+verified code release           f667387
+observed revision               tital-00028-dqn
+public landing/runtime chips    PASS
+detached public demo            COMPLETE / READY_FOR_PRODUCTION
+```
+
+The release/revision values are deployment evidence, not hard-coded application claims; the current values remain visible dynamically on the public landing page.
+
 ## Deterministic validation result
 
 Validated locally on 2026-08-22:
@@ -213,14 +228,12 @@ Live Vertex/Parallel calls are deliberately separate because they consume extern
 
 ## Work still requiring live/human execution
 
-Repository work cannot truthfully mark these complete before the deployed release exists and the entrant performs the actions:
+These actions require a signed-in entrant or final submission work and cannot be completed by repository-only automation:
 
-1. merge the final-readiness branch after CI passes;
-2. confirm the main deployment and new `/api/health` release SHA;
-3. sign in to the production workspace and run a small Gemini 3.5 flow through FilmBrief, Research Questions, Parallel discovery, and at least one downstream structured-output stage;
-4. record and upload the <=4-minute demo with Cloud Run/Vertex proof;
-5. complete personal/legal Devpost attestations;
-6. submit and re-check every public URL.
+1. sign in to the production workspace and run a small Gemini 3.5 flow through FilmBrief, Research Questions, Parallel discovery, and at least one downstream structured-output stage;
+2. record and upload the <=4-minute demo with Cloud Run/Vertex proof;
+3. complete personal/legal Devpost attestations;
+4. submit and re-check every public URL.
 
 ## Current limitations that must remain explicit
 
