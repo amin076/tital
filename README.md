@@ -35,6 +35,7 @@ Submission kit:
 - [~4-minute demo script](./docs/hackathon/all-things-agentic/DEMO_SCRIPT.md)
 
 The repository includes a regression test that prevents Tital's LLM-agent files from silently drifting back to the older Gemini 2.5 model during submission hardening.
+The deployed public runtime also reports its model, Google ADK framework, Cloud Run revision, and release commit through `/api/health`; CI fails if the deployed commit or required model does not match the main-branch release.
 
 ## Why Tital exists
 
@@ -127,8 +128,11 @@ The director can:
 Approve
 Reject
 Reject & try another + scoped instruction
+Remember selected feedback for later cinematic proposals
 Reject & continue with gap + explicit CoverageWaiver (when allowed)
 ```
+
+Remembered feedback is project-scoped, visible in the Director Context rail, and is reused only when the director explicitly selects the memory option. A one-off replacement instruction remains scoped by default when that option is not selected. Reusable cross-project profiles are intentionally not implied.
 
 Scientific evidence and uncertainty remain higher-priority constraints than creative preferences:
 
@@ -192,6 +196,7 @@ flowchart LR
     PAR[Parallel Search MCP]
     VALID[Zod + trusted provenance mapping]
     HUMAN[Human Review]
+    MEMORY[Director Feedback Memory]
     AUDIT[Governance / provenance audit]
     PKG[ProductionPackage]
 
@@ -202,6 +207,7 @@ flowchart LR
     ORCH --> ADK --> GEM
     ADK --> PAR
     ADK --> VALID --> HUMAN --> ORCH
+    HUMAN --> MEMORY --> ORCH
     ORCH --> AUDIT --> PKG
 ```
 
@@ -352,10 +358,10 @@ gcloud auth application-default set-quota-project YOUR_GCP_PROJECT_ID
 ### 4. Validate without live model calls
 
 ```bash
-npm run typecheck
-npm test
-npm run build
+npm run verify:submission
 ```
+
+The individual commands remain available as `npm run typecheck`, `npm test`, and `npm run build`.
 
 ### 5. Run local development
 
@@ -431,7 +437,10 @@ PR / push
 → GitHub OIDC
 → Google Workload Identity Federation
 → Cloud Run source deployment on enabled main pushes
+→ deployed `/api/health` model/revision/release verification
 ```
+
+The public landing surface reads the same safe runtime metadata and displays `gemini-3.5-flash`, Google ADK, Vertex AI, and Cloud Run. Private bucket paths and credentials are not exposed.
 
 ## Production Package
 

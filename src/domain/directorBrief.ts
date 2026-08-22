@@ -37,6 +37,10 @@ export const DirectorBriefSchema = z.object({
 export const CinematicGenerationContextSchema = z.object({
   directorBrief: DirectorBriefSchema.optional(),
   scopedInstruction: z.string().trim().min(1).max(2000).optional(),
+  learnedPreferences: z
+    .array(z.string().trim().min(1).max(2000))
+    .max(50)
+    .optional(),
 });
 
 export type DirectorBrief = z.infer<typeof DirectorBriefSchema>;

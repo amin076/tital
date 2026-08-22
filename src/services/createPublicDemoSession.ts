@@ -38,6 +38,7 @@ export function createPublicDemoSession(
     updatedAt: at,
     state,
     productionPackage,
+    directorFeedback: [],
     events: [
       {
         id: `EVT-public-demo-${Date.parse(at) || 0}`,

@@ -53,6 +53,7 @@ export async function createMvpSession(
       audit: null,
     },
     productionPackage: null,
+    directorFeedback: [],
     events: [
       {
         id: eventId,

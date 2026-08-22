@@ -40,6 +40,7 @@ describe('createPublicDemoSession', () => {
     expect(snapshot.projectInput).toBeUndefined();
     expect(snapshot.events).toHaveLength(1);
     expect(snapshot.events[0]?.message).toContain('Detached read-only public demo snapshot');
+    expect(snapshot.directorFeedback).toEqual([]);
     expect(snapshot.productionPackage?.status).toBe('READY_FOR_PRODUCTION');
     expect(snapshot.state.visualDecisions).toHaveLength(1);
   });

@@ -1,8 +1,8 @@
 # Tital Roadmap
 
-Status date: **2026-08-17**
+Status date: **2026-08-22**
 
-Tital has moved beyond the local-only governed MVP. Cloud Run deployment, Cloud Storage persistence, Firebase-authenticated live workflow, public landing/demo shell, and a GitHub Actions deployment workflow are now implemented on `feat/public-authenticated-tital`, with final public-release hardening still in progress.
+Tital has moved beyond the local-only governed MVP. `main` now includes Cloud Run deployment, Cloud Storage persistence, Firebase-authenticated live workflow, a published detached public demo, GitHub Actions/WIF deployment, Director controls, explicit replacement recovery, downstream stale-record invalidation, and All Things Agentic packaging.
 
 For implementation truth, see [CURRENT_STATUS.md](CURRENT_STATUS.md).
 
@@ -60,9 +60,9 @@ See [AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](AGENT_FAILURE_SCENARIOS_AND_RESI
 
 ---
 
-## Priority 1 — Public authenticated Hackathon release
+## Completed — Public authenticated Hackathon release
 
-Current highest priority.
+Implemented and anonymously browser-validated.
 
 Target experience:
 
@@ -76,23 +76,21 @@ authorized judge
 → live create/review/continue workflow
 ```
 
-Release tasks:
+Delivered:
 
-1. Pull and locally validate the trusted-reference refactor (`typecheck`, tests, build).
-2. Continue the hosted Lorestan run through Shots, Visual Decisions, audit and final package.
-3. Confirm no remaining model-owned opaque parent-ID references exist in the governed chain.
-4. Configure a curated completed `TITAL_DEMO_SESSION_ID`.
-5. Verify anonymous protected API calls are denied while demo endpoints remain usable.
-6. Verify judge login, user-scoped sessions and live Vertex/Parallel operations.
-7. Enable public Cloud Run network access only after application auth boundaries pass.
-8. Set conservative cost controls / instance limits for judging.
-9. Verify rollback/revision persistence.
+1. public Cloud Run landing page;
+2. detached, sanitized Dinosaur demo at `COMPLETE / READY_FOR_PRODUCTION`;
+3. Firebase-protected live workspace and per-user Cloud Storage namespaces;
+4. anonymous public-demo access without anonymous mutation access;
+5. conservative Cloud Run cost/concurrency controls;
+6. revision-surviving persistence;
+7. public runtime model/framework/revision/release proof.
 
 Release gate: [AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md).
 
 ---
 
-## Priority 2 — GitHub Actions deployment automation
+## Completed — GitHub Actions deployment automation
 
 Workflow file exists:
 
@@ -100,7 +98,7 @@ Workflow file exists:
 .github/workflows/ci-deploy-cloud-run.yml
 ```
 
-Finish Google Cloud/GitHub setup:
+Validated Google Cloud/GitHub path:
 
 ```text
 GitHub OIDC
@@ -109,11 +107,12 @@ GitHub OIDC
 → least-privilege source deployment roles
 → Service Account User on tital-runtime
 → Cloud Run source deploy after validation
+→ post-deploy `/api/health` release verification
 ```
 
 Do not use a long-lived Google service-account JSON key for the preferred CI/CD design.
 
-Validate both automatic `main` deployment and manual workflow dispatch. Document rollback and failed-build behavior.
+Automatic `main` deployment uses WIF and a dedicated deploy identity. The workflow now asserts that the deployed model, agent framework, Cloud Run runtime, and release SHA match the intended submission release.
 
 See [DEPLOYMENT_AND_OPERATIONS.md](DEPLOYMENT_AND_OPERATIONS.md).
 
@@ -147,9 +146,9 @@ Requirements:
 
 ---
 
-## Priority 4 — Edit / Regenerate / Staleness
+## Priority 4 — General edit UX on top of implemented staleness
 
-Desired behavior:
+The deterministic invalidation foundation is implemented: changed trusted upstream records can mark dependent downstream records `STALE`, invalidate audit/package state, and keep stale records out of active review coverage. The remaining roadmap item is a complete user-facing edit/version workflow:
 
 ```text
 approved upstream record changes
@@ -159,7 +158,7 @@ approved upstream record changes
 → require human review again
 ```
 
-Start with deterministic dependency invalidation for Claim, Script Line, Scene and Shot edits. Preserve old history rather than silently overwriting trusted decisions.
+Preserve old history rather than silently overwriting trusted decisions. Add explicit edit commands, conflict-safe persistence, version comparison, and human re-review on top of the existing invalidation service.
 
 ---
 

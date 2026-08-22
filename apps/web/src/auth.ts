@@ -16,6 +16,15 @@ export interface PublicRuntimeConfig {
     authDomain: string;
   } | null;
   demoAvailable: boolean;
+  runtime: {
+    model: string;
+    modelPlatform: 'Vertex AI';
+    agentFramework: 'Google ADK';
+    infrastructure: 'Cloud Run' | 'Local Node.js';
+    service: string | null;
+    revision: string | null;
+    releaseSha: string | null;
+  };
 }
 
 let firebaseApp: FirebaseApp | null = null;

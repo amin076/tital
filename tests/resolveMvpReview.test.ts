@@ -176,12 +176,14 @@ describe('governed human review resolution', () => {
       recordIds: ['SL-bad'],
       gapResolution: 'RETRY',
       reason: 'Rewrite this line more clearly without changing the scientific proposition.',
+      rememberInstruction: true,
       runtimeServices: runtime({ generateScriptLines }),
       now: () => '2026-08-20T01:00:00.000Z',
       eventIdFactory: (() => {
         let index = 0;
         return () => `EVT-${++index}`;
       })(),
+      feedbackIdFactory: () => 'DF-1',
     });
 
     expect(generateScriptLines).toHaveBeenCalledOnce();
@@ -192,6 +194,39 @@ describe('governed human review resolution', () => {
     ]);
     expect(resolved.events.at(-1)?.type).toBe('RETRY_REQUESTED');
     expect(resolved.events.at(-1)?.message).toContain('selected target');
+    expect(resolved.directorFeedback).toEqual([
+      {
+        id: 'DF-1',
+        instruction: 'Rewrite this line more clearly without changing the scientific proposition.',
+        capturedAt: '2026-08-20T01:00:00.000Z',
+        stage: 'SCRIPT',
+        rejectedRecordIds: ['SL-bad'],
+      },
+    ]);
     expect(evaluateMvpWorkflow(resolved.state).stage).toBe('SCRIPT');
+  });
+
+  it('keeps replacement feedback scoped when the director does not choose to remember it', async () => {
+    const session = scriptReplacementSession();
+    const resolved = await resolveMvpReview(session, 'REJECT', {
+      recordIds: ['SL-bad'],
+      gapResolution: 'RETRY',
+      reason: 'Use a shorter sentence only for this replacement.',
+      rememberInstruction: false,
+      runtimeServices: runtime({
+        generateScriptLines: async () => [
+          {
+            id: 'SL-new',
+            researchQuestionId: 'RQ-1',
+            claimIds: ['CL-1'],
+            text: 'A shorter replacement.',
+            uncertaintyDisclosure: null,
+            status: 'REVIEW_REQUIRED',
+          },
+        ],
+      }),
+    });
+
+    expect(resolved.directorFeedback ?? []).toEqual([]);
   });
 });

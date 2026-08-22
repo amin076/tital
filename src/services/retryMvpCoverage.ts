@@ -17,6 +17,7 @@ import { selectApprovedProductionChain } from './mvpWorkflowGuards.js';
 export interface RetryMvpCoverageOptions {
   directorBrief?: DirectorBrief;
   scopedInstruction?: string;
+  learnedPreferences?: string[];
   externalConcurrency?: number;
 }
 
@@ -65,11 +66,14 @@ export async function retryMvpCoverage(
     process.env.TITAL_EXTERNAL_CONCURRENCY
   );
   const directorGuidance: CinematicGenerationContext | undefined =
-    options.directorBrief || options.scopedInstruction
+    options.directorBrief || options.scopedInstruction || options.learnedPreferences?.length
       ? {
           ...(options.directorBrief ? { directorBrief: options.directorBrief } : {}),
           ...(options.scopedInstruction
             ? { scopedInstruction: options.scopedInstruction }
+            : {}),
+          ...(options.learnedPreferences?.length
+            ? { learnedPreferences: options.learnedPreferences }
             : {}),
         }
       : undefined;

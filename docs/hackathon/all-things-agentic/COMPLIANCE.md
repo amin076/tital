@@ -6,7 +6,7 @@ This checklist maps the published hackathon requirements to concrete Tital evide
 
 | Requirement | Tital evidence | Status |
 |---|---|---|
-| Gemini 3.5 or newer | Central runtime model `src/config/models.ts` is `gemini-3.5-flash`; all LLM agents import that constant; regression test prevents 2.5 drift | ✅ code-ready; live smoke test required after deployment |
+| Gemini 3.5 or newer | Central runtime model `src/config/models.ts` is `gemini-3.5-flash`; all LLM agents import that constant; regression test prevents 2.5 drift; public runtime metadata and the deploy workflow verify the exact model/release | ✅ implementation + automated verification ready; live agent smoke test required after deployment |
 | Google Agent Framework | `@google/adk` TypeScript agents for Define, Research Questions, Source Discovery, Evidence, Claims, Script, Scenes, Shots, Visual Decisions | ✅ |
 | Google Cloud infrastructure | Hosted Node + React service on Cloud Run; Cloud Storage persistence; Firebase authentication; Workload Identity Federation deployment | ✅ |
 | Agent beyond a standard chat loop | Typed multi-stage workflow with action/tool calls, persistence, human interrupts, review, coverage, audit, and package release | ✅ |
@@ -20,6 +20,8 @@ Evidence:
 - persistent Director Brief captures the user's collaboration mode and cinematic preferences;
 - every generative stage pauses at a human review boundary;
 - `Reject & try another` accepts scoped feedback and triggers targeted replacement;
+- the director can explicitly opt in to remember a retry instruction for later Scene, Shot, and Visual Decision proposals;
+- remembered feedback is persisted as governed project state, surfaced in the Director Context rail, counted in cinematic decision provenance, and removed from public demo snapshots;
 - rejection does not authorize silent regeneration;
 - intentional gaps require explicit human waivers;
 - creative preferences cannot override evidence/uncertainty/visual-integrity constraints.
@@ -38,14 +40,16 @@ Evidence:
 | Spin-up instructions | Root `README.md`, strengthened for hackathon reproducibility | ✅ after this branch merges |
 | Architecture diagram | `architecture.svg` + `ARCHITECTURE.md` | ✅ prepared |
 | ~4-minute demo video | `DEMO_SCRIPT.md` + recording checklist | 🟡 human recording/upload required |
-| Proof backend runs on Google Cloud | Cloud Run URL + GitHub deployment workflow; demo script includes Cloud Run/Vertex proof shot | ✅ evidence exists / 🟡 must be shown in video |
+| Proof backend runs on Google Cloud | Cloud Run URL + GitHub deployment workflow; public landing/health expose safe model, framework, service, revision, and release metadata; demo script includes Cloud Run/Vertex proof shot | ✅ evidence exists / 🟡 Console proof must be shown in video |
 
 ## Production-readiness evidence
 
 - Public no-login completed demo exists and has been browser-validated.
 - Authenticated live Director Workspace exists.
 - GitHub Actions validates typecheck, tests, and production build.
+- `npm run verify:submission` reproduces typecheck, all deterministic tests, and the production build locally.
 - Main pushes deploy to Cloud Run via Workload Identity Federation when enabled.
+- The deploy job fails closed if `/api/health` does not report `gemini-3.5-flash`, Google ADK, Cloud Run, and the deployed Git commit.
 - Cloud Storage persistence survives Cloud Run revisions.
 - Firebase ID tokens protect live session APIs.
 - User sessions are namespaced by Firebase UID.
@@ -56,7 +60,11 @@ Evidence:
 
 Before using the words **“powered by Gemini 3.5 Flash”** in the final video/submission, complete all of the following on the deployed revision:
 
-- [ ] PR CI passes after model migration.
+- [x] Central model migration and model-drift regression test are present.
+- [x] Local typecheck, 228 deterministic tests, web build, and server build pass on the readiness branch.
+- [x] Safe runtime/release proof is implemented in the public landing and `/api/health`.
+- [x] Main deployment workflow contains an exact post-deploy model/framework/infrastructure/release assertion.
+- [ ] PR CI passes after the final readiness changes.
 - [ ] Main deploy to Cloud Run succeeds.
 - [ ] Create one new project through the production UI.
 - [ ] FilmBrief generation succeeds on `gemini-3.5-flash`.

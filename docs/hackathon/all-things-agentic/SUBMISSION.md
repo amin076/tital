@@ -1,12 +1,12 @@
 # All Things Agentic Hackathon — Tital Submission Draft
 
-Status: **submission package prepared; live Gemini 3.5 Flash smoke test and demo-video recording still require human/browser execution**
+Status: **code and submission package prepared; final production deploy, live Gemini 3.5 Flash agent smoke test, and demo-video recording remain the release gates**
 
 ## Category
 
 **The Collaborative Partner**
 
-Tital is designed around an explicit collaboration loop: the agent proposes scientifically grounded work, the human director reviews it, and the workflow adapts to approvals, rejections, targeted replacement instructions, intentional gaps, and a persistent Director Brief.
+Tital is designed around an explicit collaboration loop: the agent proposes scientifically grounded work, the human director reviews it, and the workflow adapts to approvals, rejections, targeted replacement instructions, intentional gaps, a persistent Director Brief, and explicitly remembered cinematic feedback.
 
 ## Project name
 
@@ -38,8 +38,8 @@ Tital addresses that gap by making the workflow itself evidence-governed and hum
 4. Extracts evidence from approved source excerpts.
 5. Generates scientific claims only from approved evidence.
 6. Converts approved claims into film-ready scientific script lines.
-7. Proposes scenes, shots, and visual decisions while applying the persistent Director Brief.
-8. Stops at human review gates. The director can approve, reject, or explicitly request a replacement with scoped feedback.
+7. Proposes scenes, shots, and visual decisions while applying the persistent Director Brief and any feedback the director explicitly chose to remember.
+8. Stops at human review gates. The director can approve, reject, or explicitly request a replacement with scoped feedback; an opt-in control can preserve that feedback for later cinematic proposals in the same project.
 9. Tracks coverage and intentional waivers instead of silently regenerating rejected content.
 10. Runs a deterministic governance/provenance audit and releases a production package only when the governed chain is complete.
 
@@ -50,6 +50,7 @@ Tital is not a one-shot generator. Human feedback changes what the workflow is a
 - **Director Brief:** collaboration mode, pacing, camera behaviour, representation preference, visual language, notes, and explicit `avoid[]` constraints persist with the project.
 - **Human gates:** every generative stage pauses for review.
 - **Targeted adaptation:** `Reject & try another` can include a scoped instruction such as “use authentic observation footage rather than a scientific reconstruction.”
+- **Explicit feedback memory:** the director may opt in to reuse a scoped instruction in later Scene, Shot, and Visual Decision proposals. The choice is off by default, visible in the Director Context rail, and excluded from public demo snapshots.
 - **Coverage-aware decisions:** a rejection that would leave a required branch empty requires an explicit retry or an intentional waiver.
 - **No silent override:** evidence and scientific visual-integrity constraints outrank creative preferences.
 
@@ -61,7 +62,7 @@ Tital is not a one-shot generator. Human feedback changes what the workflow is a
 - Parallel Search MCP source discovery.
 - Persistent authenticated projects on Google Cloud Storage.
 - Firebase authentication and per-user namespaces.
-- Director Brief and scoped replacement instructions.
+- Director Brief, scoped replacement instructions, and explicit opt-in Director Feedback Memory.
 - Deterministic Zod validation and application-owned trusted provenance.
 - Rejection history, duplicate-resistant retry, explicit coverage waivers.
 - Downstream `STALE` invalidation foundation for revised upstream records.
@@ -70,6 +71,7 @@ Tital is not a one-shot generator. Human feedback changes what the workflow is a
 - Public, detached, read-only completed demo.
 - Runtime Performance Insights with measured stage/call timing and bounded-concurrency metadata.
 - GitHub Actions CI/CD using Workload Identity Federation and Cloud Run deployment.
+- Public runtime/release proof for the exact Gemini model, Google ADK, Vertex AI, Cloud Run service/revision, and deployed Git commit.
 
 ## Technologies used
 
@@ -160,6 +162,10 @@ Tital originally serialized independent external calls inside a stage. Bounded c
 
 The public completed demo is a detached sanitized snapshot built from the approved production package, not a direct view into an authenticated user's mutable session namespace.
 
+### 6. Collaboration memory needs explicit consent and inspectable provenance
+
+Retry feedback can be useful beyond one replacement, but silently turning it into durable model memory would weaken human governance. Tital therefore keeps retry guidance scoped by default. The director must explicitly opt in before it is persisted; later cinematic provenance records how many remembered instructions influenced the proposal, and public snapshots remove the memory.
+
 ## Hosted project
 
 `https://tital-o7za4b3w5q-ts.a.run.app/`
@@ -185,7 +191,7 @@ Use `architecture.svg` for the Devpost architecture-diagram field and `ARCHITECT
 ## Submission claims that are safe to make
 
 - Tital is a working hosted application on Cloud Run.
-- Tital uses Google ADK and Gemini 3.5 Flash after the compliance migration is live-smoke-tested.
+- Tital is configured for Google ADK and Gemini 3.5 Flash; make the final runtime claim only after the deployed live-agent smoke test passes.
 - Tital uses Parallel Search MCP for source discovery.
 - Tital has explicit human review gates and persistent project state.
 - Tital produces a traceable governed production package.

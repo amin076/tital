@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Evidence-governed scientific film director",
   "main": "agent.ts",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "typecheck": "npm run typecheck:core && npm run typecheck:web",
     "typecheck:core": "tsc --noEmit",
@@ -20,7 +23,8 @@
     "gcp-build": "npm run build",
     "start": "node dist/server/src/api/server.js",
     "test": "vitest run",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "verify:submission": "npm run typecheck && npm test && npm run build"
   },
   "repository": {
     "type": "git",

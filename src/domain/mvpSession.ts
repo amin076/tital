@@ -24,6 +24,14 @@ export const MvpSessionEventSchema = z.object({
   performance: WorkflowPerformanceTraceSchema.optional(),
 });
 
+export const DirectorFeedbackSchema = z.object({
+  id: z.string().min(1),
+  instruction: z.string().trim().min(1).max(2000),
+  capturedAt: z.string().min(1),
+  stage: MvpWorkflowStageSchema,
+  rejectedRecordIds: z.array(z.string().min(1)).min(1),
+});
+
 export const MvpSessionSchema = z.object({
   id: z.string().min(1),
   rawIdea: z.string().min(1),
@@ -33,8 +41,10 @@ export const MvpSessionSchema = z.object({
   state: MvpWorkflowStateSchema,
   productionPackage: ProductionPackageSchema.nullable(),
   events: z.array(MvpSessionEventSchema),
+  directorFeedback: z.array(DirectorFeedbackSchema).max(50).optional(),
 });
 
 export type MvpSessionEventType = z.infer<typeof MvpSessionEventTypeSchema>;
 export type MvpSessionEvent = z.infer<typeof MvpSessionEventSchema>;
+export type DirectorFeedback = z.infer<typeof DirectorFeedbackSchema>;
 export type MvpSession = z.infer<typeof MvpSessionSchema>;

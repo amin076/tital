@@ -12,8 +12,10 @@ export interface ResolveMvpReviewOptions {
   recordIds?: string[];
   gapResolution?: MvpGapResolution;
   reason?: string;
+  rememberInstruction?: boolean;
   now?: () => string;
   eventIdFactory?: () => string;
+  feedbackIdFactory?: () => string;
   waiverIdFactory?: () => string;
   runtimeServices?: MvpRuntimeServices;
 }
@@ -107,6 +109,7 @@ export async function resolveMvpReview(
 
   const nowFactory = options.now ?? (() => new Date().toISOString());
   const eventIdFactory = options.eventIdFactory ?? (() => `EVT-${randomUUID()}`);
+  const feedbackIdFactory = options.feedbackIdFactory ?? (() => `DF-${randomUUID()}`);
   const waiverIdFactory = options.waiverIdFactory ?? (() => `CW-${randomUUID()}`);
   const now = nowFactory();
 
@@ -130,19 +133,35 @@ export async function resolveMvpReview(
       {
         directorBrief: validated.projectInput?.directorBrief,
         scopedInstruction,
+        learnedPreferences: (validated.directorFeedback ?? []).map(
+          (feedback) => feedback.instruction
+        ),
       }
     );
+    const rememberedFeedback = scopedInstruction && options.rememberInstruction
+      ? [
+          ...(validated.directorFeedback ?? []),
+          {
+            id: feedbackIdFactory(),
+            instruction: scopedInstruction,
+            capturedAt: now,
+            stage: gate.stage,
+            rejectedRecordIds: [...recordIds],
+          },
+        ].slice(-50)
+      : validated.directorFeedback ?? [];
     reviewed = MvpSessionSchema.parse({
       ...reviewed,
       updatedAt: now,
       state: retriedState,
       productionPackage: null,
+      directorFeedback: rememberedFeedback,
     });
     return appendResolutionEvent(
       reviewed,
       'RETRY_REQUESTED',
       gate.stage,
-      `Human rejected ${recordIds.length} ${gate.recordType} candidate(s) and explicitly requested replacement candidates for ${retryGroups.length} selected target(s).${gaps.length > 0 ? ` The rejection would otherwise have created ${gaps.length} coverage gap(s).` : ''}${scopedInstruction ? ' A scoped instruction was supplied for the replacement.' : ''}`,
+      `Human rejected ${recordIds.length} ${gate.recordType} candidate(s) and explicitly requested replacement candidates for ${retryGroups.length} selected target(s).${gaps.length > 0 ? ` The rejection would otherwise have created ${gaps.length} coverage gap(s).` : ''}${scopedInstruction ? ' A scoped instruction was supplied for the replacement.' : ''}${scopedInstruction && options.rememberInstruction ? ' The director explicitly chose to remember it for later cinematic proposals.' : ''}`,
       now,
       eventIdFactory()
     );

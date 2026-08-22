@@ -95,12 +95,34 @@ jobs:
             TITAL_FIREBASE_AUTH_DOMAIN=scientific-film-director-agent.firebaseapp.com
             TITAL_FIREBASE_API_KEY=${{ env.TITAL_FIREBASE_API_KEY }}
             TITAL_DEMO_SESSION_ID=${{ vars.TITAL_DEMO_SESSION_ID }}
+            TITAL_RELEASE_SHA=${{ github.sha }}
           timeout: 900s
           flags: >-
             --service-account=tital-runtime@scientific-film-director-agent.iam.gserviceaccount.com
             --max-instances=1
             --concurrency=1
             --memory=1Gi
+
+      - name: Verify deployed runtime
+        env:
+          TITAL_SERVICE_URL: ${{ steps.deploy.outputs.url }}
+          TITAL_EXPECTED_RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_url="${TITAL_SERVICE_URL%/}/api/health"
+          curl --fail --silent --show-error --retry 8 --retry-delay 5 \
+            --output /tmp/tital-health.json "$health_url"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const expected = process.env.TITAL_EXPECTED_RELEASE_SHA;
+            const health = JSON.parse(readFileSync("/tmp/tital-health.json", "utf8"));
+            if (health.status !== "ok") throw new Error("Cloud Run health is not ok.");
+            if (health.runtime?.model !== "gemini-3.5-flash") throw new Error("Unexpected deployed Gemini model.");
+            if (health.runtime?.agentFramework !== "Google ADK") throw new Error("Google ADK runtime proof is missing.");
+            if (health.runtime?.infrastructure !== "Cloud Run") throw new Error("Cloud Run runtime proof is missing.");
+            if (health.runtime?.releaseSha !== expected) throw new Error("Deployed release SHA does not match this workflow commit.");
+          '
 
       - name: Deployment summary
         run: |

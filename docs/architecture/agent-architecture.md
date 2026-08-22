@@ -78,20 +78,26 @@ Services are responsible for validating upstream approval/provenance, sanitizing
 
 ## Human director context for cinematic agents
 
-`sceneDirectorAgent`, `shotDirectorAgent`, and `visualDecisionAgent` remain proposal generators. They now receive optional application-supplied cinematic context derived from the project's `DirectorBrief` and, for explicit replacement retries, a scoped director instruction.
+`sceneDirectorAgent`, `shotDirectorAgent`, and `visualDecisionAgent` remain proposal generators. They receive optional application-supplied cinematic context derived from the project's `DirectorBrief`, project feedback that the director explicitly chose to remember, and—for a replacement retry—the current scoped instruction.
 
 The prompt-level precedence rule is:
 
 ```text
 1. approved science / provenance / uncertainty / visual-integrity constraints
 2. approved production constraints
-3. human Director Brief + scoped director instruction
+3. human Director Brief + explicitly remembered feedback + scoped director instruction
 4. AI cinematic preference
 ```
 
 This is important: director control does **not** mean the model may satisfy style by weakening scientific constraints.
 
-The application, not the agent, adds `decisionProvenance` to Scene, Shot, and Visual Decision records. That provenance distinguishes AI recommendation from applied human guidance without confusing recommendation origin with human approval.
+The application, not the agent, adds `decisionProvenance` to Scene, Shot, and Visual Decision records. That provenance distinguishes AI recommendation from applied human guidance, including `learnedFeedbackCount`, without confusing recommendation origin with human approval.
+
+### Explicit feedback memory
+
+A retry instruction is one-off by default. The UI presents an off-by-default control to remember it. If selected, `resolveMvpReview` persists a `DirectorFeedback` record in the project session; later cinematic executors format those records as learned preferences. The current retry instruction is still passed separately so provenance can distinguish immediate guidance from prior feedback.
+
+Remembered feedback is project-scoped, inspectable in the Director Context rail, capped by the domain schema, and removed when a completed session is promoted to the anonymous public demo. Tital does not implement a hidden cross-project Director Profile.
 
 See [../DIRECTOR_CONTROL.md](../DIRECTOR_CONTROL.md).
 
@@ -192,7 +198,7 @@ When adding or changing an agent:
 7. Assign trusted IDs, provenance and statuses in application code.
 8. Preserve uncertainty; never silently increase certainty.
 9. Keep human review outside the model.
-10. For cinematic agents, treat Director Brief/notes as guidance below scientific constraints.
+10. For cinematic agents, treat Director Brief, opted-in feedback, and scoped notes as guidance below scientific constraints.
 11. Do not silently regenerate rejected content.
 12. Turn every reproducible live failure into a regression test.
 
