@@ -10,6 +10,7 @@ import {
 } from './createRealMvpStepExecutors.js';
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import { executeNextMvpStep, type MvpStepExecutors } from './executeNextMvpStep.js';
+import { appendProductionPackageVersion } from './productionVersionHistory.js';
 
 export interface AdvanceMvpSessionOptions {
   executors?: MvpStepExecutors;
@@ -66,6 +67,34 @@ function safeAutomationFailureMessage(error: unknown): string {
   }
 
   return 'The next automated stage failed before producing trusted workflow state. No project records were changed.';
+}
+
+function repairingRevisionForVersion(session: MvpSession) {
+  return [...(session.revisionRequests ?? [])]
+    .reverse()
+    .find((revision) => revision.status === 'REPAIRING') ?? null;
+}
+
+function captureProductionVersion(session: MvpSession): MvpSession {
+  const pkg = session.productionPackage;
+  if (!pkg || pkg.status !== 'READY_FOR_PRODUCTION') return session;
+  const revision = repairingRevisionForVersion(session);
+  const changeSummary = revision
+    ? `${revision.type.replaceAll('_', ' ')}: ${revision.reason}`
+    : 'Initial READY_FOR_PRODUCTION package.';
+
+  return MvpSessionSchema.parse({
+    ...session,
+    productionVersions: appendProductionPackageVersion(
+      session.productionVersions ?? [],
+      pkg,
+      {
+        revisionId: revision?.id ?? null,
+        changeSummary,
+        createdAt: pkg.generatedAt,
+      }
+    ),
+  });
 }
 
 function completeRepairingRevisions(
@@ -214,6 +243,7 @@ export async function advanceMvpSession(
     }
 
     if (result.disposition === 'COMPLETE') {
+      current = captureProductionVersion(current);
       return completeRepairingRevisions(current, now, eventIdFactory);
     }
   }
