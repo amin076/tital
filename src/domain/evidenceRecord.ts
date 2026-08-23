@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { EvidenceUncertaintySchema } from './evidenceProposal.js';
 
+export const EvidenceGroundingSchema = z.object({
+  mode: z.literal('PARALLEL_WEB_FETCH'),
+  provider: z.literal('PARALLEL'),
+  sourceUrl: z.string().url(),
+  fetchedAt: z.string().min(1),
+  discoveryExcerptUsedAsGrounding: z.literal(false),
+});
+
 export const EvidenceRecordSchema = z.object({
   id: z.string().min(1, 'Evidence ID must be a non-empty string'),
   sourceId: z.string().min(1, 'Source ID must be a non-empty string'),
@@ -9,7 +17,9 @@ export const EvidenceRecordSchema = z.object({
   interpretation: z.string().min(1, 'Evidence interpretation must be a non-empty string'),
   strength: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   uncertainty: EvidenceUncertaintySchema,
+  grounding: EvidenceGroundingSchema.optional(),
   status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'STALE']),
 });
 
+export type EvidenceGrounding = z.infer<typeof EvidenceGroundingSchema>;
 export type EvidenceRecord = z.infer<typeof EvidenceRecordSchema>;
