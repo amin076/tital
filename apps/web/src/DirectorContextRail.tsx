@@ -1,6 +1,21 @@
-import { Box, Chip, Divider, Paper, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { useState } from 'react';
 import type { SessionView } from './api';
 import { PerformanceInsightsPanel } from './PerformanceInsightsPanel';
+import { RevisionPanel } from './RevisionPanel';
+import { RevisionRecoveryPanel } from './RevisionRecoveryPanel';
 
 const LABELS: Record<string, string> = {
   AI_ASSISTED: 'AI-assisted',
@@ -25,8 +40,25 @@ function currentContextLabel(view: SessionView): string {
   return view.workflowInsights.steps.find((step) => step.status === 'CURRENT')?.label ?? view.summary.stage;
 }
 
+function hasActiveRevision(view: SessionView): boolean {
+  return view.revisionRequests.some(
+    (revision) => revision.status === 'APPLIED' || revision.status === 'REPAIRING'
+  );
+}
+
 export function DirectorContextRail({ view }: { view: SessionView }) {
   const brief = view.projectInput.directorBrief;
+  const [revisionOpen, setRevisionOpen] = useState(false);
+  const [revisionBusy, setRevisionBusy] = useState(false);
+  const [revisionError, setRevisionError] = useState<string | null>(null);
+  const revisionAvailable =
+    view.summary.sessionId !== 'public-demo' &&
+    (view.summary.stage === 'COMPLETE' || hasActiveRevision(view));
+
+  function reloadAfterRevision(): void {
+    setRevisionOpen(false);
+    window.location.reload();
+  }
 
   return (
     <Stack spacing={1.5} sx={{ position: { xl: 'sticky' }, top: { xl: 20 } }}>
@@ -52,6 +84,29 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
           </Stack>
         )}
       </Paper>
+
+      {revisionAvailable && (
+        <Paper variant="outlined" sx={{ p: 2.25, borderColor: 'rgba(185,120,36,0.34)' }}>
+          <Typography variant="overline" color="warning.dark">Governed revision</Typography>
+          <Typography variant="h6">
+            {hasActiveRevision(view) ? 'Revision in progress' : 'Improve this production'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+            Preview dependency impact before changing trusted work. Tital preserves history and repairs only the affected branch.
+          </Typography>
+          <Button
+            variant="contained"
+            color="warning"
+            sx={{ mt: 1.4 }}
+            onClick={() => {
+              setRevisionError(null);
+              setRevisionOpen(true);
+            }}
+          >
+            {hasActiveRevision(view) ? 'Open active revision' : 'Revise production'}
+          </Button>
+        </Paper>
+      )}
 
       <Paper variant="outlined" sx={{ p: 2.25 }}>
         <Typography variant="overline" color="text.secondary">Director brief</Typography>
@@ -151,6 +206,40 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
       </Paper>
 
       <PerformanceInsightsPanel insights={view.performanceInsights} />
+
+      <Dialog
+        open={revisionOpen}
+        onClose={() => !revisionBusy && setRevisionOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>Governed production revision</DialogTitle>
+        <DialogContent sx={{ pb: 3 }}>
+          {revisionError && (
+            <Alert severity="error" sx={{ mb: 1.5 }}>
+              {revisionError}
+            </Alert>
+          )}
+          <Stack spacing={1.5}>
+            {view.summary.stage === 'COMPLETE' && view.productionPackage && (
+              <RevisionPanel
+                view={view}
+                busy={revisionBusy}
+                onBusyChange={setRevisionBusy}
+                onApplied={reloadAfterRevision}
+                onError={setRevisionError}
+              />
+            )}
+            <RevisionRecoveryPanel
+              view={view}
+              busy={revisionBusy}
+              onBusyChange={setRevisionBusy}
+              onRepaired={reloadAfterRevision}
+              onError={setRevisionError}
+            />
+          </Stack>
+        </DialogContent>
+      </Dialog>
     </Stack>
   );
 }
