@@ -3,6 +3,7 @@ import type { EvidenceRecord } from '../domain/evidenceRecord.js';
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
 import type { ReviewRecommendation } from '../domain/reviewRecommendation.js';
 import type { SourceRecord } from '../domain/sourceRecord.js';
+import { mapWithConcurrency, resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
 import {
   evaluateEvidenceReviewRecommendations,
   evaluateSourceReviewRecommendations,
@@ -15,6 +16,7 @@ export interface AssistMvpReviewOptions {
   now?: () => string;
   eventIdFactory?: () => string;
   recommendationIdFactory?: () => string;
+  concurrency?: number;
 }
 
 function byId<T extends { id: string }>(records: readonly T[]): Map<string, T> {
@@ -45,6 +47,9 @@ function mergeRecommendations(
  * Runs a non-authoritative AI review over the current Source or Evidence human gate.
  * The returned recommendations are advisory only; this service never changes any
  * workflow record status and therefore cannot approve or reject trusted state.
+ *
+ * Candidates are batched by ResearchQuestion and evaluated with bounded concurrency
+ * so a large evidence gate does not require one model call per source/evidence item.
  */
 export async function assistMvpReview(
   session: MvpSession,
@@ -65,51 +70,52 @@ export async function assistMvpReview(
   const now = (options.now ?? (() => new Date().toISOString()))();
   const recommendationIdFactory =
     options.recommendationIdFactory ?? (() => `REV-${randomUUID()}`);
-  const recommendations: ReviewRecommendation[] = [];
+  const concurrency = options.concurrency ?? resolveExternalConcurrency(
+    process.env.TITAL_EXTERNAL_CONCURRENCY
+  );
+  let recommendations: ReviewRecommendation[] = [];
 
   if (gate.recordType === 'SourceRecord') {
     const candidates = gate.records as SourceRecord[];
-    const groups = groupBy(candidates, (record) => record.researchQuestionId);
-
-    for (const [questionId, group] of groups) {
+    const groups = [...groupBy(candidates, (record) => record.researchQuestionId).entries()];
+    const batches = await mapWithConcurrency(groups, concurrency, async ([questionId, group]) => {
       const question = questions.get(questionId);
       if (!question) {
         throw new Error(`ResearchQuestion "${questionId}" required for source review was not found.`);
       }
-      recommendations.push(
-        ...(await evaluateSourceReviewRecommendations(
-          question,
-          group,
-          modelCaller,
-          { idFactory: recommendationIdFactory, now: () => now }
-        ))
+      return evaluateSourceReviewRecommendations(
+        question,
+        group,
+        modelCaller,
+        { idFactory: recommendationIdFactory, now: () => now }
       );
-    }
+    });
+    recommendations = batches.flat();
   } else {
     const candidates = gate.records as EvidenceRecord[];
-    const groups = groupBy(candidates, (record) => record.sourceId);
-
-    for (const [sourceId, group] of groups) {
-      const source = sources.get(sourceId);
-      if (!source) {
-        throw new Error(`SourceRecord "${sourceId}" required for evidence review was not found.`);
-      }
-      const question = questions.get(source.researchQuestionId);
+    const groups = [...groupBy(candidates, (record) => record.researchQuestionId).entries()];
+    const batches = await mapWithConcurrency(groups, concurrency, async ([questionId, group]) => {
+      const question = questions.get(questionId);
       if (!question) {
-        throw new Error(
-          `ResearchQuestion "${source.researchQuestionId}" required for evidence review was not found.`
-        );
+        throw new Error(`ResearchQuestion "${questionId}" required for evidence review was not found.`);
       }
-      recommendations.push(
-        ...(await evaluateEvidenceReviewRecommendations(
-          question,
-          source,
-          group,
-          modelCaller,
-          { idFactory: recommendationIdFactory, now: () => now }
-        ))
+      const sourceIds = [...new Set(group.map((record) => record.sourceId))];
+      const approvedSources = sourceIds.map((sourceId) => {
+        const source = sources.get(sourceId);
+        if (!source) {
+          throw new Error(`SourceRecord "${sourceId}" required for evidence review was not found.`);
+        }
+        return source;
+      });
+      return evaluateEvidenceReviewRecommendations(
+        question,
+        approvedSources,
+        group,
+        modelCaller,
+        { idFactory: recommendationIdFactory, now: () => now }
       );
-    }
+    });
+    recommendations = batches.flat();
   }
 
   const attentionCounts = recommendations.reduce(
