@@ -76,6 +76,7 @@ export function getMvpSessionView(session: MvpSession) {
     directorFeedback: validated.directorFeedback ?? [],
     reviewRecommendations: validated.reviewRecommendations ?? [],
     revisionRequests: validated.revisionRequests ?? [],
+    productionReviews: validated.productionReviews ?? [],
     gate: getCurrentMvpReviewGate(validated.state),
     continueAction: continueActionFor(validated),
     workflowInsights: getMvpWorkflowInsights(validated.state),
