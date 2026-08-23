@@ -1,7 +1,12 @@
 import crypto from 'crypto';
 import { InMemoryRunner } from '@google/adk';
 import { evidenceExtractionAgent } from '../agents/evidenceExtractionAgent.js';
-import { EvidenceRecordSchema, type EvidenceRecord } from '../domain/evidenceRecord.js';
+import {
+  EvidenceGroundingSchema,
+  EvidenceRecordSchema,
+  type EvidenceGrounding,
+  type EvidenceRecord,
+} from '../domain/evidenceRecord.js';
 import {
   EvidenceProposalListSchema,
   type EvidenceProposalList,
@@ -45,10 +50,6 @@ export function validateSourceForEvidence(
 }
 
 function normalizeEvidenceProposalEnvelope(payload: unknown): unknown {
-  // Gemini occasionally returns the requested evidence items as a bare JSON
-  // array instead of the documented { evidence: [...] } envelope. The intended
-  // transformation is unambiguous, so normalize only this exact shape and still
-  // run the full EvidenceProposalListSchema validation afterwards.
   return Array.isArray(payload) ? { evidence: payload } : payload;
 }
 
@@ -67,10 +68,13 @@ export function parseEvidenceProposalList(rawText: string): EvidenceProposalList
 export function assembleEvidenceRecords(
   source: SourceRecord,
   proposals: EvidenceProposalList,
-  options: { idFactory?: () => string } = {}
+  options: { idFactory?: () => string; grounding?: EvidenceGrounding } = {}
 ): EvidenceRecord[] {
   const validated = EvidenceProposalListSchema.parse(proposals);
   const idFactory = options.idFactory ?? (() => `EV-${crypto.randomUUID()}`);
+  const grounding = options.grounding
+    ? EvidenceGroundingSchema.parse(options.grounding)
+    : undefined;
 
   return validated.evidence.map((proposal) => {
     const record = {
@@ -81,6 +85,7 @@ export function assembleEvidenceRecords(
       interpretation: proposal.interpretation,
       strength: proposal.strength,
       uncertainty: proposal.uncertainty,
+      ...(grounding ? { grounding } : {}),
       status: 'REVIEW_REQUIRED' as const,
     };
 
@@ -93,6 +98,10 @@ export function assembleEvidenceRecords(
   });
 }
 
+/**
+ * Production evidence extraction is no longer grounded in discovery snippets.
+ * The agent must call Parallel MCP web_fetch for the exact approved URL first.
+ */
 export async function callEvidenceExtractionAgent(
   source: SourceRecord,
   question: ResearchQuestion
@@ -106,7 +115,7 @@ export async function callEvidenceExtractionAgent(
       newMessage: {
         parts: [
           {
-            text: `Extract evidence for the approved research question using ONLY the supplied approved source excerpts.\n\nResearchQuestion:\n${JSON.stringify(question, null, 2)}\n\nSourceRecord:\n${JSON.stringify(source, null, 2)}`,
+            text: `Extract evidence for this APPROVED research question from the FULL content of the exact APPROVED source URL. You MUST call Parallel MCP web_fetch for this URL before answering. The earlier search excerpt is intentionally not supplied as evidence grounding.\n\nResearch question:\n${question.question}\n\nApproved source title:\n${source.title}\n\nExact approved source URL:\n${source.url}`,
           },
         ],
       },
@@ -120,6 +129,19 @@ export async function callEvidenceExtractionAgent(
   return parseEvidenceProposalList(responseText);
 }
 
+export function fullSourceGroundingFor(
+  source: SourceRecord,
+  fetchedAt: string
+): EvidenceGrounding {
+  return EvidenceGroundingSchema.parse({
+    mode: 'PARALLEL_WEB_FETCH',
+    provider: 'PARALLEL',
+    sourceUrl: source.url,
+    fetchedAt,
+    discoveryExcerptUsedAsGrounding: false,
+  });
+}
+
 export async function extractEvidence(
   source: SourceRecord,
   question: ResearchQuestion,
@@ -127,9 +149,20 @@ export async function extractEvidence(
     source: SourceRecord,
     question: ResearchQuestion
   ) => Promise<EvidenceProposalList> = callEvidenceExtractionAgent,
-  options: { idFactory?: () => string } = {}
+  options: {
+    idFactory?: () => string;
+    now?: () => string;
+    fullSourceGrounded?: boolean;
+  } = {}
 ): Promise<EvidenceRecord[]> {
   validateSourceForEvidence(source, question);
   const proposals = await modelCaller(source, question);
-  return assembleEvidenceRecords(source, proposals, options);
+  const fullSourceGrounded = options.fullSourceGrounded ?? modelCaller === callEvidenceExtractionAgent;
+  const grounding = fullSourceGrounded
+    ? fullSourceGroundingFor(source, (options.now ?? (() => new Date().toISOString()))())
+    : undefined;
+  return assembleEvidenceRecords(source, proposals, {
+    idFactory: options.idFactory,
+    grounding,
+  });
 }
