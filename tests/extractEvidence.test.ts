@@ -4,6 +4,7 @@ import { type SourceRecord } from '../src/domain/sourceRecord.js';
 import {
   assembleEvidenceRecords,
   extractEvidence,
+  fullSourceGroundingFor,
   parseEvidenceProposalList,
   validateSourceForEvidence,
 } from '../src/services/extractEvidence.js';
@@ -101,6 +102,41 @@ describe('Source → Evidence governed extraction', () => {
         status: 'REVIEW_REQUIRED',
       },
     ]);
+  });
+
+  it('records explicit Parallel web_fetch provenance for a full-source grounded extraction', async () => {
+    const modelCaller = vi.fn(async () => proposals);
+    const records = await extractEvidence(approvedSource, approvedQuestion, modelCaller, {
+      idFactory: () => 'EV-grounded',
+      now: () => '2026-08-23T07:30:00.000Z',
+      fullSourceGrounded: true,
+    });
+
+    expect(records[0]?.grounding).toEqual({
+      mode: 'PARALLEL_WEB_FETCH',
+      provider: 'PARALLEL',
+      sourceUrl: approvedSource.url,
+      fetchedAt: '2026-08-23T07:30:00.000Z',
+      discoveryExcerptUsedAsGrounding: false,
+    });
+  });
+
+  it('does not falsely label injected excerpt-only test callers as full-source grounded', async () => {
+    const modelCaller = vi.fn(async () => proposals);
+    const records = await extractEvidence(approvedSource, approvedQuestion, modelCaller, {
+      idFactory: () => 'EV-legacy',
+    });
+    expect(records[0]?.grounding).toBeUndefined();
+  });
+
+  it('builds validated grounding metadata only for the exact approved source URL', () => {
+    expect(fullSourceGroundingFor(approvedSource, '2026-08-23T07:30:00.000Z')).toEqual({
+      mode: 'PARALLEL_WEB_FETCH',
+      provider: 'PARALLEL',
+      sourceUrl: approvedSource.url,
+      fetchedAt: '2026-08-23T07:30:00.000Z',
+      discoveryExcerptUsedAsGrounding: false,
+    });
   });
 
   it('returns validated evidence records for approved provenance', async () => {
