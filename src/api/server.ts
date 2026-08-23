@@ -7,6 +7,7 @@ import {
   advanceMvpSession,
   MvpSessionAdvanceError,
 } from '../services/advanceMvpSession.js';
+import { assistMvpReview } from '../services/assistMvpReview.js';
 import { createMvpSession } from '../services/createMvpSession.js';
 import {
   createPublicDemoSession,
@@ -235,6 +236,26 @@ async function handleRequest(
 
     await store.save(reviewed);
     sendJson(response, 200, getMvpSessionView(reviewed));
+    return;
+  }
+
+  const reviewAssistMatch = url.pathname.match(
+    /^\/api\/sessions\/([^/]+)\/review-assist$/
+  );
+  if (request.method === 'POST' && reviewAssistMatch) {
+    const sessionId = sessionIdFrom(reviewAssistMatch);
+    const session = await loadSessionOr404(store, sessionId);
+    try {
+      const assisted = await assistMvpReview(session);
+      await store.save(assisted);
+      sendJson(response, 200, getMvpSessionView(assisted));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('currently available only')) {
+        throw new HttpError(409, message);
+      }
+      throw error;
+    }
     return;
   }
 
