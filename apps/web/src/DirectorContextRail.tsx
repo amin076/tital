@@ -14,6 +14,7 @@ import {
 import { useState } from 'react';
 import type { SessionView } from './api';
 import { PerformanceInsightsPanel } from './PerformanceInsightsPanel';
+import { ProductionHistoryPanel } from './ProductionHistoryPanel';
 import { ProductionReviewPanel } from './ProductionReviewPanel';
 import { RevisionPanel } from './RevisionPanel';
 import { RevisionRecoveryPanel } from './RevisionRecoveryPanel';
@@ -107,6 +108,8 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
           />
         </>
       )}
+
+      {view.summary.sessionId !== 'public-demo' && <ProductionHistoryPanel view={view} />}
 
       {revisionAvailable && (
         <Paper variant="outlined" sx={{ p: 2.25, borderColor: 'rgba(185,120,36,0.34)' }}>
