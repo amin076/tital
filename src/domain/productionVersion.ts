@@ -22,6 +22,17 @@ export const ProductionVersionCountsSchema = z.object({
   visualDecisions: z.number().int().nonnegative(),
 });
 
+export const ProductionVersionCountDeltasSchema = z.object({
+  researchQuestions: z.number().int(),
+  sources: z.number().int(),
+  evidence: z.number().int(),
+  claims: z.number().int(),
+  scriptLines: z.number().int(),
+  scenes: z.number().int(),
+  shots: z.number().int(),
+  visualDecisions: z.number().int(),
+});
+
 export const ProductionVersionSummarySchema = z.object({
   version: z.number().int().positive(),
   revisionId: z.string().min(1).nullable(),
@@ -39,12 +50,13 @@ export const ProductionVersionComparisonSchema = z.object({
   fromVersion: z.number().int().positive(),
   toVersion: z.number().int().positive(),
   durationMinutes: z.object({ from: z.number(), to: z.number(), delta: z.number() }),
-  countDeltas: ProductionVersionCountsSchema,
+  countDeltas: ProductionVersionCountDeltasSchema,
   revisionId: z.string().min(1).nullable(),
   changeSummary: z.string().min(1),
 });
 
 export type ProductionPackageVersion = z.infer<typeof ProductionPackageVersionSchema>;
 export type ProductionVersionCounts = z.infer<typeof ProductionVersionCountsSchema>;
+export type ProductionVersionCountDeltas = z.infer<typeof ProductionVersionCountDeltasSchema>;
 export type ProductionVersionSummary = z.infer<typeof ProductionVersionSummarySchema>;
 export type ProductionVersionComparison = z.infer<typeof ProductionVersionComparisonSchema>;
