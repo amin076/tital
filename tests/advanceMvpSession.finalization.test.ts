@@ -46,7 +46,7 @@ function auditOnlyExecutors(): MvpStepExecutors {
 }
 
 describe('advanceMvpSession deterministic finalization', () => {
-  it('runs audit and package construction in one continuation once every human gate is satisfied', async () => {
+  it('runs audit/package construction and captures immutable v1 once every human gate is satisfied', async () => {
     const finalized = await advanceMvpSession(readySessionWithoutAudit(), {
       executors: auditOnlyExecutors(),
       now: () => '2026-08-15T01:00:00.000Z',
@@ -58,13 +58,19 @@ describe('advanceMvpSession deterministic finalization', () => {
 
     expect(finalized.state.audit?.passed).toBe(true);
     expect(finalized.productionPackage?.status).toBe('READY_FOR_PRODUCTION');
+    expect(finalized.productionVersions).toHaveLength(1);
+    expect(finalized.productionVersions?.[0]).toMatchObject({
+      version: 1,
+      status: 'CURRENT',
+      revisionId: null,
+    });
     expect(finalized.events.map((event) => event.type)).toEqual([
       'AUDIT_EXECUTED',
       'PACKAGE_BUILT',
     ]);
   });
 
-  it('closes a repairing revision only after the repaired chain passes audit and is repackaged', async () => {
+  it('links a rebuilt package version to a repairing revision before closing that revision', async () => {
     const session = readySessionWithoutAudit();
     session.revisionRequests = [{
       id: 'REV-1',
@@ -88,6 +94,13 @@ describe('advanceMvpSession deterministic finalization', () => {
     });
 
     expect(finalized.productionPackage?.status).toBe('READY_FOR_PRODUCTION');
+    expect(finalized.productionVersions).toHaveLength(1);
+    expect(finalized.productionVersions?.[0]).toMatchObject({
+      version: 1,
+      status: 'CURRENT',
+      revisionId: 'REV-1',
+    });
+    expect(finalized.productionVersions?.[0]?.changeSummary).toContain('SHOT REVISION');
     expect(finalized.revisionRequests?.[0]?.status).toBe('COMPLETED');
     expect(finalized.events.map((event) => event.type)).toEqual([
       'AUDIT_EXECUTED',
