@@ -74,7 +74,7 @@ export async function assistMvpReview(
 
   if (!gate || !['SourceRecord', 'EvidenceRecord'].includes(gate.recordType)) {
     throw new Error(
-      'AI review assistance is available only while SourceRecord or EvidenceRecord candidates await human review, or after a READY_FOR_PRODUCTION package exists.'
+      'AI review assistance is currently available only while SourceRecord or EvidenceRecord candidates await human review, or after a READY_FOR_PRODUCTION package exists.'
     );
   }
 
