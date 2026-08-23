@@ -63,4 +63,36 @@ describe('advanceMvpSession deterministic finalization', () => {
       'PACKAGE_BUILT',
     ]);
   });
+
+  it('closes a repairing revision only after the repaired chain passes audit and is repackaged', async () => {
+    const session = readySessionWithoutAudit();
+    session.revisionRequests = [{
+      id: 'REV-1',
+      type: 'SHOT_REVISION',
+      targetType: 'ShotRecord',
+      targetRecordId: 'SH-old',
+      reason: 'Use a more restrained camera move.',
+      instruction: 'Keep the science unchanged and reduce camera movement.',
+      requestedBy: 'user-1',
+      createdAt: '2026-08-15T00:30:00.000Z',
+      status: 'REPAIRING',
+    }];
+
+    const finalized = await advanceMvpSession(session, {
+      executors: auditOnlyExecutors(),
+      now: () => '2026-08-15T01:00:00.000Z',
+      eventIdFactory: (() => {
+        let index = 0;
+        return () => `EVT-R-${++index}`;
+      })(),
+    });
+
+    expect(finalized.productionPackage?.status).toBe('READY_FOR_PRODUCTION');
+    expect(finalized.revisionRequests?.[0]?.status).toBe('COMPLETED');
+    expect(finalized.events.map((event) => event.type)).toEqual([
+      'AUDIT_EXECUTED',
+      'PACKAGE_BUILT',
+      'REVISION_COMPLETED',
+    ]);
+  });
 });
