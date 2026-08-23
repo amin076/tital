@@ -101,7 +101,7 @@ export interface RevisionRequest extends RevisionDraft {
   id: string;
   requestedBy: string;
   createdAt: string;
-  status: 'REQUESTED' | 'APPLIED' | 'CANCELLED';
+  status: 'REQUESTED' | 'APPLIED' | 'REPAIRING' | 'CANCELLED';
 }
 
 export interface RevisionImpactCounts {
