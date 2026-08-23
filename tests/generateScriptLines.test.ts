@@ -74,4 +74,34 @@ describe('Approved Claim → Script Line governed generation', () => {
     expect(modelCaller).toHaveBeenCalledOnce();
     expect(lines[0]).toMatchObject({ id: 'SL-1', claimIds: ['CL-europa-magnetic'], status: 'REVIEW_REQUIRED' });
   });
+
+  it('passes duration and scoped revision guidance to the model caller without changing provenance ownership', async () => {
+    const modelCaller = vi.fn(async (_claims, _question, context) => {
+      expect(context).toEqual({
+        targetDurationMinutes: 8,
+        scopedInstruction: 'Expand the explanation without adding new scientific claims.',
+      });
+      return proposals;
+    });
+
+    const lines = await generateScriptLines(
+      approvedClaims,
+      approvedQuestion,
+      modelCaller,
+      {
+        idFactory: () => 'SL-revised',
+        generationContext: {
+          targetDurationMinutes: 8,
+          scopedInstruction: 'Expand the explanation without adding new scientific claims.',
+        },
+      }
+    );
+
+    expect(modelCaller).toHaveBeenCalledOnce();
+    expect(lines[0]).toMatchObject({
+      id: 'SL-revised',
+      claimIds: ['CL-europa-magnetic'],
+      status: 'REVIEW_REQUIRED',
+    });
+  });
 });

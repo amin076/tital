@@ -11,6 +11,11 @@ import { ScriptLineRecordSchema, type ScriptLineRecord } from '../domain/scriptL
 import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 
+export interface ScientificScriptGenerationContext {
+  targetDurationMinutes?: number;
+  scopedInstruction?: string;
+}
+
 export function validateClaimsForScript(
   claims: ClaimRecord[],
   question: ResearchQuestion
@@ -100,7 +105,8 @@ export function assembleScriptLineRecords(
 
 export async function callScientificScriptAgent(
   claims: ClaimRecord[],
-  question: ResearchQuestion
+  question: ResearchQuestion,
+  generationContext?: ScientificScriptGenerationContext
 ): Promise<ScriptLineProposalList> {
   const runner = new InMemoryRunner({ agent: scientificScriptAgent });
   let responseText = '';
@@ -110,6 +116,9 @@ export async function callScientificScriptAgent(
     confidence: claim.confidence,
     uncertainty: claim.uncertainty,
   }));
+  const contextText = generationContext
+    ? `\n\nProduction context (this may shape pacing/coverage but MUST NOT add scientific facts):\n${JSON.stringify(generationContext, null, 2)}`
+    : '';
 
   try {
     const run = runner.runEphemeral({
@@ -117,7 +126,7 @@ export async function callScientificScriptAgent(
       newMessage: {
         parts: [
           {
-            text: `Write evidence-governed scientific script lines for this approved research question using ONLY the supplied numbered approved claims.\n\nResearchQuestion:\n${question.question}\n\nApproved numbered claims:\n${JSON.stringify(numberedClaims, null, 2)}`,
+            text: `Write evidence-governed scientific script lines for this approved research question using ONLY the supplied numbered approved claims.\n\nResearchQuestion:\n${question.question}\n\nApproved numbered claims:\n${JSON.stringify(numberedClaims, null, 2)}${contextText}\n\nIf a targetDurationMinutes value is supplied, treat it as the intended duration of the whole film, not a license to invent facts. If a scopedInstruction is supplied for a revision, change structure, pacing, emphasis, or wording only within the approved claims and their uncertainty limits.`,
           },
         ],
       },
@@ -135,11 +144,15 @@ export async function generateScriptLines(
   question: ResearchQuestion,
   modelCaller: (
     claims: ClaimRecord[],
-    question: ResearchQuestion
+    question: ResearchQuestion,
+    generationContext?: ScientificScriptGenerationContext
   ) => Promise<ScriptLineProposalList> = callScientificScriptAgent,
-  options: { idFactory?: () => string } = {}
+  options: {
+    idFactory?: () => string;
+    generationContext?: ScientificScriptGenerationContext;
+  } = {}
 ): Promise<ScriptLineRecord[]> {
   validateClaimsForScript(claims, question);
-  const proposals = await modelCaller(claims, question);
+  const proposals = await modelCaller(claims, question, options.generationContext);
   return assembleScriptLineRecords(question, claims, proposals, options);
 }

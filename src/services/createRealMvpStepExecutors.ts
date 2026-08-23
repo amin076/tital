@@ -67,6 +67,13 @@ function questionFor(
   return question;
 }
 
+function activeAttempts<T extends { status: string }>(records: readonly T[]): T[] {
+  // STALE records are historical, not active attempts. They must not block
+  // deliberate regeneration after a governed revision. Rejected records still
+  // count as attempts so the original no-silent-regeneration rule is preserved.
+  return records.filter((record) => record.status !== 'STALE');
+}
+
 async function timed<T>(
   name: string,
   targetId: string | null,
@@ -142,7 +149,7 @@ export function createRealMvpStepExecutors(
     discoverSources: async (state) => {
       const chain = selectApprovedProductionChain(state);
       const attemptedQuestionIds = new Set(
-        state.sources.map((record) => record.researchQuestionId)
+        activeAttempts(state.sources).map((record) => record.researchQuestionId)
       );
       const requiredQuestions = requiredResearchQuestionsForStage(state, 'RESEARCH');
       const missingQuestions = missingApprovedCoverage(
@@ -168,7 +175,9 @@ export function createRealMvpStepExecutors(
       const requiredQuestionIds = new Set(
         requiredResearchQuestionsForStage(state, 'EVIDENCE').map((record) => record.id)
       );
-      const attemptedSourceIds = new Set(state.evidence.map((record) => record.sourceId));
+      const attemptedSourceIds = new Set(
+        activeAttempts(state.evidence).map((record) => record.sourceId)
+      );
       const sourcesNeedingFirstExtraction = chain.sources.filter(
         (source) =>
           requiredQuestionIds.has(source.researchQuestionId) &&
@@ -194,7 +203,7 @@ export function createRealMvpStepExecutors(
     generateClaims: async (state) => {
       const chain = selectApprovedProductionChain(state);
       const attemptedQuestionIds = new Set(
-        state.claims.map((record) => record.researchQuestionId)
+        activeAttempts(state.claims).map((record) => record.researchQuestionId)
       );
       const requiredQuestions = requiredResearchQuestionsForStage(state, 'CLAIMS');
       const missingQuestions = missingApprovedCoverage(
@@ -224,7 +233,7 @@ export function createRealMvpStepExecutors(
     generateScriptLines: async (state) => {
       const chain = selectApprovedProductionChain(state);
       const attemptedQuestionIds = new Set(
-        state.scriptLines.map((record) => record.researchQuestionId)
+        activeAttempts(state.scriptLines).map((record) => record.researchQuestionId)
       );
       const requiredQuestions = requiredResearchQuestionsForStage(state, 'SCRIPT');
       const missingQuestions = missingApprovedCoverage(
@@ -254,7 +263,7 @@ export function createRealMvpStepExecutors(
     generateScenes: async (state) => {
       const chain = selectApprovedProductionChain(state);
       const attemptedQuestionIds = new Set(
-        state.scenes.map((record) => record.researchQuestionId)
+        activeAttempts(state.scenes).map((record) => record.researchQuestionId)
       );
       const requiredQuestions = requiredResearchQuestionsForStage(state, 'SCENES');
       const missingQuestions = missingApprovedCoverage(
@@ -288,7 +297,9 @@ export function createRealMvpStepExecutors(
 
     generateShots: async (state) => {
       const chain = selectApprovedProductionChain(state);
-      const attemptedSceneIds = new Set(state.shots.map((record) => record.sceneId));
+      const attemptedSceneIds = new Set(
+        activeAttempts(state.shots).map((record) => record.sceneId)
+      );
       const requiredScenes = requiredScenesForShots(state);
       const missingScenes = missingApprovedCoverage(
         requiredScenes,
@@ -324,7 +335,7 @@ export function createRealMvpStepExecutors(
     generateVisualDecisions: async (state) => {
       const chain = selectApprovedProductionChain(state);
       const attemptedShotIds = new Set(
-        state.visualDecisions.map((record) => record.shotId)
+        activeAttempts(state.visualDecisions).map((record) => record.shotId)
       );
       const requiredShots = requiredShotsForVisualDecisions(state);
       const missingShots = missingApprovedCoverage(

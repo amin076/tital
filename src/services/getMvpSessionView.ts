@@ -62,7 +62,7 @@ function continueActionFor(session: MvpSession) {
     enabled: true,
     mode: 'LIVE_RUNTIME' as const,
     message:
-      'Run the next governed automated stage. Automatic generation is first-attempt only; rejected content is never silently regenerated.',
+      'Run the next governed automated stage. Automatic generation is first-attempt only; rejected content is never silently regenerated. STALE records created by an explicit revision remain history and do not block deliberate repair.',
   };
 }
 
@@ -75,6 +75,7 @@ export function getMvpSessionView(session: MvpSession) {
     projectInput: validated.projectInput ?? { rawIdea: validated.rawIdea },
     directorFeedback: validated.directorFeedback ?? [],
     reviewRecommendations: validated.reviewRecommendations ?? [],
+    revisionRequests: validated.revisionRequests ?? [],
     gate: getCurrentMvpReviewGate(validated.state),
     continueAction: continueActionFor(validated),
     workflowInsights: getMvpWorkflowInsights(validated.state),

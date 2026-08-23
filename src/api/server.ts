@@ -1,12 +1,20 @@
+import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { z } from 'zod';
 import { FilmProjectInputSchema } from '../domain/filmProjectInput.js';
+import {
+  RevisionRequestSchema,
+  RevisionTargetTypeSchema,
+  RevisionTypeSchema,
+  type RevisionRequest,
+} from '../domain/revisionRequest.js';
 import { createMvpSessionStore } from '../persistence/createMvpSessionStore.js';
 import type { MvpSessionStore } from '../persistence/mvpSessionStore.js';
 import {
   advanceMvpSession,
   MvpSessionAdvanceError,
 } from '../services/advanceMvpSession.js';
+import { applyMvpRevision } from '../services/applyMvpRevision.js';
 import { assistMvpReview } from '../services/assistMvpReview.js';
 import { createMvpSession } from '../services/createMvpSession.js';
 import {
@@ -14,6 +22,8 @@ import {
   PUBLIC_DEMO_SESSION_ID,
 } from '../services/createPublicDemoSession.js';
 import { getMvpSessionView } from '../services/getMvpSessionView.js';
+import { previewMvpRevisionImpact } from '../services/previewMvpRevisionImpact.js';
+import { repairMvpRevision } from '../services/repairMvpRevision.js';
 import {
   GapResolutionRequiredError,
   resolveMvpReview,
@@ -37,6 +47,19 @@ const ReviewRequestSchema = z.object({
   gapResolution: z.enum(['RETRY', 'WAIVE']).optional(),
   reason: z.string().trim().max(1000).optional(),
   rememberInstruction: z.boolean().optional(),
+});
+
+const RevisionDraftSchema = z.object({
+  type: RevisionTypeSchema,
+  targetType: RevisionTargetTypeSchema,
+  targetRecordId: z.string().min(1).nullable(),
+  reason: z.string().trim().min(1).max(2000),
+  instruction: z.string().trim().min(1).max(4000).optional(),
+  proposedDurationMinutes: z.number().finite().min(0.5).max(180).optional(),
+});
+
+const RevisionApplySchema = RevisionDraftSchema.extend({
+  id: z.string().min(1),
 });
 
 const config = resolveTitalServerConfig();
@@ -104,6 +127,20 @@ function sessionIdFrom(match: RegExpMatchArray): string {
   } catch {
     throw new HttpError(400, 'Session ID is not valid URL encoding.');
   }
+}
+
+function revisionRequestFrom(
+  draft: z.infer<typeof RevisionDraftSchema>,
+  user: AuthenticatedUser | null,
+  options: { id?: string; now?: string } = {}
+): RevisionRequest {
+  return RevisionRequestSchema.parse({
+    ...draft,
+    id: options.id ?? `REV-${randomUUID()}`,
+    requestedBy: user?.uid ?? 'local-user',
+    createdAt: options.now ?? new Date().toISOString(),
+    status: 'REQUESTED',
+  });
 }
 
 async function loadSessionOr404(store: MvpSessionStore, sessionId: string) {
@@ -255,6 +292,64 @@ async function handleRequest(
         throw new HttpError(409, message);
       }
       throw error;
+    }
+    return;
+  }
+
+  const revisionPreviewMatch = url.pathname.match(
+    /^\/api\/sessions\/([^/]+)\/revisions\/preview$/
+  );
+  if (request.method === 'POST' && revisionPreviewMatch) {
+    const sessionId = sessionIdFrom(revisionPreviewMatch);
+    const body = RevisionDraftSchema.parse(await readJson(request));
+    const session = await loadSessionOr404(store, sessionId);
+    try {
+      const revision = revisionRequestFrom(body, user);
+      const impact = previewMvpRevisionImpact(session, revision);
+      sendJson(response, 200, { revision, impact });
+    } catch (error: unknown) {
+      throw new HttpError(400, error instanceof Error ? error.message : String(error));
+    }
+    return;
+  }
+
+  const revisionApplyMatch = url.pathname.match(
+    /^\/api\/sessions\/([^/]+)\/revisions\/apply$/
+  );
+  if (request.method === 'POST' && revisionApplyMatch) {
+    const sessionId = sessionIdFrom(revisionApplyMatch);
+    const body = RevisionApplySchema.parse(await readJson(request));
+    const session = await loadSessionOr404(store, sessionId);
+    try {
+      const { id, ...draft } = body;
+      const revision = revisionRequestFrom(draft, user, { id });
+      const revised = applyMvpRevision(session, revision);
+      await store.save(revised);
+      sendJson(response, 200, getMvpSessionView(revised));
+    } catch (error: unknown) {
+      throw new HttpError(400, error instanceof Error ? error.message : String(error));
+    }
+    return;
+  }
+
+  const revisionRepairMatch = url.pathname.match(
+    /^\/api\/sessions\/([^/]+)\/revisions\/([^/]+)\/repair$/
+  );
+  if (request.method === 'POST' && revisionRepairMatch) {
+    const sessionId = sessionIdFrom(revisionRepairMatch);
+    let revisionId: string;
+    try {
+      revisionId = decodeURIComponent(revisionRepairMatch[2]);
+    } catch {
+      throw new HttpError(400, 'Revision ID is not valid URL encoding.');
+    }
+    const session = await loadSessionOr404(store, sessionId);
+    try {
+      const repaired = await repairMvpRevision(session, revisionId);
+      await store.save(repaired);
+      sendJson(response, 200, getMvpSessionView(repaired));
+    } catch (error: unknown) {
+      throw new HttpError(400, error instanceof Error ? error.message : String(error));
     }
     return;
   }
