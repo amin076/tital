@@ -4,6 +4,10 @@ import { getCurrentMvpReviewGate } from './getCurrentMvpReviewGate.js';
 import { getMvpPerformanceInsights } from './getMvpPerformanceInsights.js';
 import { getMvpWorkflowInsights } from './getMvpWorkflowInsights.js';
 import { selectApprovedProductionChain } from './mvpWorkflowGuards.js';
+import {
+  latestProductionVersionComparison,
+  summarizeProductionVersions,
+} from './productionVersionHistory.js';
 import { summarizeMvpSession } from './summarizeMvpSession.js';
 
 export type MvpContinueMode =
@@ -68,6 +72,7 @@ function continueActionFor(session: MvpSession) {
 
 export function getMvpSessionView(session: MvpSession) {
   const validated = MvpSessionSchema.parse(session);
+  const versions = validated.productionVersions ?? [];
 
   return {
     summary: summarizeMvpSession(validated),
@@ -77,6 +82,8 @@ export function getMvpSessionView(session: MvpSession) {
     reviewRecommendations: validated.reviewRecommendations ?? [],
     revisionRequests: validated.revisionRequests ?? [],
     productionReviews: validated.productionReviews ?? [],
+    productionVersionHistory: summarizeProductionVersions(versions),
+    latestProductionVersionComparison: latestProductionVersionComparison(versions),
     gate: getCurrentMvpReviewGate(validated.state),
     continueAction: continueActionFor(validated),
     workflowInsights: getMvpWorkflowInsights(validated.state),

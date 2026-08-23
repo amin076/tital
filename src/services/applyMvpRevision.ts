@@ -7,6 +7,7 @@ import {
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import { invalidateMvpDependencies } from './invalidateMvpDependencies.js';
 import { previewMvpRevisionImpact } from './previewMvpRevisionImpact.js';
+import { supersedeCurrentProductionPackage } from './productionVersionHistory.js';
 
 export interface ApplyMvpRevisionOptions {
   now?: () => string;
@@ -32,6 +33,7 @@ function appliedRevision(revision: RevisionRequest): RevisionRequest {
  * Applies a previously previewable revision to trusted session state.
  * Historical records are never deleted: invalidated work becomes STALE, the audit
  * and package are cleared, and the revision itself is persisted as governance history.
+ * If a completed package exists it is captured as an immutable superseded version first.
  */
 export function applyMvpRevision(
   session: MvpSession,
@@ -80,6 +82,13 @@ export function applyMvpRevision(
   const applied = appliedRevision(request);
   const affectedIds = new Set(impact.affectedRecordIds);
   const evaluation = evaluateMvpWorkflow(state);
+  const productionVersions = validated.productionPackage
+    ? supersedeCurrentProductionPackage(
+        validated.productionVersions ?? [],
+        validated.productionPackage,
+        now
+      )
+    : validated.productionVersions ?? [];
 
   return MvpSessionSchema.parse({
     ...validated,
@@ -87,6 +96,7 @@ export function applyMvpRevision(
     updatedAt: now,
     state,
     productionPackage: null,
+    productionVersions,
     reviewRecommendations: (validated.reviewRecommendations ?? []).filter(
       (recommendation) => !affectedIds.has(recommendation.targetRecordId)
     ),
