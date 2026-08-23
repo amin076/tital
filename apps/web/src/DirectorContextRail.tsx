@@ -18,6 +18,7 @@ import { ProductionHistoryPanel } from './ProductionHistoryPanel';
 import { ProductionReviewPanel } from './ProductionReviewPanel';
 import { RevisionPanel } from './RevisionPanel';
 import { RevisionRecoveryPanel } from './RevisionRecoveryPanel';
+import { SourceGroundingPanel } from './SourceGroundingPanel';
 
 const LABELS: Record<string, string> = {
   AI_ASSISTED: 'AI-assisted',
@@ -91,6 +92,8 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
           </Stack>
         )}
       </Paper>
+
+      <SourceGroundingPanel view={view} />
 
       {productionReviewAvailable && (
         <>
