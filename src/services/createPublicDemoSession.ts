@@ -40,6 +40,7 @@ export function createPublicDemoSession(
     productionPackage,
     directorFeedback: [],
     reviewRecommendations: [],
+    revisionRequests: [],
     events: [
       {
         id: `EVT-public-demo-${Date.parse(at) || 0}`,
