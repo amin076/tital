@@ -14,6 +14,7 @@ import {
 import { useState } from 'react';
 import type { SessionView } from './api';
 import { PerformanceInsightsPanel } from './PerformanceInsightsPanel';
+import { ProductionReviewPanel } from './ProductionReviewPanel';
 import { RevisionPanel } from './RevisionPanel';
 import { RevisionRecoveryPanel } from './RevisionRecoveryPanel';
 
@@ -51,9 +52,14 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [revisionBusy, setRevisionBusy] = useState(false);
   const [revisionError, setRevisionError] = useState<string | null>(null);
+  const [productionReviewError, setProductionReviewError] = useState<string | null>(null);
   const revisionAvailable =
     view.summary.sessionId !== 'public-demo' &&
     (view.summary.stage === 'COMPLETE' || hasActiveRevision(view));
+  const productionReviewAvailable =
+    view.summary.sessionId !== 'public-demo' &&
+    view.summary.stage === 'COMPLETE' &&
+    Boolean(view.productionPackage);
 
   function reloadAfterRevision(): void {
     setRevisionOpen(false);
@@ -84,6 +90,23 @@ export function DirectorContextRail({ view }: { view: SessionView }) {
           </Stack>
         )}
       </Paper>
+
+      {productionReviewAvailable && (
+        <>
+          {productionReviewError && (
+            <Alert severity="error" onClose={() => setProductionReviewError(null)}>
+              {productionReviewError}
+            </Alert>
+          )}
+          <ProductionReviewPanel
+            view={view}
+            busy={revisionBusy}
+            onBusyChange={setRevisionBusy}
+            onUpdated={() => window.location.reload()}
+            onError={setProductionReviewError}
+          />
+        </>
+      )}
 
       {revisionAvailable && (
         <Paper variant="outlined" sx={{ p: 2.25, borderColor: 'rgba(185,120,36,0.34)' }}>
