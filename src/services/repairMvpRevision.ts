@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
-import type { RevisionRequest } from '../domain/revisionRequest.js';
+import { RevisionRequestSchema, type RevisionRequest } from '../domain/revisionRequest.js';
 import type { MvpReviewCoverageGroup, MvpReviewGateRecordType } from './getCurrentMvpReviewGate.js';
 import { getCurrentMvpReviewGate } from './getCurrentMvpReviewGate.js';
 import {
@@ -21,7 +21,7 @@ function appliedRevisionFor(session: MvpSession, revisionId: string): RevisionRe
   const revision = (session.revisionRequests ?? []).find((candidate) => candidate.id === revisionId);
   if (!revision) throw new Error(`RevisionRequest was not found: "${revisionId}".`);
   if (revision.status !== 'APPLIED') {
-    throw new Error(`RevisionRequest "${revisionId}" is not applied.`);
+    throw new Error(`RevisionRequest "${revisionId}" is not waiting for repair.`);
   }
   return revision;
 }
@@ -134,12 +134,19 @@ export async function repairMvpRevision(
   const now = (options.now ?? (() => new Date().toISOString()))();
   const eventId = (options.eventIdFactory ?? (() => `EVT-${randomUUID()}`))();
   const evaluation = evaluateMvpWorkflow(nextState);
+  const repairingRevision = RevisionRequestSchema.parse({
+    ...revision,
+    status: 'REPAIRING',
+  });
 
   return MvpSessionSchema.parse({
     ...validated,
     updatedAt: now,
     state: nextState,
     productionPackage: null,
+    revisionRequests: (validated.revisionRequests ?? []).map((candidate) =>
+      candidate.id === revision.id ? repairingRevision : candidate
+    ),
     events: [
       ...validated.events,
       {
