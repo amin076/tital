@@ -18,7 +18,7 @@ import { parseJsonFromModelResponse } from '../utils/modelJson.js';
 export interface ReviewEvaluatorRequest {
   targetType: ReviewTargetType;
   researchQuestion: ResearchQuestion;
-  source?: SourceRecord;
+  sources?: SourceRecord[];
   candidates: Array<SourceRecord | EvidenceRecord>;
 }
 
@@ -92,28 +92,37 @@ function validateSourceCandidates(
 
 function validateEvidenceCandidates(
   question: ResearchQuestion,
-  source: SourceRecord,
+  sources: SourceRecord[],
   candidates: EvidenceRecord[]
-): EvidenceRecord[] {
-  const parsedSource = SourceRecordSchema.safeParse(source);
-  if (!parsedSource.success) {
-    throw new Error(`Invalid SourceRecord schema: ${parsedSource.error.message}`);
+): { sources: SourceRecord[]; evidence: EvidenceRecord[] } {
+  if (sources.length === 0) {
+    throw new Error('Evidence review assistance requires at least one approved SourceRecord.');
   }
-  if (parsedSource.data.status !== 'APPROVED') {
-    throw new Error(
-      `Evidence review assistance requires an APPROVED SourceRecord; current status is "${parsedSource.data.status}".`
-    );
-  }
-  if (parsedSource.data.researchQuestionId !== question.id) {
-    throw new Error(
-      `SourceRecord researchQuestionId mismatch: expected "${question.id}", received "${parsedSource.data.researchQuestionId}".`
-    );
-  }
+
+  const validatedSources = sources.map((source) => {
+    const parsed = SourceRecordSchema.safeParse(source);
+    if (!parsed.success) {
+      throw new Error(`Invalid SourceRecord schema: ${parsed.error.message}`);
+    }
+    if (parsed.data.status !== 'APPROVED') {
+      throw new Error(
+        `Evidence review assistance requires APPROVED SourceRecord inputs; "${parsed.data.id}" is ${parsed.data.status}.`
+      );
+    }
+    if (parsed.data.researchQuestionId !== question.id) {
+      throw new Error(
+        `SourceRecord researchQuestionId mismatch: expected "${question.id}", received "${parsed.data.researchQuestionId}".`
+      );
+    }
+    return parsed.data;
+  });
+  const sourceById = new Map(validatedSources.map((source) => [source.id, source]));
+
   if (candidates.length === 0) {
     throw new Error('Evidence review assistance requires at least one candidate.');
   }
 
-  return candidates.map((candidate) => {
+  const evidence = candidates.map((candidate) => {
     const parsed = EvidenceRecordSchema.safeParse(candidate);
     if (!parsed.success) {
       throw new Error(`Invalid EvidenceRecord schema: ${parsed.error.message}`);
@@ -123,9 +132,9 @@ function validateEvidenceCandidates(
         `EvidenceRecord researchQuestionId mismatch: expected "${question.id}", received "${parsed.data.researchQuestionId}".`
       );
     }
-    if (parsed.data.sourceId !== parsedSource.data.id) {
+    if (!sourceById.has(parsed.data.sourceId)) {
       throw new Error(
-        `EvidenceRecord sourceId mismatch: expected "${parsedSource.data.id}", received "${parsed.data.sourceId}".`
+        `EvidenceRecord "${parsed.data.id}" references SourceRecord "${parsed.data.sourceId}" that is not supplied as an approved review source.`
       );
     }
     if (parsed.data.status !== 'REVIEW_REQUIRED') {
@@ -135,6 +144,8 @@ function validateEvidenceCandidates(
     }
     return parsed.data;
   });
+
+  return { sources: validatedSources, evidence };
 }
 
 function modelSafeCandidates(request: ReviewEvaluatorRequest): unknown[] {
@@ -148,13 +159,25 @@ function modelSafeCandidates(request: ReviewEvaluatorRequest): unknown[] {
     }));
   }
 
-  return (request.candidates as EvidenceRecord[]).map((candidate, index) => ({
-    candidateNumber: index + 1,
-    excerpt: candidate.excerpt,
-    interpretation: candidate.interpretation,
-    strength: candidate.strength,
-    uncertainty: candidate.uncertainty,
-  }));
+  const sourceById = new Map((request.sources ?? []).map((source) => [source.id, source]));
+  return (request.candidates as EvidenceRecord[]).map((candidate, index) => {
+    const source = sourceById.get(candidate.sourceId);
+    return {
+      candidateNumber: index + 1,
+      excerpt: candidate.excerpt,
+      interpretation: candidate.interpretation,
+      strength: candidate.strength,
+      uncertainty: candidate.uncertainty,
+      approvedSource: source
+        ? {
+            title: source.title,
+            url: source.url,
+            publishDate: source.publishDate,
+            excerpts: source.excerpts,
+          }
+        : null,
+    };
+  });
 }
 
 export async function callReviewEvaluatorAgent(
@@ -169,7 +192,7 @@ export async function callReviewEvaluatorAgent(
       newMessage: {
         parts: [
           {
-            text: `Provide non-authoritative human-review recommendations using ONLY this supplied context.\n\nTarget type:\n${request.targetType}\n\nResearchQuestion:\n${JSON.stringify(request.researchQuestion, null, 2)}\n\n${request.source ? `Approved SourceRecord:\n${JSON.stringify(request.source, null, 2)}\n\n` : ''}Numbered candidates:\n${JSON.stringify(modelSafeCandidates(request), null, 2)}`,
+            text: `Provide non-authoritative human-review recommendations using ONLY this supplied context.\n\nTarget type:\n${request.targetType}\n\nResearchQuestion:\n${JSON.stringify(request.researchQuestion, null, 2)}\n\nNumbered candidates:\n${JSON.stringify(modelSafeCandidates(request), null, 2)}`,
           },
         ],
       },
@@ -257,19 +280,20 @@ export async function evaluateSourceReviewRecommendations(
 
 export async function evaluateEvidenceReviewRecommendations(
   researchQuestion: ResearchQuestion,
-  source: SourceRecord,
+  sourceOrSources: SourceRecord | SourceRecord[],
   candidates: EvidenceRecord[],
   modelCaller: ReviewEvaluatorModelCaller = callReviewEvaluatorAgent,
   options: ReviewRecommendationOptions = {}
 ): Promise<ReviewRecommendation[]> {
   const question = validateApprovedQuestion(researchQuestion);
-  const evidence = validateEvidenceCandidates(question, source, candidates);
+  const suppliedSources = Array.isArray(sourceOrSources) ? sourceOrSources : [sourceOrSources];
+  const validated = validateEvidenceCandidates(question, suppliedSources, candidates);
   const request: ReviewEvaluatorRequest = {
     targetType: 'EVIDENCE',
     researchQuestion: question,
-    source,
-    candidates: evidence,
+    sources: validated.sources,
+    candidates: validated.evidence,
   };
   const proposals = await modelCaller(request);
-  return assembleReviewRecommendations('EVIDENCE', evidence, proposals, options);
+  return assembleReviewRecommendations('EVIDENCE', validated.evidence, proposals, options);
 }
