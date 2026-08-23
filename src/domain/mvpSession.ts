@@ -4,6 +4,7 @@ import { MvpWorkflowStageSchema, MvpWorkflowStateSchema } from './mvpWorkflow.js
 import { WorkflowPerformanceTraceSchema } from './performanceTrace.js';
 import { ProductionPackageSchema } from './productionPackage.js';
 import { ProductionReviewReportSchema } from './productionReview.js';
+import { ProductionPackageVersionSchema } from './productionVersion.js';
 import { ReviewRecommendationSchema } from './reviewRecommendation.js';
 import { RevisionRequestSchema } from './revisionRequest.js';
 
@@ -20,6 +21,7 @@ export const MvpSessionEventTypeSchema = z.enum([
   'REVISION_REPAIR_REQUESTED',
   'REVISION_COMPLETED',
   'PRODUCTION_REVIEWED',
+  'PRODUCTION_VERSION_CREATED',
   'DOWNSTREAM_INVALIDATED',
   'AUDIT_EXECUTED',
   'PACKAGE_BUILT',
@@ -55,6 +57,7 @@ export const MvpSessionSchema = z.object({
   reviewRecommendations: z.array(ReviewRecommendationSchema).max(500).optional(),
   revisionRequests: z.array(RevisionRequestSchema).max(100).optional(),
   productionReviews: z.array(ProductionReviewReportSchema).max(20).optional(),
+  productionVersions: z.array(ProductionPackageVersionSchema).max(20).optional(),
 });
 
 export type MvpSessionEventType = z.infer<typeof MvpSessionEventTypeSchema>;
