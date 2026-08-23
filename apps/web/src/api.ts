@@ -74,6 +74,66 @@ export interface ReviewRecommendation {
   model: string;
 }
 
+export type RevisionType =
+  | 'PROJECT_DURATION_CHANGE'
+  | 'SOURCE_APPROVAL_REVOKE'
+  | 'CLAIM_REVISION'
+  | 'SHOT_REVISION'
+  | 'VISUAL_REVISION';
+
+export type RevisionTargetType =
+  | 'PROJECT'
+  | 'SourceRecord'
+  | 'ClaimRecord'
+  | 'ShotRecord'
+  | 'VisualDecisionRecord';
+
+export interface RevisionDraft {
+  type: RevisionType;
+  targetType: RevisionTargetType;
+  targetRecordId: string | null;
+  reason: string;
+  instruction?: string;
+  proposedDurationMinutes?: number;
+}
+
+export interface RevisionRequest extends RevisionDraft {
+  id: string;
+  requestedBy: string;
+  createdAt: string;
+  status: 'REQUESTED' | 'APPLIED' | 'CANCELLED';
+}
+
+export interface RevisionImpactCounts {
+  researchQuestions: number;
+  sources: number;
+  evidence: number;
+  claims: number;
+  scriptLines: number;
+  scenes: number;
+  shots: number;
+  visualDecisions: number;
+}
+
+export interface RevisionImpact {
+  revisionId: string;
+  type: RevisionType;
+  targetType: RevisionTargetType;
+  targetRecordId: string | null;
+  affectedRecordIds: string[];
+  counts: RevisionImpactCounts;
+  invalidatesAudit: boolean;
+  invalidatesProductionPackage: boolean;
+  preservedLayers: string[];
+  affectedLayers: string[];
+  summary: string;
+}
+
+export interface RevisionPreview {
+  revision: RevisionRequest;
+  impact: RevisionImpact;
+}
+
 export interface CoverageWaiver {
   id: string;
   stage: string;
@@ -257,6 +317,7 @@ export interface SessionView {
   projectInput: CreateSessionInput;
   directorFeedback: DirectorFeedback[];
   reviewRecommendations: ReviewRecommendation[];
+  revisionRequests: RevisionRequest[];
   gate: ReviewGate | null;
   continueAction: ContinueAction;
   workflowInsights: WorkflowInsights;
@@ -368,6 +429,48 @@ export function reviewSession(
 export function assistReview(sessionId: string): Promise<SessionView> {
   return request<SessionView>(
     `/api/sessions/${encodeURIComponent(sessionId)}/review-assist`,
+    { method: 'POST' }
+  );
+}
+
+export function previewRevision(
+  sessionId: string,
+  draft: RevisionDraft
+): Promise<RevisionPreview> {
+  return request<RevisionPreview>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/revisions/preview`,
+    { method: 'POST', body: JSON.stringify(draft) }
+  );
+}
+
+export function applyRevision(
+  sessionId: string,
+  preview: RevisionPreview
+): Promise<SessionView> {
+  const { revision } = preview;
+  return request<SessionView>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/revisions/apply`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        id: revision.id,
+        type: revision.type,
+        targetType: revision.targetType,
+        targetRecordId: revision.targetRecordId,
+        reason: revision.reason,
+        instruction: revision.instruction,
+        proposedDurationMinutes: revision.proposedDurationMinutes,
+      }),
+    }
+  );
+}
+
+export function repairRevision(
+  sessionId: string,
+  revisionId: string
+): Promise<SessionView> {
+  return request<SessionView>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/revisions/${encodeURIComponent(revisionId)}/repair`,
     { method: 'POST' }
   );
 }
