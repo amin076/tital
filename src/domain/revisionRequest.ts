@@ -19,6 +19,7 @@ export const RevisionTargetTypeSchema = z.enum([
 export const RevisionRequestStatusSchema = z.enum([
   'REQUESTED',
   'APPLIED',
+  'REPAIRING',
   'CANCELLED',
 ]);
 
