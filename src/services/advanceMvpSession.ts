@@ -68,6 +68,36 @@ function safeAutomationFailureMessage(error: unknown): string {
   return 'The next automated stage failed before producing trusted workflow state. No project records were changed.';
 }
 
+function completeRepairingRevisions(
+  session: MvpSession,
+  at: string,
+  eventIdFactory: () => string
+): MvpSession {
+  const active = (session.revisionRequests ?? []).filter(
+    (revision) => revision.status === 'REPAIRING'
+  );
+  if (active.length === 0) return session;
+
+  return MvpSessionSchema.parse({
+    ...session,
+    revisionRequests: (session.revisionRequests ?? []).map((revision) =>
+      revision.status === 'REPAIRING'
+        ? { ...revision, status: 'COMPLETED' }
+        : revision
+    ),
+    events: [
+      ...session.events,
+      {
+        id: eventIdFactory(),
+        type: 'REVISION_COMPLETED',
+        at,
+        stage: 'COMPLETE',
+        message: `${active.length} governed revision${active.length === 1 ? '' : 's'} completed after human-reviewed repair, re-audit, and production-package rebuild.`,
+      },
+    ],
+  });
+}
+
 export async function advanceMvpSession(
   session: MvpSession,
   options: AdvanceMvpSessionOptions = {}
@@ -184,7 +214,7 @@ export async function advanceMvpSession(
     }
 
     if (result.disposition === 'COMPLETE') {
-      return current;
+      return completeRepairingRevisions(current, now, eventIdFactory);
     }
   }
 
