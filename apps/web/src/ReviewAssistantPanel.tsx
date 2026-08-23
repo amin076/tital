@@ -73,6 +73,9 @@ export function ReviewAssistantPanel({
   const suggestedApprovalIds = current
     .filter((recommendation) => recommendation.recommendation === 'APPROVE_SUGGESTED')
     .map((recommendation) => recommendation.targetRecordId);
+  const suggestedRejectionIds = current
+    .filter((recommendation) => recommendation.recommendation === 'REJECT_SUGGESTED')
+    .map((recommendation) => recommendation.targetRecordId);
   const highAttentionIds = current
     .filter((recommendation) => recommendation.attention === 'HIGH')
     .map((recommendation) => recommendation.targetRecordId);
@@ -106,7 +109,8 @@ export function ReviewAssistantPanel({
             <Chip label={`${counts.HIGH} high attention`} color={counts.HIGH ? 'error' : 'default'} variant="outlined" />
             <Chip label={`${counts.MEDIUM} medium`} color={counts.MEDIUM ? 'warning' : 'default'} variant="outlined" />
             <Chip label={`${counts.LOW} low`} color={counts.LOW ? 'success' : 'default'} variant="outlined" />
-            <Chip label={`${current.length} reviewed by AI`} variant="outlined" />
+            <Chip label={`${suggestedApprovalIds.length} approve suggested`} variant="outlined" />
+            <Chip label={`${suggestedRejectionIds.length} reject suggested`} variant="outlined" />
           </Stack>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75} useFlexGap sx={{ mt: 1.25, flexWrap: 'wrap' }}>
@@ -116,10 +120,17 @@ export function ReviewAssistantPanel({
             <Button size="small" disabled={suggestedApprovalIds.length === 0} onClick={() => onSelectIds(suggestedApprovalIds)}>
               Select suggested approvals ({suggestedApprovalIds.length})
             </Button>
+            <Button size="small" disabled={suggestedRejectionIds.length === 0} onClick={() => onSelectIds(suggestedRejectionIds)}>
+              Select suggested rejections ({suggestedRejectionIds.length})
+            </Button>
             <Button size="small" disabled={highAttentionIds.length === 0} onClick={() => onSelectIds(highAttentionIds)}>
               Select high-attention ({highAttentionIds.length})
             </Button>
           </Stack>
+
+          <Alert severity="warning" variant="outlined" sx={{ mt: 1.25 }}>
+            Assisted selection only checks boxes. You must still press Approve selected or Reject selected in the human gate below.
+          </Alert>
 
           <Stack spacing={1} sx={{ mt: 1.4 }}>
             {visible.map((recommendation) => {
