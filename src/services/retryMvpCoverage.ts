@@ -149,7 +149,19 @@ export async function retryMvpCoverage(
       const claims = chain.claims.filter(
         (record) => record.researchQuestionId === questionId
       );
-      return services.generateScriptLines(claims, approvedQuestion(state, questionId));
+      return services.generateScriptLines(
+        claims,
+        approvedQuestion(state, questionId),
+        undefined,
+        {
+          generationContext: {
+            targetDurationMinutes: state.filmBrief.durationMinutes,
+            ...(options.scopedInstruction
+              ? { scopedInstruction: options.scopedInstruction }
+              : {}),
+          },
+        }
+      );
     });
     const additions = novel(
       state.scriptLines,
