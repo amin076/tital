@@ -20,6 +20,7 @@ export const RevisionRequestStatusSchema = z.enum([
   'REQUESTED',
   'APPLIED',
   'REPAIRING',
+  'COMPLETED',
   'CANCELLED',
 ]);
 
