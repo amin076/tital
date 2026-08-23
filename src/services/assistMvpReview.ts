@@ -10,12 +10,19 @@ import {
   type ReviewEvaluatorModelCaller,
 } from './evaluateReviewRecommendations.js';
 import { getCurrentMvpReviewGate } from './getCurrentMvpReviewGate.js';
+import {
+  reviewFinalProduction,
+  type FinalProductionReviewModelCaller,
+} from './reviewFinalProduction.js';
 
 export interface AssistMvpReviewOptions {
   modelCaller?: ReviewEvaluatorModelCaller;
+  productionReviewModelCaller?: FinalProductionReviewModelCaller;
   now?: () => string;
   eventIdFactory?: () => string;
   recommendationIdFactory?: () => string;
+  productionReviewIdFactory?: () => string;
+  productionFindingIdFactory?: () => string;
   concurrency?: number;
 }
 
@@ -44,12 +51,9 @@ function mergeRecommendations(
 }
 
 /**
- * Runs a non-authoritative AI review over the current Source or Evidence human gate.
- * The returned recommendations are advisory only; this service never changes any
- * workflow record status and therefore cannot approve or reject trusted state.
- *
- * Candidates are batched by ResearchQuestion and evaluated with bounded concurrency
- * so a large evidence gate does not require one model call per source/evidence item.
+ * Runs non-authoritative AI assistance at a high-volume Source/Evidence human gate,
+ * or a whole-package semantic review after production is READY_FOR_PRODUCTION.
+ * Neither mode changes trusted approval state.
  */
 export async function assistMvpReview(
   session: MvpSession,
@@ -58,9 +62,19 @@ export async function assistMvpReview(
   const validated = MvpSessionSchema.parse(session);
   const gate = getCurrentMvpReviewGate(validated.state);
 
+  if (!gate && validated.productionPackage?.status === 'READY_FOR_PRODUCTION') {
+    return reviewFinalProduction(validated, {
+      modelCaller: options.productionReviewModelCaller,
+      now: options.now,
+      eventIdFactory: options.eventIdFactory,
+      reportIdFactory: options.productionReviewIdFactory,
+      findingIdFactory: options.productionFindingIdFactory,
+    });
+  }
+
   if (!gate || !['SourceRecord', 'EvidenceRecord'].includes(gate.recordType)) {
     throw new Error(
-      'AI review assistance is currently available only while SourceRecord or EvidenceRecord candidates are awaiting human review.'
+      'AI review assistance is available only while SourceRecord or EvidenceRecord candidates await human review, or after a READY_FOR_PRODUCTION package exists.'
     );
   }
 
