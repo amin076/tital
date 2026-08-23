@@ -74,6 +74,7 @@ export function getMvpSessionView(session: MvpSession) {
     rawIdea: validated.rawIdea,
     projectInput: validated.projectInput ?? { rawIdea: validated.rawIdea },
     directorFeedback: validated.directorFeedback ?? [],
+    reviewRecommendations: validated.reviewRecommendations ?? [],
     gate: getCurrentMvpReviewGate(validated.state),
     continueAction: continueActionFor(validated),
     workflowInsights: getMvpWorkflowInsights(validated.state),

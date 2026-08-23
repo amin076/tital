@@ -31,6 +31,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import {
   ApiError,
+  assistReview,
   continueSession,
   getSession,
   listSessions,
@@ -44,6 +45,7 @@ import { FinalResultsPanel } from './FinalResultsPanel';
 import { NewProjectPanel } from './NewProjectPanel';
 import { ProvenancePanel } from './ProvenancePanel';
 import { ReadableRecord, recordKindFromGateType } from './ReadableRecord';
+import { ReviewAssistantPanel } from './ReviewAssistantPanel';
 import { WorkflowInsightsPanel } from './WorkflowInsightsPanel';
 
 const COUNT_LABELS: Record<string, string> = {
@@ -335,6 +337,10 @@ export function App() {
     });
   }
 
+  function selectRecordIds(ids: string[]): void {
+    setSelectedRecordIds(new Set(ids));
+  }
+
   function rejectionGaps(): ReviewCoverageGroup[] {
     if (!view?.gate) return [];
     return view.gate.coverageGroups.filter((group) => group.approvedRecordCount === 0 && group.pendingRecordIds.length > 0 && group.pendingRecordIds.every((id) => selectedRecordIds.has(id)));
@@ -378,6 +384,22 @@ export function App() {
     setReplacementInstruction('');
     setRememberReplacementInstruction(false);
     setReplacementDialogOpen(true);
+  }
+
+  async function runAssistReview(): Promise<void> {
+    if (!selectedId || !view?.gate) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const nextView = await assistReview(selectedId);
+      setView(nextView);
+      setSelectedRecordIds(new Set());
+      await refreshSessions();
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function runContinue(): Promise<void> {
@@ -520,6 +542,15 @@ export function App() {
 
                 {view.summary.stage !== 'COMPLETE' && (
                   <>
+                    {view.gate && (
+                      <ReviewAssistantPanel
+                        gate={view.gate}
+                        recommendations={view.reviewRecommendations}
+                        busy={busy}
+                        onRun={() => void runAssistReview()}
+                        onSelectIds={selectRecordIds}
+                      />
+                    )}
                     <ReviewGatePanel view={view} selectedIds={selectedRecordIds} onToggle={toggleRecord} onReview={runReview} onTryAnother={runTryAnother} busy={busy} />
                     <ContinuePanel view={view} busy={busy} onContinue={() => void runContinue()} />
                   </>

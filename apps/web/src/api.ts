@@ -60,6 +60,20 @@ export interface ReviewGate {
   coverageGroups: ReviewCoverageGroup[];
 }
 
+export interface ReviewRecommendation {
+  id: string;
+  targetType: 'SOURCE' | 'EVIDENCE';
+  targetRecordId: string;
+  recommendation: 'APPROVE_SUGGESTED' | 'REJECT_SUGGESTED' | 'REVIEW_REQUIRED';
+  attention: 'LOW' | 'MEDIUM' | 'HIGH';
+  confidence: number;
+  reasons: string[];
+  risks: string[];
+  flags: string[];
+  createdAt: string;
+  model: string;
+}
+
 export interface CoverageWaiver {
   id: string;
   stage: string;
@@ -242,6 +256,7 @@ export interface SessionView {
   rawIdea: string;
   projectInput: CreateSessionInput;
   directorFeedback: DirectorFeedback[];
+  reviewRecommendations: ReviewRecommendation[];
   gate: ReviewGate | null;
   continueAction: ContinueAction;
   workflowInsights: WorkflowInsights;
@@ -347,6 +362,13 @@ export function reviewSession(
         rememberInstruction: options.rememberInstruction,
       }),
     }
+  );
+}
+
+export function assistReview(sessionId: string): Promise<SessionView> {
+  return request<SessionView>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/review-assist`,
+    { method: 'POST' }
   );
 }
 

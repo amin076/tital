@@ -27,12 +27,25 @@ function completedSession(): MvpSession {
     createdAt: '2026-08-20T00:00:00.000Z', updatedAt: '2026-08-20T01:00:00.000Z',
     state: { filmBrief, researchQuestions, sources, evidence, claims, scriptLines, scenes, shots, visualDecisions, coverageWaivers: [], audit: productionPackage.audit },
     productionPackage,
+    reviewRecommendations: [{
+      id: 'REV-private',
+      targetType: 'SOURCE',
+      targetRecordId: 'SRC-1',
+      recommendation: 'APPROVE_SUGGESTED',
+      attention: 'LOW',
+      confidence: 0.9,
+      reasons: ['Private reviewer context'],
+      risks: [],
+      flags: [],
+      createdAt: '2026-08-20T00:30:00.000Z',
+      model: 'gemini-3.5-flash',
+    }],
     events: [{ id: 'EVT-private', type: 'PACKAGE_BUILT', at: '2026-08-20T01:00:00.000Z', stage: 'COMPLETE', message: 'Private event history' }],
   };
 }
 
 describe('createPublicDemoSession', () => {
-  it('creates a detached completed snapshot without personal input or event history', () => {
+  it('creates a detached completed snapshot without personal input, event history, or AI reviewer metadata', () => {
     const snapshot = createPublicDemoSession(completedSession(), { now: () => '2026-08-20T02:00:00.000Z' });
 
     expect(snapshot.id).toBe(PUBLIC_DEMO_SESSION_ID);
@@ -41,6 +54,7 @@ describe('createPublicDemoSession', () => {
     expect(snapshot.events).toHaveLength(1);
     expect(snapshot.events[0]?.message).toContain('Detached read-only public demo snapshot');
     expect(snapshot.directorFeedback).toEqual([]);
+    expect(snapshot.reviewRecommendations).toEqual([]);
     expect(snapshot.productionPackage?.status).toBe('READY_FOR_PRODUCTION');
     expect(snapshot.state.visualDecisions).toHaveLength(1);
   });

@@ -3,11 +3,13 @@ import { FilmProjectInputSchema } from './filmProjectInput.js';
 import { MvpWorkflowStageSchema, MvpWorkflowStateSchema } from './mvpWorkflow.js';
 import { WorkflowPerformanceTraceSchema } from './performanceTrace.js';
 import { ProductionPackageSchema } from './productionPackage.js';
+import { ReviewRecommendationSchema } from './reviewRecommendation.js';
 
 export const MvpSessionEventTypeSchema = z.enum([
   'SESSION_CREATED',
   'AUTOMATION_EXECUTED',
   'AUTOMATION_FAILED',
+  'REVIEW_ASSISTED',
   'REVIEW_DECISION',
   'RETRY_REQUESTED',
   'COVERAGE_WAIVED',
@@ -43,6 +45,7 @@ export const MvpSessionSchema = z.object({
   productionPackage: ProductionPackageSchema.nullable(),
   events: z.array(MvpSessionEventSchema),
   directorFeedback: z.array(DirectorFeedbackSchema).max(50).optional(),
+  reviewRecommendations: z.array(ReviewRecommendationSchema).max(500).optional(),
 });
 
 export type MvpSessionEventType = z.infer<typeof MvpSessionEventTypeSchema>;
