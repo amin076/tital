@@ -47,12 +47,7 @@ function completeState(): MvpWorkflowState {
       { id: 'VD-2', researchQuestionId: 'RQ-2', shotId: 'SH-2', category: 'SCHEMATIC', decision: 'Render sunset geometry', scientificConstraint: 'Preserve path comparison', disclosure: null, riskLevel: 'LOW', status: 'APPROVED' },
     ],
     coverageWaivers: [],
-    audit: {
-      id: 'AUD-1',
-      generatedAt: '2026-08-20T01:00:00.000Z',
-      passed: true,
-      issues: [],
-    },
+    audit: { passed: true, issues: [] },
   };
 }
 
