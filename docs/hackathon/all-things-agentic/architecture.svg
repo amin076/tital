@@ -1,97 +1,109 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
-  <title id="title">Tital All Things Agentic architecture</title>
-  <desc id="desc">Architecture diagram showing the Director Workspace on Cloud Run, safe runtime proof, Firebase authentication, governed orchestration, opt-in director feedback memory, Google ADK agents using Gemini 3.5 Flash on Vertex AI, Parallel Search MCP, Cloud Storage, human review, deterministic audit, and the production package.</desc>
+  <title id="title">Tital governed scientific-film architecture</title>
+  <desc id="desc">Tital architecture showing Cloud Run, Firebase, Cloud Storage, Google ADK with Gemini 3.5 Flash, Parallel web search and web fetch, adaptive evidence budgeting, advisory AI review, human review, deterministic audit, governed revision, and versioned production packages.</desc>
   <defs>
     <style>
-      .bg{fill:#f4f7f9}.shell{fill:#123d58}.card{fill:#fff;stroke:#ccd8df;stroke-width:2}.google{fill:#eef5ff;stroke:#7ca7e5;stroke-width:2}.human{fill:#fff7e8;stroke:#d6a34a;stroke-width:2}.trust{fill:#edf8f5;stroke:#4c9a8f;stroke-width:2}.store{fill:#f4effb;stroke:#9c7cc3;stroke-width:2}.out{fill:#eff8ef;stroke:#67a76f;stroke-width:2}.t{font-family:Arial,Helvetica,sans-serif;fill:#102b3b}.white{fill:#fff}.h1{font-size:38px;font-weight:700}.h2{font-size:23px;font-weight:700}.body{font-size:17px}.small{font-size:14px;fill:#526b79}.arrow{stroke:#4d6978;stroke-width:3;fill:none;marker-end:url(#m)}.dash{stroke:#7c929d;stroke-width:2;stroke-dasharray:8 7;fill:none;marker-end:url(#m)}
+      .bg{fill:#f4f7f9}.shell{fill:#123d58}.card{fill:#fff;stroke:#ccd8df;stroke-width:2}.google{fill:#eef5ff;stroke:#7ca7e5;stroke-width:2}.human{fill:#fff7e8;stroke:#d6a34a;stroke-width:2}.trust{fill:#edf8f5;stroke:#4c9a8f;stroke-width:2}.store{fill:#f4effb;stroke:#9c7cc3;stroke-width:2}.out{fill:#eff8ef;stroke:#67a76f;stroke-width:2}.accent{fill:#fff2ef;stroke:#d98972;stroke-width:2}.t{font-family:Arial,Helvetica,sans-serif;fill:#102b3b}.white{fill:#fff}.h1{font-size:36px;font-weight:700}.h2{font-size:21px;font-weight:700}.body{font-size:16px}.small{font-size:13px;fill:#526b79}.arrow{stroke:#4d6978;stroke-width:3;fill:none;marker-end:url(#m)}.dash{stroke:#7c929d;stroke-width:2;stroke-dasharray:8 7;fill:none;marker-end:url(#m)}
     </style>
     <marker id="m" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#4d6978"/></marker>
   </defs>
   <rect class="bg" width="1600" height="900"/>
-  <rect class="shell" x="0" y="0" width="1600" height="105"/>
-  <text class="white h1" x="65" y="55">Tital — Evidence-Governed Scientific Film Director</text>
-  <text class="white body" x="67" y="82" opacity="0.82">All Things Agentic · Collaborative Partner · Gemini 3.5 Flash + Google ADK + Google Cloud</text>
+  <rect class="shell" x="0" y="0" width="1600" height="102"/>
+  <text class="white h1" x="60" y="52">Tital — Governed Evidence-to-Production Architecture</text>
+  <text class="white body" x="62" y="80" opacity="0.84">Gemini 3.5 Flash · Google ADK · Vertex AI · Cloud Run · Parallel Search MCP · Human authority</text>
 
-  <rect class="card" x="55" y="155" rx="20" width="270" height="155"/>
-  <text class="t h2" x="82" y="195">Director / Evaluator</text>
-  <text class="t body" x="82" y="232">Public demo</text>
-  <text class="t body" x="82" y="258">Authenticated workspace</text>
-  <text class="t body" x="82" y="284">Approve · Reject · Retry · Waive</text>
+  <rect class="card" x="45" y="135" rx="18" width="260" height="138"/>
+  <text class="t h2" x="72" y="173">Director / Evaluator</text>
+  <text class="t body" x="72" y="205">Create · review · revise</text>
+  <text class="t body" x="72" y="232">Approve · Reject · Retry · Waive</text>
+  <text class="small" x="72" y="255">Human owns trusted decisions</text>
 
-  <rect class="google" x="410" y="145" rx="20" width="310" height="175"/>
-  <text class="t h2" x="440" y="186">Cloud Run</text>
-  <text class="t body" x="440" y="220">React 19 + MUI Director UI</text>
-  <text class="t body" x="440" y="248">Node API</text>
-  <text class="t body" x="440" y="276">same-origin /api/*</text>
-  <text class="small" x="440" y="302">Runtime proof: model · framework · revision · release</text>
+  <rect class="google" x="365" y="128" rx="18" width="290" height="152"/>
+  <text class="t h2" x="395" y="168">Cloud Run</text>
+  <text class="t body" x="395" y="200">React + MUI Director Workspace</text>
+  <text class="t body" x="395" y="226">Node API / governed services</text>
+  <text class="small" x="395" y="254">Runtime + revision + release proof</text>
 
-  <rect class="google" x="805" y="145" rx="20" width="280" height="175"/>
-  <text class="t h2" x="835" y="186">Firebase Auth</text>
-  <text class="t body" x="835" y="220">Email / Password</text>
-  <text class="t body" x="835" y="248">Backend ID-token verification</text>
-  <text class="t body" x="835" y="276">UID-scoped sessions</text>
+  <rect class="google" x="715" y="128" rx="18" width="260" height="152"/>
+  <text class="t h2" x="745" y="168">Firebase Auth</text>
+  <text class="t body" x="745" y="200">ID-token verification</text>
+  <text class="t body" x="745" y="226">UID-scoped projects</text>
 
-  <rect class="store" x="1180" y="145" rx="20" width="350" height="175"/>
-  <text class="t h2" x="1210" y="186">Google Cloud Storage</text>
-  <text class="t body" x="1210" y="220">Persistent governed session state</text>
-  <text class="t body" x="1210" y="248">Review history + performance traces</text>
-  <text class="t body" x="1210" y="276">Detached public demo snapshot</text>
+  <rect class="store" x="1035" y="128" rx="18" width="310" height="152"/>
+  <text class="t h2" x="1065" y="168">Cloud Storage</text>
+  <text class="t body" x="1065" y="200">Governed project state</text>
+  <text class="t body" x="1065" y="226">Review · revision · version history</text>
+  <text class="small" x="1065" y="254">Detached public demo snapshot</text>
 
-  <path class="arrow" d="M325 232 H410"/>
-  <path class="arrow" d="M720 205 H805"/>
-  <path class="arrow" d="M1085 232 H1180"/>
+  <path class="arrow" d="M305 204 H365"/><path class="arrow" d="M655 190 H715"/><path class="arrow" d="M975 204 H1035"/>
 
-  <rect class="trust" x="285" y="395" rx="22" width="440" height="250"/>
-  <text class="t h2" x="320" y="438">Governed Session Orchestrator</text>
-  <text class="t body" x="320" y="475">Typed workflow + coverage evaluation</text>
-  <text class="t body" x="320" y="505">Deterministic Zod validation</text>
-  <text class="t body" x="320" y="535">Application-owned IDs + provenance</text>
-  <text class="t body" x="320" y="565">Retry + waiver + staleness + feedback memory</text>
-  <text class="t body" x="320" y="595">Bounded concurrency + timing traces</text>
-  <text class="small" x="320" y="624">Model proposes; application decides what can become trusted state.</text>
+  <rect class="trust" x="70" y="340" rx="20" width="390" height="250"/>
+  <text class="t h2" x="100" y="380">Governed Orchestrator</text>
+  <text class="t body" x="100" y="414">Typed workflow + coverage rules</text>
+  <text class="t body" x="100" y="442">Zod validation + trusted ID mapping</text>
+  <text class="t body" x="100" y="470">Retry / waiver / STALE invalidation</text>
+  <text class="t body" x="100" y="498">Revision impact + selective repair</text>
+  <text class="t body" x="100" y="526">Bounded concurrency + timing traces</text>
+  <text class="small" x="100" y="556">Application policy, not model memory, controls state.</text>
 
-  <rect class="google" x="810" y="385" rx="22" width="335" height="270"/>
-  <text class="t h2" x="845" y="428">Google ADK Agents</text>
-  <text class="t body" x="845" y="465">Define · Research · Evidence</text>
-  <text class="t body" x="845" y="493">Claims · Script · Scenes</text>
-  <text class="t body" x="845" y="521">Shots · Visual Decisions</text>
-  <rect class="card" x="845" y="548" rx="14" width="265" height="72"/>
-  <text class="t h2" x="872" y="578">Gemini 3.5 Flash</text>
-  <text class="small" x="872" y="602">Vertex AI · model gemini-3.5-flash</text>
+  <rect class="google" x="515" y="330" rx="20" width="330" height="260"/>
+  <text class="t h2" x="545" y="370">Google ADK Agents</text>
+  <text class="t body" x="545" y="404">Define · Research · Evidence</text>
+  <text class="t body" x="545" y="430">Claims · Script · Scenes</text>
+  <text class="t body" x="545" y="456">Shots · Visual Decisions</text>
+  <text class="t body" x="545" y="482">Review Evaluator · Final Review</text>
+  <rect class="card" x="545" y="510" rx="12" width="270" height="58"/>
+  <text class="t h2" x="568" y="538">Gemini 3.5 Flash</text>
+  <text class="small" x="568" y="558">Vertex AI</text>
 
-  <rect class="card" x="1230" y="395" rx="22" width="300" height="125"/>
-  <text class="t h2" x="1260" y="438">Parallel Search MCP</text>
-  <text class="t body" x="1260" y="472">web_search tool</text>
-  <text class="small" x="1260" y="498">Source discovery only; candidates validated</text>
+  <rect class="card" x="905" y="330" rx="20" width="300" height="118"/>
+  <text class="t h2" x="935" y="370">Parallel Search MCP</text>
+  <text class="t body" x="935" y="402">web_search → discovery</text>
+  <text class="t body" x="935" y="428">web_fetch → approved full source</text>
 
-  <rect class="human" x="1230" y="560" rx="22" width="300" height="125"/>
-  <text class="t h2" x="1260" y="603">Human Review Gate</text>
-  <text class="t body" x="1260" y="637">Approve · Reject · Try another</text>
-  <text class="small" x="1260" y="663">Explicit opt-in can guide later cinematic proposals</text>
+  <rect class="accent" x="905" y="475" rx="20" width="300" height="115"/>
+  <text class="t h2" x="935" y="514">Adaptive Evidence Budget</text>
+  <text class="t body" x="935" y="544">Broad candidate pool → active subset</text>
+  <text class="small" x="935" y="568">Remainder preserved as ARCHIVED_CANDIDATE</text>
 
-  <path class="arrow" d="M565 320 V395"/>
-  <path class="arrow" d="M725 515 H810"/>
-  <path class="arrow" d="M1145 466 H1230"/>
-  <path class="dash" d="M1230 622 H1150 V575"/>
-  <path class="dash" d="M1230 457 H1148"/>
-  <path class="dash" d="M810 600 H760 V600 H725"/>
+  <rect class="human" x="1260" y="330" rx="20" width="285" height="260"/>
+  <text class="t h2" x="1288" y="370">AI + Human Review</text>
+  <text class="t body" x="1288" y="404">Gemini recommends attention</text>
+  <text class="t body" x="1288" y="430">reasons · risks · confidence</text>
+  <text class="t body" x="1288" y="466">Human approves / rejects</text>
+  <text class="t body" x="1288" y="492">or requests revision</text>
+  <text class="small" x="1288" y="526">AI recommendation ≠ trusted approval</text>
+  <text class="small" x="1288" y="552">Director feedback reused only by explicit choice</text>
 
-  <rect class="out" x="285" y="735" rx="22" width="440" height="120"/>
-  <text class="t h2" x="320" y="776">Governance &amp; Provenance Audit</text>
-  <text class="t body" x="320" y="810">Approved-chain integrity · visual category · disclosure</text>
-  <text class="small" x="320" y="837">Deterministic audit; not independent scientific peer review</text>
+  <path class="arrow" d="M460 458 H515"/>
+  <path class="arrow" d="M845 390 H905"/>
+  <path class="arrow" d="M845 530 H905"/>
+  <path class="arrow" d="M1205 530 H1260"/>
+  <path class="dash" d="M1260 460 H1220 V400 H1205"/>
+  <path class="dash" d="M1260 550 H1218 V570 H460"/>
 
-  <rect class="out" x="810" y="735" rx="22" width="335" height="120"/>
-  <text class="t h2" x="845" y="776">ProductionPackage</text>
-  <text class="t body" x="845" y="810">JSON · text · PDF · provenance trace</text>
-  <text class="small" x="845" y="837">READY_FOR_PRODUCTION only after governance gates</text>
+  <rect class="out" x="80" y="690" rx="20" width="340" height="135"/>
+  <text class="t h2" x="110" y="730">Governance &amp; Provenance Audit</text>
+  <text class="t body" x="110" y="760">Approved-chain integrity</text>
+  <text class="t body" x="110" y="785">representation / disclosure rules</text>
+  <text class="small" x="110" y="808">Deterministic; not scientific peer review</text>
 
-  <rect class="card" x="1230" y="735" rx="22" width="300" height="120"/>
-  <text class="t h2" x="1260" y="776">Public Demo Snapshot</text>
-  <text class="t body" x="1260" y="810">Detached · read-only · no login</text>
-  <text class="small" x="1260" y="837">Evaluators inspect a completed chain instantly</text>
+  <rect class="out" x="500" y="690" rx="20" width="320" height="135"/>
+  <text class="t h2" x="530" y="730">ProductionPackage</text>
+  <text class="t body" x="530" y="760">READY_FOR_PRODUCTION</text>
+  <text class="t body" x="530" y="785">JSON · text · PDF · provenance</text>
 
-  <path class="arrow" d="M505 645 V735"/>
-  <path class="arrow" d="M725 795 H810"/>
-  <path class="arrow" d="M1145 795 H1230"/>
+  <rect class="accent" x="900" y="690" rx="20" width="310" height="135"/>
+  <text class="t h2" x="930" y="730">Governed Revision</text>
+  <text class="t body" x="930" y="760">Impact preview → STALE</text>
+  <text class="t body" x="930" y="785">Selective repair → re-audit</text>
+  <text class="small" x="930" y="808">Unchanged science stays valid</text>
+
+  <rect class="store" x="1280" y="690" rx="20" width="265" height="135"/>
+  <text class="t h2" x="1310" y="730">Version History</text>
+  <text class="t body" x="1310" y="760">Package v1 → v2</text>
+  <text class="t body" x="1310" y="785">Detached public demo</text>
+  <text class="small" x="1310" y="808">Old trusted history preserved</text>
+
+  <path class="arrow" d="M265 590 V690"/><path class="arrow" d="M420 757 H500"/><path class="arrow" d="M820 757 H900"/><path class="arrow" d="M1210 757 H1280"/>
 </svg>
