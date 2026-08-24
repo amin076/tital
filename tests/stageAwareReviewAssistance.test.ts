@@ -112,7 +112,7 @@ const visual = {
 };
 
 function sessionFor(target: ReviewTargetType): MvpSession {
-  const state = {
+  const state: MvpSession['state'] = {
     filmBrief: { ...filmBrief },
     researchQuestions: [{ ...question }],
     sources: [{ ...source }],
