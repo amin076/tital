@@ -18,7 +18,16 @@ export const EvidenceRecordSchema = z.object({
   strength: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   uncertainty: EvidenceUncertaintySchema,
   grounding: EvidenceGroundingSchema.optional(),
-  status: z.enum(['DRAFT', 'REVIEW_REQUIRED', 'APPROVED', 'REJECTED', 'STALE']),
+  // ARCHIVED_CANDIDATE preserves broad machine research without forcing every
+  // extracted proposition through the human gate or downstream production chain.
+  status: z.enum([
+    'DRAFT',
+    'REVIEW_REQUIRED',
+    'ARCHIVED_CANDIDATE',
+    'APPROVED',
+    'REJECTED',
+    'STALE',
+  ]),
 });
 
 export type EvidenceGrounding = z.infer<typeof EvidenceGroundingSchema>;
