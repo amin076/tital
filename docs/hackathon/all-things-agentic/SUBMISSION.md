@@ -1,12 +1,12 @@
 # All Things Agentic Hackathon — Tital Submission Draft
 
-Status: **code and submission package deployed; automated runtime verification passed; authenticated Gemini 3.5 Flash Aurora E2E passed; demo-video recording remains the main release gate**
+Status: **hosted production application; Gemini 3.5/ADK/Vertex runtime proven; feedback-driven review/revision/grounding improvements implemented or in final smoke validation; demo-video recording remains a release gate.**
 
 ## Category
 
 **The Collaborative Partner**
 
-Tital is designed around an explicit collaboration loop: the agent proposes scientifically grounded work, the human director reviews it, and the workflow adapts to approvals, rejections, targeted replacement instructions, intentional gaps, a persistent Director Brief, and explicitly remembered cinematic feedback.
+Tital is designed around a collaboration loop in which AI handles proposal/research volume, independent AI evaluation helps focus attention, and the human director remains the authority for what enters or changes the trusted production chain.
 
 ## Project name
 
@@ -14,64 +14,74 @@ Tital is designed around an explicit collaboration loop: the agent proposes scie
 
 ## One-line pitch
 
-Tital turns a scientific question into a human-governed, evidence-traceable film production package, from research and claims through script, scenes, shots, and visual decisions.
+Tital turns scientific research into a traceable, reviewable, revisable film production package while keeping the human director in control of every trusted decision.
 
 ## Short description
 
-Scientific filmmaking has a structural trust problem: research, narration, and cinematic choices are often produced in separate tools, so it becomes difficult to answer a simple question — **why are we saying or showing this?**
+Scientific filmmaking has a structural trust problem: research, narration, and cinematic choices are often generated in separate tools, making it difficult to answer **why are we saying or showing this?** A generic AI chat can generate individual research notes, scripts, or shots, but it does not automatically provide application-level provenance, approval state, dependency impact, selective repair, or production history.
 
-Tital is an agentic scientific-film directing workspace that carries provenance through the whole production-planning chain. Google ADK agents powered by Gemini 3.5 Flash propose research questions, evidence interpretations, claims, narration, scenes, shots, and visual decisions. Parallel Search MCP performs source discovery. Deterministic application services validate structured outputs, own trusted IDs and provenance, and stop at explicit human review gates before downstream work can advance.
+Tital is a hosted agentic scientific-film directing workspace. Google ADK agents powered by Gemini 3.5 Flash propose structured scientific/cinematic work. Parallel Search MCP performs source discovery and exact-URL full-source retrieval. Deterministic TypeScript services validate output, map trusted identity/provenance, manage Evidence volume, enforce human gates, calculate revision impact, invalidate stale dependencies, run the governance/provenance audit, and build versioned production packages.
 
-The result is a `ProductionPackage` in which an evaluator can trace a final visual decision backwards through Shot → Scene → Script Line → Claim → Evidence → Source. Human rejection is terminal unless the director explicitly requests a replacement, and intentional omissions remain visible as governance history rather than being silently regenerated.
+The result is a production system in which a final visual decision can be traced backwards through Shot → Scene → Script Line → Claim → Evidence → Source, and a completed package can be revised without discarding unaffected approved work.
 
-## Problem
+## The problem Tital solves
 
-Scientific-film teams need both creative freedom and scientific accountability. Generic AI chat and video tools can produce compelling text or imagery, but they rarely preserve the evidence chain behind every cinematic decision, uncertainty statement, and reconstruction. They also tend to blur model suggestions with approved production decisions.
+Scientific-film teams need three things that are difficult to preserve in one AI conversation:
 
-Tital addresses that gap by making the workflow itself evidence-governed and human-gated.
+1. **scientific traceability** — what source/evidence supports the story;
+2. **human authority at scale** — humans should decide, but should not have to manually inspect every low-risk candidate with equal effort;
+3. **iterative production state** — films change after “completion”; revisions should have explicit dependency impact and history.
 
-## What the agent actually does
+Tital makes those properties first-class product behavior.
 
-1. Converts a scientific-film idea plus production controls into a structured Film Brief.
-2. Proposes research questions that must be answered before the story advances.
-3. Uses a Google ADK source agent with Parallel Search MCP to discover relevant public sources.
-4. Extracts evidence from approved source excerpts.
-5. Generates scientific claims only from approved evidence.
-6. Converts approved claims into film-ready scientific script lines.
-7. Proposes scenes, shots, and visual decisions while applying the persistent Director Brief and any feedback the director explicitly chose to remember.
-8. Stops at human review gates. The director can approve, reject, or explicitly request a replacement with scoped feedback; an opt-in control can preserve that feedback for later cinematic proposals in the same project.
-9. Tracks coverage and intentional waivers instead of silently regenerating rejected content.
-10. Runs a deterministic governance/provenance audit and releases a production package only when the governed chain is complete.
+## What Tital does
+
+1. Converts a film idea and production controls into a structured Film Brief proposal.
+2. Proposes the Research Questions the production must answer.
+3. Uses a Google ADK Source Agent with Parallel `web_search` to discover public sources.
+4. Lets Gemini independently assist Source review with attention/risk/recommendation metadata while leaving trusted status unchanged.
+5. After human Source approval, requires Parallel `web_fetch` on the exact approved URL before Evidence is created.
+6. Extracts a compact strongest Evidence set and applies an Adaptive Evidence Budget so broad research does not become an unbounded AI/human review queue.
+7. Preserves non-promoted research as `ARCHIVED_CANDIDATE` instead of deleting it.
+8. Lets an independent Gemini reviewer triage active Evidence before explicit human approval/rejection.
+9. Generates Claims only from approved active Evidence, then Script Lines, Scenes, Shots, and Visual Decisions through the same governed chain.
+10. Runs a deterministic Governance & Provenance Audit and creates a `READY_FOR_PRODUCTION` package only when required governed coverage is complete.
+11. Lets Gemini perform an advisory whole-package Final Production Review.
+12. Lets the human revise a completed production through impact preview, `STALE` invalidation, selective repair, re-review, re-audit, and a new package version.
 
 ## Collaborative Partner fit
 
-Tital is not a one-shot generator. Human feedback changes what the workflow is allowed to carry forward.
+Tital's collaboration is not a thumbs-up UI placed after a generator. Human choices affect persisted state and later control flow.
 
-- **Director Brief:** collaboration mode, pacing, camera behaviour, representation preference, visual language, notes, and explicit `avoid[]` constraints persist with the project.
-- **Human gates:** every generative stage pauses for review.
-- **Targeted adaptation:** `Reject & try another` can include a scoped instruction such as “use authentic observation footage rather than a scientific reconstruction.”
-- **Explicit feedback memory:** the director may opt in to reuse a scoped instruction in later Scene, Shot, and Visual Decision proposals. The choice is off by default, visible in the Director Context rail, and excluded from public demo snapshots.
-- **Coverage-aware decisions:** a rejection that would leave a required branch empty requires an explicit retry or an intentional waiver.
-- **No silent override:** evidence and scientific visual-integrity constraints outrank creative preferences.
+- **Director Brief:** collaboration mode, pacing, camera behavior, representation preference, visual language, notes, and `avoid[]` constraints persist with the project.
+- **AI Review Assistant:** Gemini can recommend where the human should focus, but recommendations never become approval automatically.
+- **Targeted adaptation:** `Reject & try another` can include a scoped instruction.
+- **Explicit memory:** retry guidance becomes reusable project feedback only when the director opts in.
+- **Coverage-aware decisions:** a rejection that empties required coverage must be explicitly retried or intentionally waived where policy allows.
+- **Final collaboration:** a completed package can receive AI findings, but the human chooses whether to open a governed revision.
+- **No scientific override:** director style and AI preference remain below scientific/provenance/uncertainty constraints.
 
 ## Key features
 
 - Evidence → Story provenance chain.
-- Human-gated, multi-stage agentic workflow.
+- Human-gated multi-agent workflow.
 - Gemini 3.5 Flash through Google ADK / Vertex AI.
-- Parallel Search MCP source discovery.
-- Persistent authenticated projects on Google Cloud Storage.
+- Parallel MCP `web_search` discovery and exact approved-URL `web_fetch` Evidence grounding.
+- AI-assisted Source/Evidence review with human-attention levels.
+- **Adaptive Evidence Budget** separating broad research from active production Evidence.
+- Preserved `ARCHIVED_CANDIDATE` research rather than silent deletion.
+- Persistent authenticated projects on Cloud Storage.
 - Firebase authentication and per-user namespaces.
-- Director Brief, scoped replacement instructions, and explicit opt-in Director Feedback Memory.
-- Deterministic Zod validation and application-owned trusted provenance.
-- Rejection history, duplicate-resistant retry, explicit coverage waivers.
-- Downstream `STALE` invalidation foundation for revised upstream records.
-- Governance/provenance audit before package release.
-- JSON, text, and print/PDF production-package exports.
-- Public, detached, read-only completed demo.
-- Runtime Performance Insights with measured stage/call timing and bounded-concurrency metadata.
-- GitHub Actions CI/CD using Workload Identity Federation and Cloud Run deployment.
-- Public runtime/release proof for the exact Gemini model, Google ADK, Vertex AI, Cloud Run service/revision, and deployed Git commit.
+- Director Brief and explicit project feedback memory.
+- Application-owned trusted IDs/provenance + numbered model references.
+- Rejection history, explicit retry, coverage waivers.
+- `STALE` dependency invalidation and selective repair.
+- Final Production AI Review findings separated from deterministic audit.
+- Versioned Production Packages and revision history/comparison.
+- JSON/text/print-PDF production output.
+- Detached read-only public demo.
+- Runtime Performance Insights and safe model/framework/release proof.
+- GitHub Actions deployment with Workload Identity Federation.
 
 ## Technologies used
 
@@ -83,69 +93,98 @@ Tital is not a one-shot generator. Human feedback changes what the workflow is a
 - **Google Cloud Run**
 - **Google Cloud Storage**
 - **Firebase Authentication / Firebase Admin**
-- **Google Cloud Workload Identity Federation** for keyless GitHub Actions deployment
+- **Google Workload Identity Federation**
 
 ### Application
 
-- TypeScript
-- Node.js
-- React 19
-- Vite
-- Material UI
+- TypeScript / Node.js
+- React 19 / Vite / Material UI
 - Zod
 - Vitest
+- GitHub / GitHub Actions
 
-### External data/tool source
+### Partner/data integration
 
-- **Parallel Search MCP** for public-web source discovery. Tital stores provider provenance and validates candidates before they can become governed SourceRecords.
+- **Parallel Search MCP** — `web_search` for candidate discovery and `web_fetch` for full-source Evidence grounding after human Source approval.
 
 ## Architecture highlights
 
-Tital deliberately separates semantic generation from trusted application state:
-
 ```text
-Gemini / tool proposes semantic content
+Gemini / Parallel proposes or retrieves semantic content
 → Zod/domain validation
-→ application assigns trusted identity + provenance + status
-→ human review
-→ deterministic coverage evaluation
-→ next governed stage
+→ application owns identity + provenance + status
+→ deterministic Evidence-volume policy where applicable
+→ optional independent AI review
+→ human decision
+→ deterministic coverage/workflow rules
+→ downstream production
 ```
 
-This prevents a model from approving itself, inventing trusted record IDs, or silently moving rejected work into the production chain.
-
-Hosted topology:
+Completed production is also governed:
 
 ```text
-React Director Workspace
-        ↓
-Node API on Cloud Run
-        ↓
-Governed session/orchestration services
-   ↙             ↓              ↘
-Firebase       Google ADK      Cloud Storage
-Auth           + Gemini 3.5    persistence
-                 ↓
-          Parallel Search MCP
-                 ↓
-      deterministic audit/package
+Package v1
+→ advisory Final AI Review
+→ human RevisionRequest
+→ deterministic impact preview
+→ selective STALE invalidation / repair
+→ human re-review
+→ re-audit
+→ Package v2
 ```
 
-See `ARCHITECTURE.md` and `architecture.svg` in this submission folder.
+See `ARCHITECTURE.md` and `architecture.svg`.
+
+## Why Adaptive Evidence Budget matters
+
+A live 5-minute Aurora smoke test approved 21 Sources and produced 123 full-source Evidence candidates. The Evidence runtime profile showed about 16m47s of measured stage wall time and 29 calls/executions. The run proved research depth, but it also exposed a real production bottleneck: all 123 candidates should not automatically consume Gemini review, human review, and downstream context.
+
+Tital now separates:
+
+```text
+broad research corpus
+→ Candidate Evidence Pool
+→ Adaptive Evidence Budget
+→ active production Evidence
+→ AI review assistance
+→ human decision
+```
+
+Current 5-minute baseline: **24 active Evidence target**. The deterministic selector uses film duration, Research Question priority, full-source grounding, Evidence strength, source diversity, and lightweight duplicate reduction. Non-promoted Evidence is retained as archived research.
+
+This is the intended product message:
+
+> **Tital does not minimize scientific knowledge. It minimizes unnecessary human attention and downstream computation while preserving traceable research.**
+
+Important honesty boundary: V1 still full-fetches/extracts approved Sources before global compaction, so Tital does not claim an exact API-cost percentage saving yet. Source caching and coverage-aware early stopping are future optimization layers.
 
 ## Findings and learnings
 
-### 1. Human review must change control flow, not just label output
+### 1. Human review must change control flow
 
-A rejection initially allowed a missing branch to regenerate semantically similar content under a new ID. Tital now treats rejected content as terminal history. Replacement generation requires an explicit human decision.
+Early versions could regenerate rejected branches under new IDs. Rejected records are now terminal history; replacement is explicit.
 
-### 2. Models should not echo opaque trusted IDs
+### 2. AI can help human review without replacing human authority
 
-Live end-to-end tests exposed one-character UUID/reference drift. Tital moved trusted parent IDs and provenance mapping into deterministic application code and uses numbered semantic references when a model must refer to supplied evidence or claims.
+Real users pointed out that reviewing dozens of Sources/Evidence items manually does not scale. Tital added an independent AI reviewer that explains risk/attention and can assist selection, while explicit human action remains required to change trusted state.
 
-### 3. Creative direction needs a formal precedence model
+### 3. Research breadth and production Evidence volume are different
 
-Scientific evidence does not dictate one cinematic style. Tital therefore allows strong director control, but the precedence remains:
+The 123-Evidence Aurora smoke test showed that “more Evidence” can simultaneously increase knowledge and make the application slower/more expensive/harder to review. Tital now preserves broad research but budgets the active production subset.
+
+### 4. Full-source grounding must be distinct from discovery
+
+Search excerpts are useful for selecting Sources, but new Evidence now requires exact approved-URL `web_fetch`. Tital labels this as grounding, not independent proof of scientific truth.
+
+### 5. Finished productions are iterative
+
+A director may change duration or regret an approved Source/Shot after a package is complete. Tital now calculates revision impact, invalidates only affected dependencies, repairs selectively, re-audits, and creates a new version rather than forcing a new project.
+
+### 6. Models should not echo trusted opaque IDs
+
+Live reference drift led Tital to move parent/provenance mapping into deterministic code and use numbered semantic references where selection is necessary.
+
+### 7. Creative direction needs explicit precedence
 
 ```text
 scientific evidence / uncertainty / visual-integrity constraints
@@ -154,78 +193,68 @@ scientific evidence / uncertainty / visual-integrity constraints
 > AI cinematic preference
 ```
 
-### 4. Agent latency should be measured before it is optimized
+### 8. Production latency must be measured and hardened, not guessed
 
-Tital originally serialized independent external calls inside a stage. Bounded concurrency now overlaps them while preserving stage dependencies and output order. Performance Insights reports measured wall time and external-call overlap without presenting that ratio as an unsupported before/after speedup claim.
+Tital added bounded concurrency and timing traces. Live full-source smoke testing then exposed two distinct 429 conditions: transient Vertex rate limiting and Cloud Run HTTP request starvation. They were fixed separately with Evidence-specific conservative concurrency/retry and greater HTTP serving capacity.
 
-### 5. A production demo should not expose a private user session
+### 9. Public demo state should be detached from private live state
 
-The public completed demo is a detached sanitized snapshot built from the approved production package, not a direct view into an authenticated user's mutable session namespace.
-
-### 6. Collaboration memory needs explicit consent and inspectable provenance
-
-Retry feedback can be useful beyond one replacement, but silently turning it into durable model memory would weaken human governance. Tital therefore keeps retry guidance scoped by default. The director must explicitly opt in before it is persisted; later cinematic provenance records how many remembered instructions influenced the proposal, and public snapshots remove the memory.
+The anonymous demo is a sanitized read-only snapshot, not a public window into an authenticated user's mutable session.
 
 ## Hosted project
 
 `https://tital-o7za4b3w5q-ts.a.run.app/`
 
-Public visitors can explore the completed read-only dinosaur demo without authentication. Live project creation/review is protected by Firebase authentication.
+Public visitors can explore a completed read-only demo. Live creation/review/revision is Firebase-authenticated.
 
-## Verified Gemini 3.5 end-to-end run
+## Verified runtime evidence
 
-The authenticated Aurora project `How Auroras Form: Solar Particles and Earth's Magnetic Field` was resumed after the ADK diagnostics fix and external Vertex AI spend-cap remediation, then completed on the deployed production service.
+Earlier authenticated Aurora E2E evidence is stored under:
 
-Evidence:
+- `docs/submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md`
+- `docs/submission/e2e-gemini-35-smoke-test/selected/`
 
-- Report: `docs/submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md`
-- Curated screenshots: `docs/submission/e2e-gemini-35-smoke-test/selected/`
-- Runtime proof: `docs/submission/e2e-gemini-35-smoke-test/selected/runtime-health-gemini-35-metadata.json`
+Verified facts from that run include Gemini 3.5 Flash / Vertex AI / Google ADK runtime, successful continuation after a provider spend-cap blocker was resolved, `READY_FOR_PRODUCTION`, zero deterministic governance/provenance audit issues, and persisted completed state.
 
-Verified production facts:
+The newer `Aurora Grounding Test` is a separate feedback-driven production smoke test used to validate full-source retrieval, AI review assistance, Evidence volume/cost behavior, rate-limit resilience, and the revision/version lifecycle.
 
-- commit `3ded520f568ff8d86f9af83134c3e77f146019a8`
-- Cloud Run revision `tital-00030-8ht`
-- runtime `gemini-3.5-flash` / `VERTEX_AI` / Google ADK
-- original Claims empty-response symptom traced to a Vertex AI spend-cap provider failure and fixed with actionable ADK/provider diagnostics
-- post-fix Claims continuation succeeded on exactly one retry
-- final state `READY_FOR_PRODUCTION`
-- governance/provenance audit passed with 0 issues
-- final browser refresh preserved the completed package
+## Repository and reproducibility
 
-## Repository
+Repository: `https://github.com/amin076/tital`
 
-`https://github.com/amin076/tital`
+The root `README.md` includes local/runtime setup. CI performs dependency install, core/web typecheck, deterministic tests, production build, and enabled main-branch Cloud Run deployment with post-deploy `/api/health` verification.
 
-## Reproducibility
+## Demo-video emphasis
 
-The root `README.md` contains local and production-like spin-up instructions. CI runs dependency installation, TypeScript validation, deterministic tests, and a production build before deployment.
+Do not spend most of the demo showing a repetitive sequence of “generate → approve.” The stronger differentiators are:
 
-## Demo video
+1. Source/Evidence AI Review Assistant focusing human attention;
+2. full-source grounding proof;
+3. Adaptive Evidence Budget showing broad research vs compact active review;
+4. Evidence → Claim → Shot provenance;
+5. `READY_FOR_PRODUCTION` Final AI Review;
+6. revoke/change one trusted decision → impact preview → selective repair → v2.
 
-Use the exact recording plan in `DEMO_SCRIPT.md`. Target duration: **3:40–3:55**, leaving margin under the requested ~4-minute format.
+## Submission claims that are safe
 
-## Architecture diagram
-
-Use `architecture.svg` for the Devpost architecture-diagram field and `ARCHITECTURE.md` for the annotated explanation.
-
-## Submission claims that are safe to make
-
-- Tital is a working hosted application on Cloud Run.
-- Tital is configured for Google ADK and Gemini 3.5 Flash on Vertex AI, verified in the deployed authenticated Aurora E2E run.
-- Tital uses Parallel Search MCP for source discovery.
-- Tital has explicit human review gates and persistent project state.
-- Tital produces a traceable governed production package.
-- Tital's public demo is detached/read-only.
-- Tital measures runtime stage/call timing and bounded concurrency.
+- Tital is a working hosted Cloud Run application.
+- Runtime uses Gemini 3.5 Flash on Vertex AI through Google ADK.
+- Tital uses Parallel MCP for source discovery and full-source retrieval in Evidence extraction.
+- Human review remains authoritative even when Gemini supplies review recommendations.
+- Tital persists provenance/state rather than relying on chat memory.
+- Tital compacts a broad Evidence pool into a duration/priority-aware active review subset while preserving archived candidates.
+- Tital supports governed revision, selective repair, re-audit, and package version history.
+- Tital measures runtime stages/calls and has explicit rate-limit/serving-capacity resilience.
 
 ## Claims to avoid
 
 Do **not** claim:
 
-- that the governance audit independently proves scientific truth;
-- that Tital creates or renders the final film;
-- a before/after performance percentage without controlled comparable runs;
-- that every discovered source has undergone full-document verification;
+- that the deterministic audit proves scientific truth;
+- that `web_fetch` is equivalent to peer review or independent source verification;
+- that archived Evidence is approved production Evidence;
+- an exact cost/performance percentage without controlled comparable runs;
+- that Adaptive Evidence Budget already eliminates every approved-Source fetch/extraction call;
+- that Tital renders the final film;
 - autonomous background operation beyond the implemented request/session workflow;
-- any prize-specific eligibility that has not been self-attested in Devpost.
+- prize/eligibility facts that require personal self-attestation.
