@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
-export const ReviewTargetTypeSchema = z.enum(['SOURCE', 'EVIDENCE']);
+export const ReviewTargetTypeSchema = z.enum([
+  'FILM_BRIEF',
+  'RESEARCH_QUESTION',
+  'SOURCE',
+  'EVIDENCE',
+  'CLAIM',
+  'SCRIPT',
+  'SCENE',
+  'SHOT',
+  'VISUAL',
+]);
 
 export const ReviewRecommendationDecisionSchema = z.enum([
   'APPROVE_SUGGESTED',
@@ -21,6 +31,14 @@ export const ReviewFlagSchema = z.enum([
   'UNCERTAINTY_RISK',
   'CONTRADICTION_RISK',
   'AMBIGUOUS',
+  'AUDIENCE_MISMATCH',
+  'PACING_RISK',
+  'NARRATIVE_REDUNDANCY',
+  'DIRECTOR_CONSTRAINT_RISK',
+  'VISUAL_INTEGRITY_RISK',
+  'PROVENANCE_RISK',
+  'UNSUPPORTED_ADDITION',
+  'COVERAGE_RISK',
   'OTHER',
 ]);
 
