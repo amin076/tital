@@ -95,12 +95,13 @@ jobs:
             TITAL_FIREBASE_AUTH_DOMAIN=scientific-film-director-agent.firebaseapp.com
             TITAL_FIREBASE_API_KEY=${{ env.TITAL_FIREBASE_API_KEY }}
             TITAL_DEMO_SESSION_ID=${{ vars.TITAL_DEMO_SESSION_ID }}
+            TITAL_EVIDENCE_CONCURRENCY=1
             TITAL_RELEASE_SHA=${{ github.sha }}
           timeout: 900s
           flags: >-
             --service-account=tital-runtime@scientific-film-director-agent.iam.gserviceaccount.com
-            --max-instances=1
-            --concurrency=1
+            --max-instances=2
+            --concurrency=8
             --memory=1Gi
 
       - name: Verify deployed runtime
