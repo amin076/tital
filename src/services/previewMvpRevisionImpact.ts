@@ -42,6 +42,8 @@ function layerForTarget(targetType: RevisionTargetType): Layer | null {
   switch (targetType) {
     case 'SourceRecord': return 'sources';
     case 'ClaimRecord': return 'claims';
+    case 'ScriptLineRecord': return 'scriptLines';
+    case 'SceneRecord': return 'scenes';
     case 'ShotRecord': return 'shots';
     case 'VisualDecisionRecord': return 'visualDecisions';
     case 'PROJECT': return null;
@@ -54,6 +56,8 @@ function invalidationTypeForTarget(
   switch (targetType) {
     case 'SourceRecord': return 'SourceRecord';
     case 'ClaimRecord': return 'ClaimRecord';
+    case 'ScriptLineRecord': return 'ScriptLineRecord';
+    case 'SceneRecord': return 'SceneRecord';
     case 'ShotRecord': return 'ShotRecord';
     case 'VisualDecisionRecord': return 'VisualDecisionRecord';
     case 'PROJECT': return null;
@@ -110,7 +114,7 @@ function preservedLayers(counts: RevisionImpactCounts): string[] {
 /**
  * Deterministically previews what would become stale before any revision is
  * applied. The input session is never mutated. This is the safety boundary used
- * by the future revision UI before a director confirms a change.
+ * by the revision UI before a director confirms a change.
  */
 export function previewMvpRevisionImpact(
   session: MvpSession,
