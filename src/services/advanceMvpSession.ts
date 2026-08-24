@@ -11,6 +11,7 @@ import {
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import { executeNextMvpStep, type MvpStepExecutors } from './executeNextMvpStep.js';
 import { appendProductionPackageVersion } from './productionVersionHistory.js';
+import { revisionAwaitingRepair } from './revisionProgressGuard.js';
 
 export interface AdvanceMvpSessionOptions {
   executors?: MvpStepExecutors;
@@ -132,6 +133,16 @@ export async function advanceMvpSession(
   options: AdvanceMvpSessionOptions = {}
 ): Promise<MvpSession> {
   let current = MvpSessionSchema.parse(session);
+  const awaitingRepair = revisionAwaitingRepair(current);
+  if (awaitingRepair) {
+    throw new MvpSessionAdvanceError(
+      'An applied governed revision is waiting for selective repair. Open the active revision and generate its replacement before continuing, auditing, or rebuilding the production package.',
+      current,
+      409,
+      'REVISION_REPAIR_REQUIRED'
+    );
+  }
+
   const operations: PerformanceOperation[] = [];
   const performanceNow = options.performanceNow ?? (() => Date.now());
   const concurrencyLimit = options.externalConcurrency ?? (
