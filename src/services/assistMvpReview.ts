@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { EvidenceRecord } from '../domain/evidenceRecord.js';
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
-import type { ReviewRecommendation } from '../domain/reviewRecommendation.js';
+import type { ReviewRecommendation, ReviewTargetType } from '../domain/reviewRecommendation.js';
 import type { SourceRecord } from '../domain/sourceRecord.js';
 import { mapWithConcurrency, resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
 import {
@@ -11,9 +11,15 @@ import {
 import {
   evaluateEvidenceReviewRecommendations,
   evaluateSourceReviewRecommendations,
+  evaluateStageReviewRecommendations,
+  type ReviewCandidate,
   type ReviewEvaluatorModelCaller,
 } from './evaluateReviewRecommendations.js';
-import { getCurrentMvpReviewGate } from './getCurrentMvpReviewGate.js';
+import {
+  getCurrentMvpReviewGate,
+  type MvpReviewGateRecordType,
+  type MvpReviewGateView,
+} from './getCurrentMvpReviewGate.js';
 import {
   reviewFinalProduction,
   type FinalProductionReviewModelCaller,
@@ -54,8 +60,66 @@ function mergeRecommendations(
   ].slice(-500);
 }
 
+function targetTypeForRecordType(recordType: MvpReviewGateRecordType): ReviewTargetType {
+  switch (recordType) {
+    case 'FilmBrief': return 'FILM_BRIEF';
+    case 'ResearchQuestion': return 'RESEARCH_QUESTION';
+    case 'SourceRecord': return 'SOURCE';
+    case 'EvidenceRecord': return 'EVIDENCE';
+    case 'ClaimRecord': return 'CLAIM';
+    case 'ScriptLineRecord': return 'SCRIPT';
+    case 'SceneRecord': return 'SCENE';
+    case 'ShotRecord': return 'SHOT';
+    case 'VisualDecisionRecord': return 'VISUAL';
+  }
+}
+
+function genericBatchKey(recordType: MvpReviewGateRecordType, record: ReviewCandidate): string {
+  if (recordType === 'FilmBrief') return 'film-brief';
+  if (recordType === 'ResearchQuestion') return 'research-questions';
+  if (recordType === 'ShotRecord' && 'sceneId' in record) return record.sceneId;
+  if (recordType === 'VisualDecisionRecord' && 'shotId' in record) return record.shotId;
+  if ('researchQuestionId' in record) return record.researchQuestionId;
+  return 'workflow';
+}
+
+async function evaluateGenericGate(
+  session: MvpSession,
+  gate: MvpReviewGateView,
+  modelCaller: ReviewEvaluatorModelCaller | undefined,
+  concurrency: number,
+  recommendationIdFactory: () => string,
+  now: string
+): Promise<ReviewRecommendation[]> {
+  const targetType = targetTypeForRecordType(gate.recordType);
+  const questions = byId(session.state.researchQuestions);
+  const candidates = gate.records as ReviewCandidate[];
+  const groups = [...groupBy(candidates, (record) => genericBatchKey(gate.recordType, record)).values()];
+
+  const batches = await mapWithConcurrency(groups, concurrency, async (group) => {
+    const first = group[0];
+    const question = first && 'researchQuestionId' in first
+      ? questions.get(first.researchQuestionId)
+      : undefined;
+
+    return evaluateStageReviewRecommendations(
+      {
+        targetType,
+        researchQuestion: question,
+        projectInput: session.projectInput,
+        workflowState: session.state,
+        candidates: group,
+      },
+      modelCaller,
+      { idFactory: recommendationIdFactory, now: () => now }
+    );
+  });
+
+  return batches.flat();
+}
+
 /**
- * Runs non-authoritative AI assistance at a high-volume Source/Evidence human gate,
+ * Runs non-authoritative AI assistance at any active human-review gate,
  * or a whole-package semantic review after production is READY_FOR_PRODUCTION.
  * Neither mode changes trusted approval state.
  *
@@ -80,9 +144,9 @@ export async function assistMvpReview(
     });
   }
 
-  if (!gate || !['SourceRecord', 'EvidenceRecord'].includes(gate.recordType)) {
+  if (!gate) {
     throw new Error(
-      'AI review assistance is currently available only while SourceRecord or EvidenceRecord candidates await human review, or after a READY_FOR_PRODUCTION package exists.'
+      'AI review assistance requires an active human-review gate or a READY_FOR_PRODUCTION package.'
     );
   }
 
@@ -128,7 +192,7 @@ export async function assistMvpReview(
       );
     });
     recommendations = batches.flat();
-  } else {
+  } else if (gate.recordType === 'EvidenceRecord') {
     const candidates = gate.records as EvidenceRecord[];
     const groups = [...groupBy(candidates, (record) => record.researchQuestionId).entries()];
     const batches = await mapWithConcurrency(groups, concurrency, async ([questionId, group]) => {
@@ -153,6 +217,15 @@ export async function assistMvpReview(
       );
     });
     recommendations = batches.flat();
+  } else {
+    recommendations = await evaluateGenericGate(
+      validated,
+      gate,
+      modelCaller,
+      concurrency,
+      recommendationIdFactory,
+      now
+    );
   }
 
   const attentionCounts = recommendations.reduce(
