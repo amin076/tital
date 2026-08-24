@@ -8,6 +8,50 @@ Hosted application: **https://tital-o7za4b3w5q-ts.a.run.app/**
 
 Tital is not a generic research chatbot and it is not a final-video generator. It is a production-control workspace for scientific filmmaking: Gemini agents propose and evaluate semantic work, deterministic application code owns trusted state/provenance, and the human director owns every approval, omission and revision decision.
 
+## Architecture at a glance
+
+![Tital governed scientific-film architecture](./docs/hackathon/all-things-agentic/architecture.svg)
+
+*The deployed architecture separates Gemini/Google ADK proposal and review work from deterministic workflow policy, human approval, provenance, audit, governed revision, and versioned production packages.*
+
+For the detailed design, see [System architecture](./docs/architecture/system-architecture.md), [Agent architecture](./docs/architecture/agent-architecture.md), and [Workflow architecture](./docs/architecture/workflow-architecture.md).
+
+## Verified product screenshots
+
+These images come from the hosted Aurora end-to-end acceptance run and show real Tital workflow states rather than mockups.
+
+### Director brief and production controls
+
+![Aurora Director Brief in Tital](./docs/submission/e2e-gemini-35-smoke-test/selected/01-aurora-director-brief.png)
+
+*The director sets the scientific question, audience, format and creative operating envelope before downstream agents propose production work.*
+
+### Evidence remains explicitly human-governed
+
+![Approved and rejected Evidence records](./docs/submission/e2e-gemini-35-smoke-test/selected/02-evidence-approved-rejected.png)
+
+*Evidence proposals remain reviewable records with explicit human approval/rejection; model output does not silently become trusted production state.*
+
+### Scientific decisions can be rejected before they enter production
+
+![Scientifically rejected shot proposals](./docs/submission/e2e-gemini-35-smoke-test/selected/06-scientifically-rejected-shots.png)
+
+*Shot proposals that drift from approved science or visual-integrity constraints can be rejected while the governance history remains visible.*
+
+### Visual decisions become audit-ready only after review
+
+![Approved visual decisions and audit readiness](./docs/submission/e2e-gemini-35-smoke-test/selected/07-visual-decisions-approved-audit-ready.png)
+
+*Approved visual treatments preserve representation/disclosure rules before the deterministic governance and provenance audit runs.*
+
+### Production package
+
+![Tital READY_FOR_PRODUCTION package](./docs/submission/e2e-gemini-35-smoke-test/selected/08-ready-for-production-package.png)
+
+*After the governed chain passes review and audit, Tital produces an exportable `READY_FOR_PRODUCTION` package rather than a final rendered film.*
+
+> Newer feedback-driven tests also verified stage-aware AI review, Adaptive Evidence Budgeting, Final Production AI Review, and governed Script/Scene revision with selective repair. See [Feedback-driven E2E acceptance](./docs/submission/feedback-driven-e2e/README.md).
+
 ## Why this is more than a long AI chat
 
 A chat can generate research notes, claims, narration or shot ideas. Tital adds the production system around those artifacts:
