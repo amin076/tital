@@ -2,37 +2,34 @@
 
 Status date: **2026-08-24**
 
-Tital's workflow combines six structures that must remain distinct:
+Tital separates six concerns that must not collapse into one model conversation:
 
 1. **provenance chain** — why a scientific/cinematic decision exists;
-2. **execution stage machine** — what automation may legally run next;
-3. **governed coverage** — whether required branches are approved or intentionally waived;
-4. **human attention policy** — how AI review can focus judgment without taking authority;
+2. **execution stage machine** — what work may legally run next;
+3. **governed coverage** — whether required branches are approved or explicitly waived;
+4. **human attention policy** — where AI review helps without owning authority;
 5. **director context** — creative guidance below scientific constraints;
-6. **revision/version lifecycle** — how completed productions change without starting over.
+6. **revision/version lifecycle** — how a completed production changes without starting over.
 
 ## Provenance chain
 
 ```mermaid
 graph LR
-    FB[FilmBrief]
-    RQ[ResearchQuestion]
-    SR[SourceRecord]
-    ER[EvidenceRecord]
-    CR[ClaimRecord]
-    SL[ScriptLineRecord]
-    SC[SceneRecord]
-    SH[ShotRecord]
-    VD[VisualDecisionRecord]
-    AU[Governance / Provenance Audit]
-    PP[ProductionPackage]
-
-    FB --> RQ --> SR --> ER --> CR --> SL --> SC --> SH --> VD --> AU --> PP
+    FB[FilmBrief] --> RQ[ResearchQuestion]
+    RQ --> SR[SourceRecord]
+    SR --> ER[EvidenceRecord]
+    ER --> CR[ClaimRecord]
+    CR --> SL[ScriptLineRecord]
+    SL --> SC[SceneRecord]
+    SC --> SH[ShotRecord]
+    SH --> VD[VisualDecisionRecord]
+    VD --> AU[Governance / Provenance Audit]
+    AU --> PP[ProductionPackage]
 ```
 
-Only approved/locked provenance-connected records enter the trusted downstream chain.
+Only approved, provenance-connected active records enter the trusted downstream chain. Rejected, archived and stale records remain historical state rather than silently disappearing.
 
-## Execution stage machine
+## Stage machine
 
 ```text
 DEFINE
@@ -48,31 +45,29 @@ DEFINE
 → COMPLETE
 ```
 
-`evaluateMvpWorkflow` derives the current stage from persisted state. `executeNextMvpStep` selects the next legal action. `advanceMvpSession` applies one governed model/tool stage and stops at the next human boundary; the deterministic audit/package tail may continue automatically.
+`evaluateMvpWorkflow` derives the current stage from persisted state. Model/tool work advances one governed boundary at a time; audit/package construction is deterministic.
 
-## Optional review loop at every human gate
+## Optional stage-aware AI review
 
-Every active candidate gate now has the same collaboration shape:
+Every active human gate follows the same authority pattern:
 
 ```mermaid
 graph LR
     G[Generator / tool proposal]
-    V[Schema + provenance validation]
-    AI[Optional stage-aware Gemini review]
+    V[Validation + trusted mapping]
+    AI[Optional Gemini review]
     H{Human decision}
     OK[APPROVED]
     NO[REJECTED]
-    NX[Next governed stage]
 
-    G --> V --> AI --> H
+    G --> V
+    V --> AI --> H
     V --> H
-    H -->|approve| OK --> NX
+    H -->|approve| OK
     H -->|reject| NO
 ```
 
-The AI branch is optional. The user can skip it and review manually. This prevents quality assistance from automatically doubling model cost at every stage.
-
-The evaluator can be invoked for:
+Supported review stages:
 
 ```text
 FilmBrief
@@ -86,33 +81,29 @@ ShotRecord
 VisualDecisionRecord
 ```
 
-It uses a different rubric for each stage and receives relevant approved upstream context. For example, Script review sees approved Claims plus audience/duration/tone; Shot review sees its approved Scene/Script and Director Brief; Visual review sees the approved Shot and representation/disclosure constraints.
+The evaluator uses a stage-specific rubric and relevant approved upstream context. Its output is advisory metadata only; `APPROVE_SUGGESTED` never becomes trusted `APPROVED` state without an explicit human action.
 
-AI review output is advisory metadata only. It cannot convert a pending candidate into `APPROVED` or `REJECTED`.
-
-## Research-to-Evidence loop
+## Research → full-source Evidence → attention budget
 
 ```text
 approved ResearchQuestion
 → Parallel web_search
 → SourceRecord DISCOVERED
-→ optional stage-aware AI Source review
+→ optional AI Source review
 → human Source decision
 → approved Source
-→ Parallel web_fetch exact URL
+→ Parallel web_fetch exact approved URL
 → compact Evidence proposals
 → Candidate Evidence Pool
 → Adaptive Evidence Budget
-→ active Evidence human gate
-→ optional stage-aware AI Evidence review
+→ active Evidence gate
+→ optional AI Evidence review
 → human Evidence decision
 ```
 
-Discovery snippets orient source selection but are not the Evidence basis for new full-source records.
+Discovery excerpts assist source selection. New production Evidence must use the exact approved Source URL through `web_fetch` and carries grounding provenance.
 
-## Adaptive human-attention layer
-
-A large scientific research pool is useful; a large mandatory review queue is not necessarily useful.
+### Adaptive Evidence Budget
 
 ```mermaid
 graph TD
@@ -120,9 +111,9 @@ graph TD
     B[Deterministic Adaptive Evidence Budget]
     A[Active REVIEW_REQUIRED subset]
     X[ARCHIVED_CANDIDATE research archive]
-    R[Optional stage-aware AI Review]
-    H[Human Review]
-    D[Approved downstream chain]
+    R[Optional Gemini review]
+    H[Human decision]
+    D[Approved downstream Evidence]
 
     P --> B
     B --> A --> R --> H --> D
@@ -130,230 +121,253 @@ graph TD
     B --> X
 ```
 
-The current budget uses film duration and Research Question priority, then favors Evidence strength, full-source grounding, source diversity, and reduced duplication.
+The current policy considers film duration, Research Question priority, grounding, Evidence strength, source diversity and lightweight duplicate reduction.
 
-Archived candidates are persisted but not considered pending review, approved coverage, or trusted production Evidence.
+A live five-minute Aurora run verified:
 
-See [../ADAPTIVE_EVIDENCE_BUDGET.md](../ADAPTIVE_EVIDENCE_BUDGET.md).
+```text
+123 research candidates
+→ 24 active
+→ 99 archived
+→ 21 human-approved / 3 human-rejected
+```
+
+Archived Evidence remains persisted research history but is not pending review or approved production Evidence.
 
 ## Stage-aware review context
 
-The evaluator is independent from the generator's hidden reasoning. Application code constructs a model-safe evaluation context from persisted trusted state.
+The reviewer does not receive the generator's hidden reasoning. Application code builds context from persisted state:
 
 ```text
-FilmBrief review
-→ project idea/settings
-
-ResearchQuestion review
-→ approved FilmBrief
-
-Source review
-→ approved ResearchQuestion + source metadata/excerpts
-
-Evidence review
-→ approved ResearchQuestion + exact approved Source context + grounded Evidence candidate
-
 Claim review
-→ supporting approved Evidence (+ source context)
+→ candidate + supporting approved Evidence
 
 Script review
-→ supporting approved Claims/Evidence + audience + duration + tone + Director Brief
+→ candidate + approved Claims/Evidence
+→ audience / knowledge level / duration / tone / Director Brief
 
 Scene review
-→ supporting approved Script + Director Brief
+→ candidate + approved Script + Director Brief
 
 Shot review
-→ approved Scene/Script + Director Brief + scientific/visual constraints
+→ candidate + approved Scene/Script
+→ camera / representation controls + scientific constraints
 
 Visual review
-→ approved Shot + category/disclosure/risk + Director Brief
+→ candidate + approved Shot
+→ visual category / disclosure / risk / Director Brief
 ```
 
-This lets review evaluate the **transformation between stages**, not merely whether a sentence sounds plausible.
+This makes the evaluation about the **transformation between stages**, not generic prose quality.
 
-Current recommendation vocabulary:
+## Human rejection and governed coverage
 
-```text
-APPROVE_SUGGESTED
-REJECT_SUGGESTED
-REVIEW_REQUIRED
-
-attention: LOW | MEDIUM | HIGH
-confidence
-reasons[]
-risks[]
-flags[]
-```
-
-Flags cover scientific/provenance risks plus downstream concerns such as audience mismatch, pacing, narrative redundancy, unsupported additions, Director Brief conflicts and visual-integrity risk.
-
-## Human review and coverage recovery
-
-```mermaid
-graph LR
-    M[Validated proposal]
-    AI[Optional AI recommendation]
-    H{Human decision}
-    OK[APPROVED]
-    NO[REJECTED]
-    G{Coverage gap?}
-    RT[RETRY]
-    W[WAIVE]
-    C[CANCEL]
-
-    M --> AI --> H
-    M --> H
-    H -->|approve| OK
-    H -->|reject| G
-    G -->|no| NO
-    G -->|replacement| RT
-    G -->|intentional omission| W
-    G -->|back| C
-```
-
-AI recommendations can assist checkbox selection but still require the explicit human action in the Human Gate.
-
-## Governed coverage
-
-Progression is based on required parent coverage through approved provenance or explicit human waiver, not raw counts.
+Progression is based on required parent coverage, not raw record count.
 
 ```text
 required RQ    → approved Source
-required RQ    → approved active Evidence through approved Source
+required RQ    → approved active Evidence
 required RQ    → approved Claim
 required RQ    → approved ScriptLine
-required RQ    → approved Scene or waiver
-required Scene → approved Shot or waiver
-required Shot  → approved VisualDecision or waiver
+required RQ    → approved Scene or explicit waiver
+required Scene → approved Shot or explicit waiver
+required Shot  → approved VisualDecision or explicit waiver
 ```
 
-Important semantics:
+A rejection that would remove required coverage opens an explicit recovery choice:
 
 ```text
-AI APPROVE_SUGGESTED ≠ APPROVED
-approved Source ≠ every Evidence from that Source must be approved
-ARCHIVED_CANDIDATE ≠ rejected
-ARCHIVED_CANDIDATE ≠ approved
-candidate count ≠ scientific coverage
-waived gap ≠ approved content
+Reject
+→ coverage gap detected
+→ Retry / Waive / Cancel
 ```
 
-## Rejection recovery
+Rejected records remain terminal history. Tital never treats rejection as permission to silently regenerate a new ID.
 
-Rejected candidates remain terminal history and do not authorize silent regeneration.
+## Final Production Review
+
+After `READY_FOR_PRODUCTION`, a separate Gemini reviewer evaluates the **whole package**, not only one candidate-parent relationship.
+
+Typical finding classes:
+
+- scientific fidelity / uncertainty loss;
+- duplication;
+- missing cross-stage coverage;
+- audience fit;
+- narrative order / pacing;
+- visual-integrity risk;
+- Director Brief mismatch.
+
+The deterministic audit and semantic Final Review intentionally answer different questions:
 
 ```text
-first automatic attempt
-→ optional AI review
-→ human rejects
-→ REJECTED remains persisted
-→ if required coverage is lost:
-     explicit RETRY
-     or explicit WAIVE where policy permits
+Governance / provenance audit
+→ Is the trusted package structurally valid?
+
+Final Production AI Review
+→ What semantic or narrative risks remain across the completed package?
 ```
 
-`RETRY` is target-specific and duplicate-resistant. `WAIVE` records the intentional omission.
+Both can legitimately report different results; the AI review does not mutate trusted state.
 
-## Director-control context
+## Governed revision targets
 
-Scene/Shot/Visual generation and their review can consume relevant `DirectorBrief`, explicitly remembered project feedback, and scoped replacement guidance.
+Current supported revision targets:
 
 ```text
-science / uncertainty / visual-integrity constraints
-        ↓ hard boundary
-Director Brief / remembered preference / scoped note
-        ↓ creative guidance
-AI proposal
-        ↓
-optional AI evaluation
-        ↓
-human review
+PROJECT duration
+SourceRecord
+ClaimRecord
+ScriptLineRecord
+SceneRecord
+ShotRecord
+VisualDecisionRecord
 ```
 
-Director guidance cannot turn inference into observation or bypass source/Evidence governance.
+Adding `ScriptLineRecord` and `SceneRecord` was a feedback-driven requirement discovered when Final Production Review found script duplication/narrative problems that could not be repaired safely through only Claim/Shot/Visual revision.
 
-## Final-package review and revision loop
-
-`COMPLETE / READY_FOR_PRODUCTION` is not an irreversible endpoint.
+## Revision impact lifecycle
 
 ```mermaid
 graph TD
     P1[ProductionPackage v1 READY]
-    AR[Separate AI Final Production Review\nadvisory]
-    H{Human chooses change?}
+    AR[Final AI Review advisory]
+    H{Human chooses revision?}
     RR[RevisionRequest]
-    IP[Deterministic Impact Preview]
-    S[Mark affected descendants STALE]
-    REP[Selective Repair]
-    SR[Optional stage-aware review\nof repaired candidates]
+    IP[Deterministic impact preview]
+    S[Mark affected records STALE]
+    RG[Revision state APPLIED]
+    REP[Repair earliest affected branch]
+    R2[Revision state REPAIRING]
+    AI[Optional stage-aware review]
     HR[Human re-review]
     AU[Re-audit]
-    P2[ProductionPackage v2 READY]
-    HIST[Version history / comparison]
+    P2[Rebuilt/versioned package]
+    RC[Revision COMPLETED]
 
     P1 --> AR --> H
-    H -->|no| P1
-    H -->|yes| RR --> IP --> S --> REP --> SR --> HR --> AU --> P2 --> HIST
+    H -->|yes| RR --> IP --> S --> RG --> REP --> R2 --> AI --> HR --> AU --> P2 --> RC
     REP --> HR
 ```
 
-Per-gate AI review and Final Production Review are intentionally distinct:
+### Deterministic impact preview
 
-- **Stage-aware Review Evaluator:** helps decide about current pending candidates.
-- **Final Production Reviewer:** looks for cross-stage risks in the completed package.
-
-Neither has trusted mutation authority.
-
-Supported revision targets include project duration, approved Source, Claim, Shot, and Visual Decision. The impact graph prevents a cinematic-only change from unnecessarily discarding valid upstream science.
-
-Example:
+The application calculates descendants before applying a revision. A live Script revision produced:
 
 ```text
-Shot revision
-→ Shot STALE
-→ dependent Visual Decision STALE
-→ Source/Evidence/Claim/Script/Scene preserved
+Target: one ScriptLineRecord
+
+Affected:
+Script 1
+Scene 1
+Shots 2
+Visuals 2
+
+Preserved:
+Research Questions
+Sources
+Evidence
+Claims
 ```
 
-A Source revocation may invalidate a much larger downstream branch. The preview tells the director before applying the revision.
+This is the core selective-repair promise: a downstream narrative edit must not automatically discard valid upstream research.
+
+### `STALE` semantics
+
+`STALE` means trusted work was valid for an older production state but is no longer active after an explicit governed change.
+
+```text
+STALE ≠ REJECTED
+STALE ≠ deleted
+STALE ≠ active production
+```
+
+Stale records remain visible in history and version comparison but are excluded from the active package.
+
+### Repair-before-audit guard
+
+A critical invariant is now enforced:
+
+> **An `APPLIED` revision waiting for repair cannot proceed to Audit, Package or Complete.**
+
+After Apply:
+
+```text
+Revision = APPLIED
+→ earliest affected stage becomes current
+→ ordinary Continue is blocked
+→ active revision offers Repair affected branch
+→ direct advance API requests return REVISION_REPAIR_REQUIRED
+```
+
+Only after selective repair begins does the revision enter `REPAIRING`, allowing the repaired branch to progress through human review, downstream regeneration, re-audit and package rebuilding.
+
+This guard was added after a live smoke test found that stale records plus an existing coverage waiver could otherwise make ordinary workflow evaluation appear complete before the revision was actually repaired.
+
+## Selective repair routing
+
+Repair starts from the earliest affected layer.
+
+Examples:
+
+```text
+Script revision
+→ replacement Script candidate
+→ human review
+→ dependent Scene regeneration
+→ dependent Shots
+→ dependent Visuals
+→ re-audit
+
+Scene revision
+→ replacement Scene candidate
+→ human review
+→ dependent Shots
+→ dependent Visuals
+→ re-audit
+
+Shot revision
+→ replacement Shot candidate
+→ human review
+→ dependent Visual
+→ re-audit
+```
+
+Unchanged upstream records remain active and are not regenerated.
 
 ## Version semantics
 
-Old trusted work is not overwritten in place. Revised packages are stored as production-version milestones with change summaries and revision links.
+Completed packages are immutable milestones.
 
 ```text
-v1 → superseded by governed revision → v2
+v1 READY
+→ governed revision
+→ v1 SUPERSEDED
+→ repaired + re-audited package
+→ later version CURRENT
 ```
 
-The current package is the active production result; prior versions remain inspectable history.
+Revision records, activity events, old stale descendants and compact version comparisons remain inspectable.
 
-## Multi-record routing and concurrency
+## Director context and precedence
 
-Provenance routing remains:
-
-- Source discovery per required approved Research Question;
-- full-source Evidence extraction per approved Source;
-- Claim/Script/Scene generation grouped by Research Question;
-- Shot generation per approved Scene;
-- Visual Decision generation per approved Shot.
-
-Stage-aware review uses bounded independent batches consistent with the same parent grouping: question-level records by Research Question, Shots by Scene, Visual Decisions by Shot.
-
-General independent calls inside an authorized stage may use bounded concurrency. Full-source Evidence is deliberately more conservative because each Source requires a Gemini + Parallel tool interaction.
+Scene/Shot/Visual generation and review can consume `DirectorBrief`, explicitly remembered project feedback and scoped replacement guidance.
 
 ```text
-TITAL_EXTERNAL_CONCURRENCY=3
-TITAL_EVIDENCE_CONCURRENCY=1
+science / uncertainty / visual-integrity constraints
+> approved production constraints
+> Director Brief / explicit human guidance
+> AI cinematic preference
 ```
 
-The rate-limit retry policy applies only to transient provider/runtime failures and does not weaken fail-closed validation.
+Director guidance cannot relabel inference as observation or bypass Evidence/provenance requirements.
 
-## Model-assisted versus deterministic responsibilities
+## Model-assisted vs deterministic responsibilities
 
-Model/tool-assisted:
+### Model/tool-assisted
 
 ```text
-FilmBrief
+FilmBrief proposals
 Research Questions
 Source discovery
 Full-source Evidence extraction
@@ -362,28 +376,32 @@ Script Lines
 Scenes
 Shots
 Visual Decisions
-optional stage-aware review recommendations at every human gate
-Final Production Review findings
+optional stage-aware review
+Final Production Review
 ```
 
-Deterministic application code:
+### Deterministic application code
 
 ```text
 schema validation
 trusted IDs / parent mapping
 status assignment
-review context assembly / target mapping
-Adaptive Evidence Budget / archive status
+review-context mapping
+Adaptive Evidence Budget
 human review transitions
-coverage evaluation
-Retry/Waive policy
-Director feedback persistence policy
-revision impact / STALE invalidation
+coverage / Retry / Waive rules
+revision impact calculation
+STALE invalidation
+repair-before-audit guard
 selective repair routing
 stage evaluation
 bounded concurrency policy
 audit
 ProductionPackage construction
-production version history
+version history
 session persistence
 ```
+
+## Submission freeze
+
+The workflow architecture is now feature-frozen for hackathon submission. Further changes should be limited to critical correctness/compliance fixes discovered by final validation.
