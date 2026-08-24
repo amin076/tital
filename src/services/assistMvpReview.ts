@@ -5,6 +5,10 @@ import type { ReviewRecommendation } from '../domain/reviewRecommendation.js';
 import type { SourceRecord } from '../domain/sourceRecord.js';
 import { mapWithConcurrency, resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
 import {
+  applyAdaptiveEvidenceBudget,
+  summarizeEvidenceBudget,
+} from './evidenceBudget.js';
+import {
   evaluateEvidenceReviewRecommendations,
   evaluateSourceReviewRecommendations,
   type ReviewEvaluatorModelCaller,
@@ -54,13 +58,17 @@ function mergeRecommendations(
  * Runs non-authoritative AI assistance at a high-volume Source/Evidence human gate,
  * or a whole-package semantic review after production is READY_FOR_PRODUCTION.
  * Neither mode changes trusted approval state.
+ *
+ * Evidence is compacted deterministically before Gemini review. The broad
+ * candidate pool remains persisted as ARCHIVED_CANDIDATE records; only the
+ * duration/priority-aware subset enters the human gate and downstream chain.
  */
 export async function assistMvpReview(
   session: MvpSession,
   options: AssistMvpReviewOptions = {}
 ): Promise<MvpSession> {
-  const validated = MvpSessionSchema.parse(session);
-  const gate = getCurrentMvpReviewGate(validated.state);
+  let validated = MvpSessionSchema.parse(session);
+  let gate = getCurrentMvpReviewGate(validated.state);
 
   if (!gate && validated.productionPackage?.status === 'READY_FOR_PRODUCTION') {
     return reviewFinalProduction(validated, {
@@ -76,6 +84,21 @@ export async function assistMvpReview(
     throw new Error(
       'AI review assistance is currently available only while SourceRecord or EvidenceRecord candidates await human review, or after a READY_FOR_PRODUCTION package exists.'
     );
+  }
+
+  let compactionMessage = '';
+  if (gate.recordType === 'EvidenceRecord') {
+    const beforePending = gate.records.length;
+    const compactedState = applyAdaptiveEvidenceBudget(validated.state);
+    validated = MvpSessionSchema.parse({ ...validated, state: compactedState });
+    gate = getCurrentMvpReviewGate(validated.state);
+    if (!gate || gate.recordType !== 'EvidenceRecord') {
+      throw new Error('Adaptive evidence compaction left no evidence review gate.');
+    }
+    const budget = summarizeEvidenceBudget(validated.state);
+    if (gate.records.length < beforePending || budget.archivedCount > 0) {
+      compactionMessage = ` Adaptive evidence budgeting retained ${budget.candidateCount} research candidate(s), promoted ${gate.records.length} for human review, and archived ${budget.archivedCount} non-promoted candidate(s) without deleting them.`;
+    }
   }
 
   const questions = byId(validated.state.researchQuestions);
@@ -155,7 +178,7 @@ export async function assistMvpReview(
         type: 'REVIEW_ASSISTED',
         at: now,
         stage: gate.stage,
-        message: `AI review assistance evaluated ${recommendations.length} pending ${gate.recordType} candidate(s): ${attentionCounts.HIGH} high, ${attentionCounts.MEDIUM} medium, ${attentionCounts.LOW} low attention. Human approval status was not changed.`,
+        message: `AI review assistance evaluated ${recommendations.length} pending ${gate.recordType} candidate(s): ${attentionCounts.HIGH} high, ${attentionCounts.MEDIUM} medium, ${attentionCounts.LOW} low attention. Human approval status was not changed.${compactionMessage}`,
       },
     ],
   });
