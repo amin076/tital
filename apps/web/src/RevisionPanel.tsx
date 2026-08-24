@@ -28,6 +28,8 @@ const REVISION_OPTIONS: Array<{ value: RevisionType; label: string; targetType: 
   { value: 'PROJECT_DURATION_CHANGE', label: 'Change project duration', targetType: 'PROJECT' },
   { value: 'SOURCE_APPROVAL_REVOKE', label: 'Revoke / replace an approved source', targetType: 'SourceRecord' },
   { value: 'CLAIM_REVISION', label: 'Revise an approved claim', targetType: 'ClaimRecord' },
+  { value: 'SCRIPT_REVISION', label: 'Revise an approved script line', targetType: 'ScriptLineRecord' },
+  { value: 'SCENE_REVISION', label: 'Revise an approved scene', targetType: 'SceneRecord' },
   { value: 'SHOT_REVISION', label: 'Revise an approved shot', targetType: 'ShotRecord' },
   { value: 'VISUAL_REVISION', label: 'Revise an approved visual decision', targetType: 'VisualDecisionRecord' },
 ];
@@ -57,9 +59,21 @@ function recordsFor(type: RevisionType, view: SessionView): GateRecord[] {
   if (!pkg) return [];
   if (type === 'SOURCE_APPROVAL_REVOKE') return pkg.sources;
   if (type === 'CLAIM_REVISION') return pkg.claims;
+  if (type === 'SCRIPT_REVISION') return pkg.scriptLines;
+  if (type === 'SCENE_REVISION') return pkg.scenes;
   if (type === 'SHOT_REVISION') return pkg.shots;
   if (type === 'VISUAL_REVISION') return pkg.visualDecisions;
   return [];
+}
+
+function revisionHint(type: RevisionType): string {
+  if (type === 'SCRIPT_REVISION') {
+    return 'Use this for duplication, audience-fit, scientific explanation, wording, or narrative-order issues found in the approved script. Only dependent scenes, shots, and visual decisions are reconsidered.';
+  }
+  if (type === 'SCENE_REVISION') {
+    return 'Use this for scene structure, chronology, visual-summary, or pacing issues. Approved research, evidence, claims, and script lines remain preserved unless they are separately revised.';
+  }
+  return 'Tital previews the dependency impact before any trusted state changes.';
 }
 
 export function RevisionPanel({
@@ -162,6 +176,7 @@ export function RevisionPanel({
             setTargetRecordId('');
             resetPreview();
           }}
+          helperText={revisionHint(type)}
         >
           {REVISION_OPTIONS.map((option) => (
             <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
@@ -207,7 +222,7 @@ export function RevisionPanel({
           onChange={(event) => { setInstruction(event.target.value); resetPreview(); }}
           multiline
           minRows={2}
-          helperText="Example: preserve the approved science, but add more time for the scattering mechanism and use restrained camera movement."
+          helperText="Example: preserve the approved science, remove duplicated narration, explain the mechanism for a general audience, and keep the physical sequence chronological."
         />
         <Box>
           <Button variant="outlined" disabled={busy || !inputValid} onClick={() => void runPreview()}>

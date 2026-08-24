@@ -4,6 +4,8 @@ export const RevisionTypeSchema = z.enum([
   'PROJECT_DURATION_CHANGE',
   'SOURCE_APPROVAL_REVOKE',
   'CLAIM_REVISION',
+  'SCRIPT_REVISION',
+  'SCENE_REVISION',
   'SHOT_REVISION',
   'VISUAL_REVISION',
 ]);
@@ -12,6 +14,8 @@ export const RevisionTargetTypeSchema = z.enum([
   'PROJECT',
   'SourceRecord',
   'ClaimRecord',
+  'ScriptLineRecord',
+  'SceneRecord',
   'ShotRecord',
   'VisualDecisionRecord',
 ]);
@@ -55,6 +59,8 @@ export const RevisionRequestSchema = z.object({
   const expectedTarget = {
     SOURCE_APPROVAL_REVOKE: 'SourceRecord',
     CLAIM_REVISION: 'ClaimRecord',
+    SCRIPT_REVISION: 'ScriptLineRecord',
+    SCENE_REVISION: 'SceneRecord',
     SHOT_REVISION: 'ShotRecord',
     VISUAL_REVISION: 'VisualDecisionRecord',
   }[request.type];

@@ -83,6 +83,26 @@ function repairPlan(
     };
   }
 
+  if (revision.type === 'SCRIPT_REVISION') {
+    const scriptLine = state.scriptLines.find((record) => record.id === revision.targetRecordId);
+    if (!scriptLine) throw new Error(`Revision script line was not found: "${revision.targetRecordId}".`);
+    return {
+      recordType: 'ScriptLineRecord',
+      groups: [group('RESEARCH_QUESTION', scriptLine.researchQuestionId, `Research question ${scriptLine.researchQuestionId}`)],
+      staleIds: [scriptLine.id],
+    };
+  }
+
+  if (revision.type === 'SCENE_REVISION') {
+    const scene = state.scenes.find((record) => record.id === revision.targetRecordId);
+    if (!scene) throw new Error(`Revision scene was not found: "${revision.targetRecordId}".`);
+    return {
+      recordType: 'SceneRecord',
+      groups: [group('RESEARCH_QUESTION', scene.researchQuestionId, `Research question ${scene.researchQuestionId}`)],
+      staleIds: [scene.id],
+    };
+  }
+
   if (revision.type === 'SHOT_REVISION') {
     const shot = state.shots.find((record) => record.id === revision.targetRecordId);
     if (!shot) throw new Error(`Revision shot was not found: "${revision.targetRecordId}".`);

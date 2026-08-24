@@ -87,6 +87,8 @@ export type RevisionType =
   | 'PROJECT_DURATION_CHANGE'
   | 'SOURCE_APPROVAL_REVOKE'
   | 'CLAIM_REVISION'
+  | 'SCRIPT_REVISION'
+  | 'SCENE_REVISION'
   | 'SHOT_REVISION'
   | 'VISUAL_REVISION';
 
@@ -94,6 +96,8 @@ export type RevisionTargetType =
   | 'PROJECT'
   | 'SourceRecord'
   | 'ClaimRecord'
+  | 'ScriptLineRecord'
+  | 'SceneRecord'
   | 'ShotRecord'
   | 'VisualDecisionRecord';
 
@@ -110,7 +114,7 @@ export interface RevisionRequest extends RevisionDraft {
   id: string;
   requestedBy: string;
   createdAt: string;
-  status: 'REQUESTED' | 'APPLIED' | 'REPAIRING' | 'CANCELLED';
+  status: 'REQUESTED' | 'APPLIED' | 'REPAIRING' | 'COMPLETED' | 'CANCELLED';
 }
 
 export interface RevisionImpactCounts {
