@@ -107,6 +107,39 @@ describe('previewMvpRevisionImpact', () => {
     expect(preview.preservedLayers).toEqual(expect.arrayContaining(['researchQuestions', 'sources', 'evidence']));
   });
 
+  it('starts a script revision at the selected line and preserves approved science', () => {
+    const preview = previewMvpRevisionImpact(session(), revision({
+      type: 'SCRIPT_REVISION',
+      targetType: 'ScriptLineRecord',
+      targetRecordId: 'SL-1',
+      reason: 'Remove duplication and improve audience fit.',
+    }));
+
+    expect(preview.affectedRecordIds).toEqual(expect.arrayContaining(['SL-1', 'SC-1', 'SH-1', 'VD-1']));
+    expect(preview.affectedRecordIds).not.toContain('CL-1');
+    expect(preview.affectedRecordIds).not.toContain('SL-2');
+    expect(preview.counts).toMatchObject({ scriptLines: 1, scenes: 1, shots: 1, visualDecisions: 1 });
+    expect(preview.counts.claims).toBe(0);
+    expect(preview.preservedLayers).toEqual(expect.arrayContaining([
+      'researchQuestions', 'sources', 'evidence', 'claims',
+    ]));
+  });
+
+  it('starts a scene revision at the selected scene without invalidating approved script', () => {
+    const preview = previewMvpRevisionImpact(session(), revision({
+      type: 'SCENE_REVISION',
+      targetType: 'SceneRecord',
+      targetRecordId: 'SC-1',
+      reason: 'Repair narrative chronology and scene structure.',
+    }));
+
+    expect(preview.affectedRecordIds).toEqual(expect.arrayContaining(['SC-1', 'SH-1', 'VD-1']));
+    expect(preview.affectedRecordIds).not.toContain('SL-1');
+    expect(preview.affectedRecordIds).not.toContain('SC-2');
+    expect(preview.counts).toMatchObject({ scenes: 1, shots: 1, visualDecisions: 1 });
+    expect(preview.counts.scriptLines).toBe(0);
+  });
+
   it('limits a shot revision to the shot and its visual decision', () => {
     const preview = previewMvpRevisionImpact(session(), revision({
       type: 'SHOT_REVISION', targetType: 'ShotRecord', targetRecordId: 'SH-1', reason: 'Use a restrained camera move.',
