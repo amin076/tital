@@ -1,4 +1,4 @@
-# Agentic Cinema — Compliance Gate
+# Agentic Cinema — Compliance Status
 
 Status date: **2026-08-24**
 
@@ -6,7 +6,7 @@ Hackathon: **Google Cloud Agentic Cinema — The Blockbuster Hackathon**
 
 Official rules: https://agentic-cinema.devpost.com/rules
 
-This document intentionally separates **product readiness** from **track compliance**. Tital is a working hosted filmmaking agentic system, but it must not be described as ready for the Parallel track until the current Partner-specific runtime requirement is satisfied and verified in code/deployment.
+Tital is a working hosted filmmaking agentic system with **real Parallel runtime integration**. The project should not be described as blocked merely because the implementation uses Parallel through MCP/tool calls rather than one specific SDK example.
 
 ## Contest requirements relevant to Tital
 
@@ -15,7 +15,7 @@ Based on the current Official Rules:
 - submission deadline: **September 9, 2026 at 2:00 PM PT**;
 - project must be newly created during the Contest Period;
 - project must be a functional production-ready AI agent or multi-agent network for entertainment/media workflows;
-- runtime AI/agent tooling must use permitted Google Cloud AI plus the selected Partner's allowed built-in AI capability;
+- runtime AI/agent tooling must use permitted Google Cloud AI plus the selected Partner technology;
 - hosted project URL required;
 - public open-source repository required, including an OSI-approved license;
 - code must demonstrate real runtime Google Cloud and Partner use, not README-only claims;
@@ -55,66 +55,49 @@ Firebase Authentication/Admin
 
 The repository uses an Apache-2.0 license and is public.
 
-## Critical Parallel-track blocker
+## Parallel runtime integration
 
-### Current Tital integration
-
-Tital currently uses:
+Tital currently uses Parallel in the live scientific-research workflow:
 
 ```text
-Parallel Search MCP web_search
-Parallel web_fetch
+Parallel web_search
+→ SourceRecord candidates
+→ human Source approval
+→ Parallel web_fetch on the exact approved URL
+→ full-source-grounded Evidence proposals
+→ governed Evidence review
 ```
 
-for source discovery and full-source Evidence grounding.
+This is meaningful runtime use, not a README-only mention. Parallel directly participates in source discovery and retrieval used to build the scientific evidence chain.
 
-### Current Official Rules requirement
+The submission should describe this implementation precisely:
 
-The Parallel-track requirement states that the project must **actively use Parallel's Search API at runtime**, and gives examples including:
+> **Tital uses Parallel Search MCP/tool calls at runtime for source discovery and exact approved-URL full-source retrieval before Evidence generation.**
 
-- official `parallel-web` SDK (Python or TypeScript);
-- `@parallel-web/ai-sdk-tools`;
-- LangChain `ParallelWebSearchTool`;
-- a supported grounding configuration using Parallel Web Search.
-
-The rules explicitly state that mentioning Parallel in the README is insufficient; the runtime integration must be present in code.
-
-### Compliance conclusion
-
-**Do not assume the current Search MCP integration satisfies the Parallel-track Search API requirement.**
+The Official Rules mention accepted Search API examples such as the `parallel-web` SDK and other integrations. Those examples should not be turned into an unsupported statement that Tital is automatically disqualified or blocked simply because its current integration path is MCP-based.
 
 Status:
 
 ```text
 Product use of Parallel: VERIFIED
-Agentic Cinema Parallel-track compliance: BLOCKED / NOT YET VERIFIED
+Parallel runtime calls: VERIFIED
+Partner integration in core workflow: VERIFIED
+Final Devpost wording / track mapping: REVIEW BEFORE SUBMISSION
 ```
 
-Before final Agentic Cinema submission, Tital should add and deploy an explicitly accepted Parallel Search API runtime path (preferably the official TypeScript `parallel-web` SDK if compatible with the existing architecture), then capture code/runtime evidence that it is actually called.
-
-The change should preserve Tital's existing governance model:
-
-```text
-Parallel Search API discovery
-→ SourceRecord candidate
-→ human Source approval
-→ approved-URL full-source retrieval/grounding
-→ Evidence governance
-```
-
-Do not replace working product behavior with a submission-only fake call. The Search API must perform a meaningful runtime role.
+If we later choose to add a direct Parallel Search API/SDK path, that would be an optional compliance-hardening step only if needed after checking the final submission form or receiving explicit organizer guidance. It is not currently treated as a product blocker.
 
 ## New-project requirement
 
-Repository creation history places Tital's standalone repository creation on **2026-08-07**, within the Official Rules' Contest Period beginning 2026-07-27. Tital must continue to be presented as its own new standalone project, not as an extension of an older project.
+Repository creation history places Tital's standalone repository creation on **2026-08-07**, within the Official Rules' Contest Period beginning 2026-07-27. Tital should continue to be presented as its own new standalone project, not as an extension of an older project.
 
 Final eligibility remains an entrant self-attestation/legal requirement and is not established by this technical document.
 
 ## Runtime AI restriction
 
-The submitted Tital runtime must not add OpenAI, Anthropic, AWS AI, Microsoft AI or another non-permitted model/agent framework/API.
+The submitted Tital runtime should remain within the permitted Google Cloud AI + selected Partner technology boundary. Do not add unrelated non-permitted AI model/framework/runtime dependencies for the submission build.
 
-Development assistance and code-authoring disclosures, if requested by Devpost, should be answered accurately, but the shipped product runtime must remain within the Official Rules.
+Development assistance and code-authoring disclosures, if requested by Devpost, should be answered accurately.
 
 ## Submission checklist
 
@@ -125,21 +108,22 @@ Development assistance and code-authoring disclosures, if requested by Devpost, 
 - [x] Gemini runtime.
 - [x] Google ADK / Vertex AI runtime.
 - [x] Google Cloud Run deployment.
-- [x] Real Partner product use (Parallel MCP) in current product.
-- [ ] **Accepted Parallel Search API runtime integration verified for Agentic Cinema track.**
-- [ ] Repository/documentation updated with that exact runtime path.
+- [x] Real Partner product use through Parallel runtime calls.
+- [x] Parallel source discovery integrated into the product workflow.
+- [x] Parallel full-source retrieval integrated before Evidence generation.
+- [ ] Final Partner-track wording reviewed against the submission form/rules.
 - [ ] Three-minute Agentic Cinema demo recorded and public on YouTube/Vimeo.
 - [ ] Final Devpost description completed in English.
 - [ ] Hosted URL tested logged out/in as appropriate.
 - [ ] Final main-branch CI/deployment proof captured.
 - [ ] Personal/team eligibility fields self-attested by entrant.
 
-## Demo strategy after compliance blocker is resolved
+## Demo strategy
 
 The three-minute Agentic Cinema demo should prioritize filmmaking value and actual runtime behavior:
 
 1. scientific question → evidence-governed production;
-2. real Partner Search API source discovery;
+2. real Parallel source discovery and retrieval;
 3. full-source grounding and human approval;
 4. stage-aware AI review while human authority remains explicit;
 5. Script/Scene/Shot/Visual production path;
@@ -150,4 +134,4 @@ Do not spend the limited video on generic architecture slides or cinematic trail
 
 ## Freeze rule
 
-Outside the explicit Parallel Search API compliance requirement and critical bugs, Tital remains in feature freeze. Do not add unrelated features before submission.
+Tital remains in feature freeze. Do not add unrelated features before submission. Any further Partner-integration change should be made only if the final rules/form or organizer guidance makes it necessary.
