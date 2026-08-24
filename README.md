@@ -30,7 +30,7 @@ FilmBrief
 → ProductionPackage
 ```
 
-A normal AI chat can generate many of these artifacts. Tital's value is the governed system around them: persisted state, source/evidence provenance, independent AI review assistance, explicit human gates, revision impact analysis, selective repair, final-package review, version history, and deterministic audit/package rules.
+A normal AI chat can generate many of these artifacts. Tital's value is the governed system around them: persisted state, source/evidence provenance, independent stage-aware AI review assistance, explicit human gates, revision impact analysis, selective repair, final-package review, version history, and deterministic audit/package rules.
 
 ## Current production workflow
 
@@ -56,23 +56,54 @@ DEFINE
 
 Every generative stage stops at a human decision boundary. AI recommendations never become trusted approvals by themselves.
 
-## AI-assisted human review
+## Stage-aware AI-assisted human review
 
-High-volume Source and Evidence gates include an independent Gemini review assistant. It can recommend:
+Every active human gate can optionally invoke an independent Gemini Review Evaluator:
+
+```text
+FilmBrief
+ResearchQuestion
+Source
+Evidence
+Claim
+Script
+Scene
+Shot
+Visual Decision
+```
+
+The reviewer is **stage-aware**. It receives the candidate plus only the relevant approved upstream context and project controls required for that review. Examples:
+
+- Source: relevance, visible authority signals, duplication, usefulness;
+- Evidence: full-source support, overstatement, uncertainty, contradiction;
+- Claim: Evidence support, confidence, scope, unsupported precision;
+- Script: approved-Claim fidelity, uncertainty, audience fit, pacing, unsupported additions;
+- Scene: Script coverage, narrative purpose, pacing, Director Brief consistency;
+- Shot: Scene/Script fidelity, camera choice, scientific constraints, visual-integrity category;
+- Visual Decision: Shot fidelity, disclosure, risk, observation-vs-reconstruction integrity;
+- Film Brief / Research Questions: project fit, scope, duration, audience, redundancy, and research usefulness.
+
+The evaluator returns advisory metadata:
 
 ```text
 APPROVE_SUGGESTED
 REJECT_SUGGESTED
 REVIEW_REQUIRED
-```
 
-with confidence, reasons, risks, flags, and `LOW / MEDIUM / HIGH` human-attention levels.
+attention: LOW | MEDIUM | HIGH
+confidence
+reasons[]
+risks[]
+flags[]
+```
 
 The assistant may select checkboxes for convenience, but only an explicit human action changes trusted status.
 
 ```text
 AI recommendation ≠ human approval
 ```
+
+AI review is **optional and user-triggered** rather than automatically adding another Gemini call at every stage. This preserves human agency and lets productions balance review depth against API cost and latency. Evidence has one extra safeguard: Adaptive Evidence Budget is applied before Evidence review so broad research does not become an unbounded AI/human review queue.
 
 This lets Tital scale human judgment without replacing it.
 
@@ -166,6 +197,7 @@ ProductionPackage v1
 → impact preview
 → affected records STALE
 → selective repair
+→ optional stage-aware AI review of repaired candidates
 → human re-review
 → re-audit
 → ProductionPackage v2
@@ -175,9 +207,9 @@ Package versions and change summaries remain inspectable rather than silently ov
 
 ## Final Production AI Review
 
-After a package reaches `READY_FOR_PRODUCTION`, an independent Gemini review can inspect the completed production for semantic risks such as scientific fidelity, uncertainty handling, audience fit, narrative/pacing issues, visual-integrity concerns, and conflicts with the Director Brief.
+After a package reaches `READY_FOR_PRODUCTION`, a separate independent Gemini review can inspect the **whole completed production** for cross-stage semantic risks such as scientific fidelity, uncertainty handling, audience fit, narrative/pacing issues, visual-integrity concerns, and conflicts with the Director Brief.
 
-Findings are advisory. The human director chooses whether to create a governed revision from them.
+This is distinct from the per-gate Review Evaluator. Per-gate review helps a human decide about current candidates; Final Production Review looks across the completed package. Findings remain advisory. The human director chooses whether to create a governed revision from them.
 
 ## Core governance contract
 
@@ -185,7 +217,7 @@ Findings are advisory. The human director chooses whether to create a governed r
 model/tool proposes semantic content
 → schema/domain validation
 → application maps trusted identity + provenance + status
-→ optional AI review assistance
+→ optional stage-aware AI review assistance
 → human decision
 → deterministic coverage evaluation
 → next governed stage
@@ -195,6 +227,7 @@ Important invariants:
 
 - models never approve their own output;
 - application code owns trusted IDs and parent/provenance mapping;
+- AI review metadata cannot change trusted review status;
 - rejected records remain history and are not silently regenerated;
 - `ARCHIVED_CANDIDATE` Evidence remains research history but is not production-approved evidence;
 - explicit retry is scoped and duplicate-resistant;
@@ -213,7 +246,7 @@ Tital uses specialized Google ADK TypeScript agents inside the deterministic wor
 | Research Question Agent | approved FilmBrief → research questions |
 | Source Discovery Agent | approved RQ → Parallel `web_search` source candidates |
 | Evidence Extraction Agent | approved Source → exact-URL Parallel `web_fetch` → compact Evidence proposals |
-| Review Evaluator | Source/Evidence candidates → advisory attention/recommendation data |
+| Review Evaluator | any active human-gate candidate → stage-aware advisory attention/recommendation data |
 | Claim Agent | approved active Evidence → Claims |
 | Scientific Script Agent | approved Claims → Script Lines |
 | Scene Director Agent | approved Script + Director Brief → Scenes |
@@ -237,7 +270,7 @@ notes
 avoid[]
 ```
 
-The director can approve, reject, request a replacement with a scoped instruction, explicitly remember selected feedback for later cinematic proposals, intentionally waive supported coverage gaps, and revise a completed production.
+The director can approve, reject, request a replacement with a scoped instruction, invoke AI review assistance at any active gate, explicitly remember selected feedback for later cinematic proposals, intentionally waive supported coverage gaps, and revise a completed production.
 
 Precedence remains:
 
@@ -279,6 +312,8 @@ TITAL_EVIDENCE_CONCURRENCY=1
 ```
 
 because every approved Source now requires a Gemini turn plus Parallel `web_fetch`.
+
+Stage-aware AI review is intentionally on-demand. A director can request it where the value of a second semantic pass justifies the extra model call; Tital does not automatically double every generation step.
 
 Transient Vertex/ADK rate limits use bounded retry/backoff; billing/auth/safety/schema/provenance failures are not blindly retried. Cloud Run serving concurrency is separate from model concurrency so long agent calls do not need to starve UI/health traffic.
 
@@ -386,6 +421,8 @@ The product claim is not “Tital generates more AI output than a chat.” The s
 and:
 
 > **Tital keeps broad scientific research available while controlling how much evidence consumes human attention and downstream computation.**
+
+Stage-aware review strengthens that story: the same human-authority pattern now applies from project definition through scientific claims and cinematic decisions, while the director chooses when a second Gemini review is worth its cost.
 
 This is the difference between a sequence of prompts and a governed production system.
 

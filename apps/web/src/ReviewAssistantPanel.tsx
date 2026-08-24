@@ -18,7 +18,18 @@ import type {
 
 function recordSummary(record: GateRecord | undefined): string {
   if (!record) return 'Unknown candidate';
-  const values = [record.title, record.interpretation, record.excerpt, record.question];
+  const values = [
+    record.title,
+    record.text,
+    record.description,
+    record.decision,
+    record.interpretation,
+    record.excerpt,
+    record.question,
+    record.purpose,
+    record.scientificQuestion,
+    record.visualSummary,
+  ];
   const value = values.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
   return typeof value === 'string' ? value : record.id;
 }
@@ -35,6 +46,18 @@ function recommendationLabel(value: ReviewRecommendation['recommendation']): str
   return 'Review required';
 }
 
+const supportedRecordTypes = new Set([
+  'FilmBrief',
+  'ResearchQuestion',
+  'SourceRecord',
+  'EvidenceRecord',
+  'ClaimRecord',
+  'ScriptLineRecord',
+  'SceneRecord',
+  'ShotRecord',
+  'VisualDecisionRecord',
+]);
+
 export function ReviewAssistantPanel({
   gate,
   recommendations,
@@ -49,7 +72,7 @@ export function ReviewAssistantPanel({
   onSelectIds: (ids: string[]) => void;
 }) {
   const [attentionOnly, setAttentionOnly] = useState(false);
-  const supported = gate.recordType === 'SourceRecord' || gate.recordType === 'EvidenceRecord';
+  const supported = supportedRecordTypes.has(gate.recordType);
   const pendingIds = useMemo(() => new Set(gate.records.map((record) => record.id)), [gate.records]);
   const current = useMemo(
     () => recommendations
@@ -91,7 +114,7 @@ export function ReviewAssistantPanel({
           <Typography variant="overline" color="secondary.dark">AI review assistant</Typography>
           <Typography variant="h6">Focus human attention where it matters</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 780 }}>
-            Gemini independently evaluates the pending candidates and explains risk. Recommendations are advisory only; they never change trusted approval or rejection status.
+            Gemini independently evaluates the current {gate.recordType} candidates against their approved upstream context, project settings, and stage-specific risks. Recommendations are advisory only; they never change trusted approval or rejection status.
           </Typography>
         </Box>
         <Button variant={current.length ? 'outlined' : 'contained'} disabled={busy} onClick={onRun}>

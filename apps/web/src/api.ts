@@ -62,7 +62,16 @@ export interface ReviewGate {
 
 export interface ReviewRecommendation {
   id: string;
-  targetType: 'SOURCE' | 'EVIDENCE';
+  targetType:
+    | 'FILM_BRIEF'
+    | 'RESEARCH_QUESTION'
+    | 'SOURCE'
+    | 'EVIDENCE'
+    | 'CLAIM'
+    | 'SCRIPT'
+    | 'SCENE'
+    | 'SHOT'
+    | 'VISUAL';
   targetRecordId: string;
   recommendation: 'APPROVE_SUGGESTED' | 'REJECT_SUGGESTED' | 'REVIEW_REQUIRED';
   attention: 'LOW' | 'MEDIUM' | 'HIGH';
