@@ -47,6 +47,13 @@ function classifyRuntimeFailure(input: {
 }): { category: string; detail: string } {
   const combined = `${input.errorCode ?? ''} ${input.message ?? ''} ${input.finishReason ?? ''}`.toLowerCase();
 
+  if (combined.includes('spend cap') || combined.includes('billing')) {
+    return {
+      category: 'QUOTA_OR_BILLING',
+      detail: 'Vertex AI rejected the request because project billing or spend-cap capacity was not available.',
+    };
+  }
+
   if (input.errorCode === '429' || combined.includes('rate limit') || combined.includes('too many requests')) {
     return {
       category: 'RATE_LIMIT',
@@ -54,10 +61,10 @@ function classifyRuntimeFailure(input: {
     };
   }
 
-  if (combined.includes('spend cap') || combined.includes('quota') || combined.includes('billing')) {
+  if (combined.includes('quota')) {
     return {
       category: 'QUOTA_OR_BILLING',
-      detail: 'Vertex AI rejected the request because project quota, billing, or spend cap capacity was not available.',
+      detail: 'Vertex AI rejected the request because project quota capacity was not available.',
     };
   }
 
@@ -129,6 +136,14 @@ export function toModelRuntimeError(label: string, error: unknown): ModelRuntime
 
 export function isRetryableModelRuntimeError(error: unknown): error is ModelRuntimeError {
   if (!(error instanceof ModelRuntimeError)) return false;
+  if (
+    error.diagnostics.category === 'QUOTA_OR_BILLING' ||
+    error.diagnostics.category === 'AUTHORIZATION' ||
+    error.diagnostics.category === 'SAFETY_STOP'
+  ) {
+    return false;
+  }
+
   const code = error.diagnostics.errorCode;
   return (
     error.diagnostics.category === 'RATE_LIMIT' ||
