@@ -47,6 +47,13 @@ function classifyRuntimeFailure(input: {
 }): { category: string; detail: string } {
   const combined = `${input.errorCode ?? ''} ${input.message ?? ''} ${input.finishReason ?? ''}`.toLowerCase();
 
+  if (input.errorCode === '429' || combined.includes('rate limit') || combined.includes('too many requests')) {
+    return {
+      category: 'RATE_LIMIT',
+      detail: 'Vertex AI temporarily rate-limited the request before returning structured content.',
+    };
+  }
+
   if (combined.includes('spend cap') || combined.includes('quota') || combined.includes('billing')) {
     return {
       category: 'QUOTA_OR_BILLING',
@@ -118,6 +125,21 @@ export function toModelRuntimeError(label: string, error: unknown): ModelRuntime
   if (error instanceof ModelRuntimeError) return error;
   const message = error instanceof Error ? error.message : String(error);
   return modelRuntimeError(label, { message });
+}
+
+export function isRetryableModelRuntimeError(error: unknown): error is ModelRuntimeError {
+  if (!(error instanceof ModelRuntimeError)) return false;
+  const code = error.diagnostics.errorCode;
+  return (
+    error.diagnostics.category === 'RATE_LIMIT' ||
+    error.diagnostics.category === 'TIMEOUT' ||
+    code === '408' ||
+    code === '429' ||
+    code === '500' ||
+    code === '502' ||
+    code === '503' ||
+    code === '504'
+  );
 }
 
 export async function collectAdkResponseText(
