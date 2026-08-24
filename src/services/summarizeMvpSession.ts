@@ -1,5 +1,9 @@
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
+import {
+  evaluationForRevisionAwaitingRepair,
+  revisionAwaitingRepair,
+} from './revisionProgressGuard.js';
 
 function statusCounts(records: Array<{ status: string }>): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -9,7 +13,10 @@ function statusCounts(records: Array<{ status: string }>): Record<string, number
 
 export function summarizeMvpSession(session: MvpSession) {
   const validated = MvpSessionSchema.parse(session);
-  const evaluation = evaluateMvpWorkflow(validated.state);
+  const awaitingRepair = revisionAwaitingRepair(validated);
+  const evaluation = awaitingRepair
+    ? evaluationForRevisionAwaitingRepair(awaitingRepair)
+    : evaluateMvpWorkflow(validated.state);
   return {
     sessionId: validated.id,
     title: validated.state.filmBrief.title,

@@ -9,6 +9,7 @@ import {
   latestProductionVersionComparison,
   summarizeProductionVersions,
 } from './productionVersionHistory.js';
+import { revisionAwaitingRepair } from './revisionProgressGuard.js';
 import { summarizeMvpSession } from './summarizeMvpSession.js';
 
 export type MvpContinueMode =
@@ -20,6 +21,15 @@ export type MvpContinueMode =
   | 'COMPLETE';
 
 function continueActionFor(session: MvpSession) {
+  const awaitingRepair = revisionAwaitingRepair(session);
+  if (awaitingRepair) {
+    return {
+      enabled: false,
+      mode: 'BLOCKED' as const,
+      message: 'An applied governed revision is waiting for selective repair. Open the active revision and generate its replacement before continuing, auditing, or rebuilding the package.',
+    };
+  }
+
   const evaluation = evaluateMvpWorkflow(session.state);
   const reviewGate = getCurrentMvpReviewGate(session.state);
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { MvpSession } from '../src/domain/mvpSession.js';
 import type { MvpStepExecutors } from '../src/services/executeNextMvpStep.js';
-import { advanceMvpSession } from '../src/services/advanceMvpSession.js';
+import { advanceMvpSession, MvpSessionAdvanceError } from '../src/services/advanceMvpSession.js';
+import { getMvpSessionView } from '../src/services/getMvpSessionView.js';
 
 function readySessionWithoutAudit(): MvpSession {
   return {
@@ -107,5 +108,36 @@ describe('advanceMvpSession deterministic finalization', () => {
       'PACKAGE_BUILT',
       'REVISION_COMPLETED',
     ]);
+  });
+
+  it('blocks audit/package progression while an applied revision is still waiting for selective repair', async () => {
+    const session = readySessionWithoutAudit();
+    session.revisionRequests = [{
+      id: 'REV-script',
+      type: 'SCRIPT_REVISION',
+      targetType: 'ScriptLineRecord',
+      targetRecordId: 'SL-1',
+      reason: 'Remove duplicated narration.',
+      instruction: 'Generate a distinct replacement line.',
+      requestedBy: 'user-1',
+      createdAt: '2026-08-15T00:30:00.000Z',
+      status: 'APPLIED',
+    }];
+
+    const view = getMvpSessionView(session);
+    expect(view.summary.stage).toBe('SCRIPT');
+    expect(view.summary.blockedBy).toContain('REVISION_REPAIR_REQUIRED');
+    expect(view.continueAction).toMatchObject({ enabled: false, mode: 'BLOCKED' });
+    expect(view.continueAction.message).toMatch(/selective repair/i);
+
+    await expect(advanceMvpSession(session, {
+      executors: auditOnlyExecutors(),
+    })).rejects.toMatchObject({
+      code: 'REVISION_REPAIR_REQUIRED',
+      statusCode: 409,
+    } satisfies Partial<MvpSessionAdvanceError>);
+
+    expect(session.state.audit).toBeNull();
+    expect(session.productionPackage).toBeNull();
   });
 });
