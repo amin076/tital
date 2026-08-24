@@ -2,31 +2,31 @@
 
 Status date: **2026-08-24**
 
-Tital is a working, hosted **Evidence-Governed Scientific Film Director** with a public completed demo, authenticated Director Workspace, persistent Cloud Storage state, Google ADK/Gemini agents, Parallel source discovery and full-source grounding, stage-aware AI-assisted review, explicit human gates, governed revisions, versioned production packages, runtime diagnostics, and a deterministic governance/provenance audit.
+Tital is now in **hackathon feature freeze**. The hosted product has completed a feedback-driven production acceptance run covering full-source grounding, Adaptive Evidence Budget, stage-aware AI-assisted human review, Final Production Review, governed revision, selective repair, re-audit, and rebuilt production packaging.
 
 Core principle:
 
 > **Evidence → Story, not Story → Evidence.**
 
-Current product direction:
+Product operating model:
 
-> **AI does the volume. Human owns the judgment. Tital owns governed state, provenance, revision impact, and production history.**
+> **AI does the volume. Human owns the judgment. Tital owns governed state, provenance, revision impact and production history.**
 
-## Current runtime stack
+## Runtime stack
 
 | Area | Current state |
 |---|---|
 | LLM | `gemini-3.5-flash` |
 | Agent framework | Google ADK TypeScript |
 | Model access | Vertex AI |
-| Hosted application | Google Cloud Run |
-| Persistent state | Google Cloud Storage |
+| Hosting | Google Cloud Run |
+| Persistence | Google Cloud Storage |
 | Authentication | Firebase Authentication + Firebase Admin verification |
-| Web research | Parallel Search MCP `web_search` |
-| Full-source Evidence | Parallel MCP `web_fetch` exact approved URL |
+| Source discovery | Parallel Search MCP `web_search` |
+| Full-source Evidence | Parallel MCP `web_fetch` on exact approved URL |
 | Front end | React 19 + Vite + Material UI |
 | Validation | Zod + deterministic application-owned provenance mapping |
-| CI/CD | GitHub Actions + Workload Identity Federation + post-deploy health/release verification |
+| CI/CD | GitHub Actions + Workload Identity Federation |
 
 ## Implemented governed chain
 
@@ -44,13 +44,13 @@ FilmBrief
 → ProductionPackage
 ```
 
-Every generative transition remains bounded by human review. Models do not own approval status, trusted identity, or provenance links.
+Models never own trusted IDs, provenance links or approval status.
 
-## Feedback-driven product evolution now implemented
+## Feedback-driven features now live
 
-### Stage-aware AI-assisted human review
+### 1. Stage-aware AI-assisted human review
 
-The independent Gemini Review Evaluator is no longer limited to Source/Evidence. It can be requested at every active human gate:
+The independent Gemini Review Evaluator can be invoked at every active human gate:
 
 ```text
 FilmBrief
@@ -64,62 +64,108 @@ Shot
 Visual Decision
 ```
 
-Each stage has its own semantic rubric and receives relevant approved upstream context rather than being judged as isolated prose. Examples include Claim→Evidence support, Script→Claim fidelity/audience/pacing, Shot→Scene/Script/Director Brief compatibility, and Visual→Shot/disclosure/representation integrity.
+The evaluator receives relevant approved upstream context and a stage-specific rubric. Recommendations include attention level, confidence, reasons, risks and flags, but remain advisory until a human explicitly approves/rejects.
 
-Recommendations contain attention level, confidence, reasons, risks, and flags. They are advisory only. Assisted selection may check boxes, but a human must explicitly approve or reject before trusted state changes.
+### 2. Full-source Evidence grounding
 
-Review is **optional and user-triggered** so productions can choose where the value of a second Gemini pass justifies its API cost and latency. Evidence remains the special high-volume case: deterministic Adaptive Evidence Budget runs before Evidence AI review.
+After human Source approval, Evidence extraction must call Parallel `web_fetch` on the exact approved URL. Discovery snippets are not treated as the Evidence basis.
 
-### Full-source Evidence grounding
+### 3. Adaptive Evidence Budget
 
-New Evidence extraction no longer treats discovery snippets as the Evidence basis. The Evidence Agent must call Parallel `web_fetch` for the exact approved Source URL before returning Evidence proposals. Grounding provenance is stored on new EvidenceRecords.
-
-### Adaptive Evidence Budget
-
-The live 5-minute Aurora smoke test exposed an overproduction case: **21 approved Sources → 123 Evidence candidates**, with approximately **16m47s** of measured Evidence-stage wall time and 29 external calls/executions visible in the runtime profile.
-
-Tital now separates research breadth from active production Evidence:
+The live five-minute Aurora acceptance run verified:
 
 ```text
-Candidate Evidence Pool
-→ Adaptive Evidence Budget
-→ REVIEW_REQUIRED active subset
-→ ARCHIVED_CANDIDATE preserved remainder
+21 approved Sources
+→ 123 full-source Evidence candidates
+→ 24 active for review
+→ 99 archived and preserved
+→ 21 approved / 3 rejected by the human
 ```
 
-The 5-minute default target is 24 active Evidence records. The live persisted Aurora project verified the intended production behavior:
+The same run verified `21/21` active Evidence Source branches using Parallel `web_fetch`.
+
+### 4. Final Production AI Review
+
+A completed package can receive a separate Gemini review across the whole production. This reviewer has already demonstrated that it can find cross-stage narrative/coverage problems even when the deterministic governance/provenance audit reports `0 issues`.
+
+### 5. Governed revision and selective repair
+
+Current revision targets:
+
+- project duration;
+- approved Source;
+- approved Claim;
+- approved Script Line;
+- approved Scene;
+- approved Shot;
+- approved Visual Decision.
+
+The live Script revision test previewed exactly:
 
 ```text
-123 research candidates
-→ 24 active human-review candidates
-→ 99 archived candidates retained
-→ AI Review on active subset
-→ 21 human-approved / 3 human-rejected
+Affected:
+Script 1
+Scene 1
+Shots 2
+Visuals 2
+
+Preserved:
+Research Questions
+Sources
+Evidence
+Claims
 ```
 
-The same run verified **21/21 active Evidence source branches using Parallel `web_fetch`**.
+After Apply, old records remained `STALE` history. The revision then required targeted repair, optional AI review of repaired candidates, explicit human decisions, re-audit and package rebuild.
 
-Evidence extraction also asks for a compact strongest set and application code caps production Evidence output to 3 proposals per Source.
+A production-state bug discovered during this smoke test was also fixed: an `APPLIED` revision waiting for repair can no longer jump directly to Audit/Package/Complete. The session is held at the earliest affected stage until repair begins; direct advance requests are blocked with `REVISION_REPAIR_REQUIRED`.
 
-See `docs/ADAPTIVE_EVIDENCE_BUDGET.md`.
+### 6. Versioned production history
 
-### Final Production AI Review
+Completed packages remain immutable milestones. Governed revisions supersede prior packages while preserving revision activity, stale records and package history.
 
-A `READY_FOR_PRODUCTION` package can receive a separate advisory whole-package Gemini review for scientific fidelity, uncertainty handling, narrative/pacing, audience fit, visual-integrity risk, and Director Brief consistency. This is distinct from per-gate review: the stage-aware evaluator helps with the current candidate decision; Final Production Review looks across the completed package.
+## Live acceptance evidence — 2026-08-24
 
-### Governed revision and selective repair
+The `Aurora Grounding Test` verified the feedback-driven workflow in the hosted product:
 
-A completed production can be revised without starting a new project. Tital supports impact preview, targeted `STALE` invalidation, selective repair, optional stage-aware review of repaired candidates, human re-review, re-audit, and package rebuilding.
+1. Research and Source review completed.
+2. 123 full-source Evidence candidates were compacted to 24 active + 99 archived.
+3. Gemini Evidence review assisted the human; final active decisions were 21 approved / 3 rejected.
+4. Claims and Script were generated from the approved chain.
+5. Stage-aware Script review identified audience/jargon risk while leaving status human-controlled.
+6. Coverage-gap handling forced explicit Retry/Waive rather than silent omission/regeneration.
+7. Stage-aware Scene, Shot and Visual review ran successfully.
+8. Governance/provenance audit passed with `0 issues`.
+9. Final Production AI Review found cross-stage semantic/narrative findings.
+10. Final-review feedback exposed a missing Script/Scene revision capability; both revision targets were added.
+11. Script impact preview correctly preserved upstream science and targeted `1 Script → 1 Scene → 2 Shots → 2 Visuals`.
+12. Applying the revision exposed a package-completion guard bug; that guard was fixed and regression-tested.
+13. Active revision repair generated replacement Script candidates and returned them to human review.
+14. Human-reviewed repair was re-audited and rebuilt into a `READY_FOR_PRODUCTION` package.
+15. Activity history recorded `REVISION COMPLETED`, `AUDIT EXECUTED`, and `PACKAGE BUILT`.
+16. A second Final Production Review ran against the rebuilt package and produced new advisory findings without mutating trusted state.
 
-Current revision targets include duration, Source approval revocation, Claim, Shot, and Visual Decision.
+See `docs/submission/feedback-driven-e2e/README.md`.
 
-### Versioned production history
+## Current product counts from the repaired package
 
-Production packages are stored as versioned milestones. A revised package can supersede an earlier version while preserving change/revision history and compact comparison information.
+The latest observed repaired package showed:
 
-## Human collaboration
+```text
+Research Questions  5
+Sources             21
+Evidence            21
+Claims              12
+Scientific Script   11
+Scenes               8
+Shots               21
+Visual Decisions    21
+Audit issues         0
+```
 
-The project-level Director Brief persists collaboration mode, pacing, camera movement, representation preference, optional visual style/notes, and explicit avoid constraints.
+Historical rejected/stale/archive counts remain visible outside the active package and are intentionally preserved.
+
+## Human collaboration model
 
 The human can:
 
@@ -128,15 +174,15 @@ Approve
 Reject
 Reject & try another + scoped instruction
 Ask Gemini to review the current gate
-Select AI-suggested approvals/rejections without auto-committing them
-Explicitly remember selected feedback
+Use AI-suggested checkbox selection without auto-committing it
+Remember selected feedback explicitly
 Retry / Waive / Cancel coverage gaps
-Review final-package AI findings
+Review whole-package AI findings
 Preview/apply a governed revision
 Repair only the affected branch
 ```
 
-Scientific precedence remains:
+Scientific precedence:
 
 ```text
 science / provenance / uncertainty / visual-integrity constraints
@@ -145,108 +191,70 @@ science / provenance / uncertainty / visual-integrity constraints
 > AI cinematic preference
 ```
 
-## Trusted-reference hardening
-
-When a model must refer to upstream records, Tital prefers numbered semantic references and maps them back to trusted IDs in application code. Single-parent IDs are application-owned when possible.
-
-The stage-aware Review Evaluator similarly receives model-safe candidate context and does not receive authority to assign trusted IDs/statuses.
-
-## Public demo
-
-The detached Dinosaur demo remains anonymously available at:
-
-```text
-COMPLETE
-READY_FOR_PRODUCTION
-```
-
-It is a sanitized read-only snapshot rather than the authenticated user's live mutable session.
-
-## Performance and resilience status
-
-General independent external calls use bounded concurrency. Full-source Evidence uses a separate conservative default because every Source requires a Gemini turn plus Parallel `web_fetch`.
+## Performance/resilience status
 
 ```text
 TITAL_EXTERNAL_CONCURRENCY=3
 TITAL_EVIDENCE_CONCURRENCY=1
 ```
 
-Stage-aware AI review is deliberately on-demand instead of automatically doubling model work at every gate.
+Live testing has already exposed and hardened three distinct production concerns:
 
-Recent live smoke testing exposed and fixed two distinct 429 classes:
+1. transient Vertex/ADK 429 during Evidence extraction → conservative Evidence concurrency + bounded retry/backoff;
+2. Cloud Run request starvation during a long model call → HTTP serving capacity separated from model concurrency;
+3. large Evidence volume → Adaptive Evidence Budget rather than simply increasing concurrency.
 
-1. **Vertex/ADK rate limit during Evidence extraction** — transient rate limits are classified and retried with bounded backoff; Evidence concurrency is conservative. Billing/auth/safety/schema/provenance failures are not blindly retried.
-2. **Cloud Run `Rate exceeded.` while one long request occupied the only serving slot** — HTTP serving capacity was separated from model-call concurrency so UI/read/health requests do not need to starve during a long agent operation.
+Stage-aware AI review remains user-triggered so the extra semantic pass does not automatically double every stage's model cost.
 
-The live Aurora test then exposed the third performance/product issue: Evidence volume itself. Adaptive Evidence Budget addresses that human/downstream workload rather than merely increasing concurrency.
+## Governance boundary
 
-See `docs/PERFORMANCE.md`.
+The deterministic audit checks structural trust conditions: approved-chain links, stale/unapproved upstream records, visual category/disclosure consistency and package readiness. It **does not** establish scientific truth or peer-review quality.
 
-## Governance, staleness and versioning
-
-Current trust model includes:
-
-- application-owned IDs/provenance;
-- stage-aware advisory review separated from human authority;
-- rejection history;
-- explicit retry and waivers;
-- `ARCHIVED_CANDIDATE` Evidence archive state;
-- `STALE` lifecycle for governed revisions;
-- deterministic downstream invalidation;
-- audit/package invalidation after affected changes;
-- selective branch repair;
-- final-package semantic review separated from deterministic audit;
-- versioned production packages.
-
-## Audit scope
-
-The deterministic audit is correctly described as a **Governance & provenance audit**. It checks structural trust conditions and representation/disclosure rules. It does **not** independently establish scientific truth, source authority, or expert peer-review quality.
-
-Full-source `web_fetch` grounding improves traceability, but source choice and interpretation still require scientific/human judgment.
+Likewise, `web_fetch` provides approved-source grounding, not independent scientific certification.
 
 ## Current major limits
 
-- no optimistic locking for concurrent mutation of one session;
+- no optimistic locking for concurrent mutation of a single session;
 - no dedicated UI yet to browse/promote `ARCHIVED_CANDIDATE` Evidence;
-- V1 Evidence Budget still full-fetches/extracts approved Sources before global compaction;
-- source-content caching and coverage-aware research early stopping remain future performance work;
-- independent scientific peer-review/source-authority verification remains outside the deterministic audit;
-- deeper contradiction/epistemic-state modeling remains roadmap;
-- stage-aware AI review is an advisory second model pass and therefore adds cost/latency when requested;
+- Evidence Budget v1 still full-fetches/extracts approved Sources before global compaction;
+- source caching and coverage-aware early stopping remain future optimization work;
+- independent expert scientific peer review remains outside the deterministic audit;
+- Final AI Review may surface additional advisory findings after each repaired package, and the product intentionally leaves the decision to revise with the human;
 - Tital produces a governed production package rather than rendering the final film.
 
-## Current smoke-test focus
+## Freeze decision
 
-The active `Aurora Grounding Test` has already verified full-source retrieval and Adaptive Evidence Budget in production and has progressed through Claims into Script. It is now the live acceptance project for stage-aware review.
+**No additional product features should be added before submission unless required for critical correctness or hackathon compliance.**
 
-Current acceptance sequence:
+Remaining work:
 
-```text
-existing 12 ScriptLineRecord candidates
-→ deployed stage-aware Review Assistant appears at SCRIPT gate
-→ Ask Gemini to review
-→ 12 pending statuses remain unchanged
-→ recommendations include claim fidelity / uncertainty / audience / pacing risks
-→ human decisions
-→ repeat at Scene / Shot / Visual gates
-→ Final Production Review
-→ duration revision / selective repair / package v2
-```
+- final docs/compliance synchronization;
+- curated screenshots and evidence selection;
+- demo recording/editing;
+- logged-out/public-demo verification;
+- final CI/deployment cleanliness checks;
+- Devpost submission completion;
+- critical bugs only.
 
 ## Submission readiness
 
-The All Things Agentic materials are maintained under `docs/hackathon/all-things-agentic/`. The submission story should emphasize the governed collaboration system, not merely the number of agents:
+All Things Agentic materials live under `docs/hackathon/all-things-agentic/`.
+
+The strongest current submission story is:
 
 ```text
 broad research
 → full-source grounding
 → adaptive human-attention budget
 → stage-aware AI assistance
-→ human authority
-→ traceable production
-→ final cross-stage review
-→ revisable/versioned final package
+→ explicit human authority
+→ traceable cinematic production
+→ independent whole-package review
+→ governed selective revision
+→ re-audited versioned package
 ```
+
+For Agentic Cinema, track-specific compliance must be evaluated separately from product readiness; do not equate a working Parallel MCP integration with compliance unless the current official Partner-track requirement explicitly accepts that integration.
 
 ## Validation
 
@@ -256,4 +264,4 @@ Every merge should pass:
 npm run verify:submission
 ```
 
-Live Vertex/Parallel smoke tests remain deliberate because they consume quota/credits and can expose runtime constraints that deterministic tests cannot reproduce.
+Live Vertex/Parallel smoke tests remain deliberate because they consume quota/credits and should now be reserved for critical final validation rather than feature exploration.
