@@ -1,117 +1,131 @@
 # All Things Agentic — Compliance Matrix
 
-This checklist maps the published hackathon requirements to concrete Tital evidence. It intentionally separates **implemented/verified**, **prepared**, and **human action still required**.
+Status date: **2026-08-24**
+
+This checklist maps hackathon submission requirements to concrete Tital evidence. It separates implemented/verified facts from remaining human submission actions.
 
 ## Mandatory technology requirements
 
 | Requirement | Tital evidence | Status |
 |---|---|---|
-| Gemini 3.5 or newer | Central runtime model `src/config/models.ts` is `gemini-3.5-flash`; all LLM agents import that constant; regression test prevents 2.5 drift; public runtime metadata and the deploy workflow verify the exact model/release; authenticated Aurora E2E completed on `gemini-3.5-flash` / `VERTEX_AI` / Google ADK | ✅ deployed + automated runtime assertion passed + live semantic E2E passed |
-| Google Agent Framework | `@google/adk` TypeScript agents for Define, Research Questions, Source Discovery, Evidence, Claims, Script, Scenes, Shots, Visual Decisions | ✅ |
-| Google Cloud infrastructure | Hosted Node + React service on Cloud Run; Cloud Storage persistence; Firebase authentication; Workload Identity Federation deployment | ✅ |
-| Agent beyond a standard chat loop | Typed multi-stage workflow with action/tool calls, persistence, human interrupts, review, coverage, audit, and package release | ✅ |
+| Gemini 3.5 or newer | Central model constant is `gemini-3.5-flash`; ADK agents import it; deployed health/runtime metadata reports model/framework/release; authenticated Aurora E2E completed on Gemini 3.5 Flash / Vertex AI / Google ADK | ✅ |
+| Google Agent Framework | `@google/adk` TypeScript agents for generation, tool-backed research, AI review assistance and final production review | ✅ |
+| Google Cloud infrastructure | Cloud Run app/API, Cloud Storage persistence, Firebase auth, Workload Identity Federation deployment | ✅ |
+| Agent beyond standard chat | Persisted typed multi-stage workflow with Parallel actions, AI/human review, provenance, coverage, revision impact, selective repair, audit, and versioned package lifecycle | ✅ |
 
 ## Selected track
 
 **Collaborative Partner**
 
-Evidence:
+Implemented evidence:
 
-- persistent Director Brief captures the user's collaboration mode and cinematic preferences;
-- every generative stage pauses at a human review boundary;
-- `Reject & try another` accepts scoped feedback and triggers targeted replacement;
-- the director can explicitly opt in to remember a retry instruction for later Scene, Shot, and Visual Decision proposals;
-- remembered feedback is persisted as governed project state, surfaced in the Director Context rail, counted in cinematic decision provenance, and removed from public demo snapshots;
-- rejection does not authorize silent regeneration;
-- intentional gaps require explicit human waivers;
-- creative preferences cannot override evidence/uncertainty/visual-integrity constraints.
+- persistent Director Brief controls cinematic collaboration;
+- every generative stage pauses at human review;
+- Source/Evidence AI review assistance focuses human attention but cannot change trusted approval status;
+- `Reject & try another` supports scoped feedback;
+- retry guidance is reusable only with explicit opt-in project memory;
+- coverage gaps require explicit retry/waiver choices;
+- completed packages can receive advisory AI review and explicit human-governed revision;
+- scientific evidence/uncertainty/visual-integrity constraints outrank creative preference.
 
 ## Required submission items
 
-| Devpost item | Prepared artifact / evidence | Status |
+| Item | Artifact / evidence | Status |
 |---|---|---|
 | Category | Collaborative Partner | ✅ |
-| Hosted project URL | `https://tital-o7za4b3w5q-ts.a.run.app/` | ✅ deployed |
-| Features/functionality description | `SUBMISSION.md` | ✅ |
-| Technologies used | `SUBMISSION.md` + root README | ✅ |
-| Other data sources | Parallel Search MCP documented | ✅ |
-| Findings/learnings | `SUBMISSION.md` | ✅ |
-| Public code repository | `https://github.com/amin076/tital` | ✅ |
-| Spin-up instructions | Root `README.md`, strengthened for hackathon reproducibility | ✅ |
-| Architecture diagram | `architecture.svg` + `ARCHITECTURE.md` | ✅ prepared |
-| ~4-minute demo video | `DEMO_SCRIPT.md` + recording checklist | 🟡 human recording/upload required |
-| Proof backend runs on Google Cloud | Cloud Run URL + GitHub deployment workflow; public landing/health expose safe model, framework, service, revision, and release metadata; demo script includes Cloud Run/Vertex proof shot | ✅ evidence exists / 🟡 Console proof must be shown in video |
-| Verified Gemini 3.5 E2E evidence | `docs/submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md` plus curated screenshots in `docs/submission/e2e-gemini-35-smoke-test/selected/` | ✅ |
+| Hosted URL | `https://tital-o7za4b3w5q-ts.a.run.app/` | ✅ |
+| Features/functionality | `SUBMISSION.md` | ✅ current |
+| Technology/data sources | `SUBMISSION.md` + root README | ✅ current |
+| Public repository | `https://github.com/amin076/tital` | ✅ |
+| Reproducible run instructions | root `README.md` | ✅ |
+| Architecture explanation | `ARCHITECTURE.md` | ✅ current |
+| Architecture graphic | `architecture.svg` | ✅ refreshed |
+| ~4-minute demo plan | `DEMO_SCRIPT.md` | ✅ updated / 🟡 recording required |
+| Google Cloud runtime proof | public runtime metadata + Cloud Run/GitHub Actions deployment evidence | ✅ evidence exists / 🟡 include in video |
+| Gemini 3.5 E2E evidence | `docs/submission/e2e-gemini-35-smoke-test/` | ✅ |
+
+## Partner/runtime evidence
+
+Tital uses Parallel Search MCP in the live scientific-research path:
+
+```text
+Parallel web_search
+→ candidate SourceRecords
+→ human Source approval
+→ Parallel web_fetch exact approved URL
+→ full-source grounded Evidence proposals
+```
+
+Parallel discovery/fetch output is validated before trusted workflow use. The submission should describe Parallel as both the source-discovery and approved-source retrieval tool for the current production Evidence path.
 
 ## Production-readiness evidence
 
-- Public no-login completed demo exists and has been browser-validated.
-- Authenticated live Director Workspace exists.
-- GitHub Actions validates typecheck, tests, and production build.
-- `npm run verify:submission` reproduces typecheck, all deterministic tests, and the production build locally.
-- Main pushes deploy to Cloud Run via Workload Identity Federation when enabled.
-- The deploy job fails closed if `/api/health` does not report `gemini-3.5-flash`, Google ADK, Cloud Run, and the deployed Git commit.
+- Public no-login detached completed demo exists.
+- Authenticated Director Workspace exists.
 - Cloud Storage persistence survives Cloud Run revisions.
 - Firebase ID tokens protect live session APIs.
-- User sessions are namespaced by Firebase UID.
-- Completed Dinosaur project reached `READY_FOR_PRODUCTION`.
-- Authenticated Aurora Gemini 3.5 E2E reached `READY_FOR_PRODUCTION` on Cloud Run revision `tital-00030-8ht` at commit `3ded520f568ff8d86f9af83134c3e77f146019a8`.
-- Aurora governance/provenance audit passed with 0 issues and final refresh persistence passed.
-- Governance/provenance audit reports its scope honestly and does not claim independent scientific peer review.
+- GitHub Actions validates typecheck/tests/build before enabled main deployment.
+- Deployment uses Workload Identity Federation rather than bundled long-lived service-account JSON credentials.
+- `/api/health` post-deploy assertion verifies required model/framework/infrastructure/release facts.
+- Human rejection remains history and cannot silently re-enter generation.
+- AI review recommendations do not auto-approve Source/Evidence records.
+- New Evidence requires full-source exact-URL grounding.
+- Governed revision can invalidate affected downstream work and rebuild a package version.
+- Audit scope remains Governance/Provenance rather than an unsupported claim of scientific peer review.
 
-## Gemini 3.5 migration acceptance checklist
+## Feedback-driven live acceptance status
 
-Before using the words **“powered by Gemini 3.5 Flash”** in the final video/submission, complete all of the following on the deployed revision:
+Earlier Aurora E2E already proved Gemini 3.5 compatibility through `READY_FOR_PRODUCTION`.
 
-- [x] Central model migration and model-drift regression test are present.
-- [x] Local typecheck, 239 deterministic tests, web build, and server build pass on main.
-- [x] Safe runtime/release proof is implemented in the public landing and `/api/health`.
-- [x] Main deployment workflow contains an exact post-deploy model/framework/infrastructure/release assertion.
-- [x] Final-readiness PR #29 CI passed.
-- [x] Main workflow #61 deployed to Cloud Run and passed the exact post-deploy runtime assertion.
-- [x] Create one new project through the production UI.
-- [x] FilmBrief generation succeeds on `gemini-3.5-flash`.
-- [x] Approve FilmBrief and run Research Question generation.
-- [x] Approve Research Questions and confirm Parallel MCP Source Discovery still works.
-- [x] Run downstream Gemini stages through Claims, Script, Scenes, Shots, and Visual Decisions; structured output parsing, validation, provenance, review gates, and persistence remained compatible.
-- [x] Capture screenshot evidence showing the live deployed application after the migration.
+The newer `Aurora Grounding Test` is being used to validate the expanded product behavior under real load. Verified observations so far include:
 
-The authenticated Aurora run completed a full production package and is documented in `docs/submission/e2e-gemini-35-smoke-test/gemini-35-e2e-report.md`.
+- 5 Research Questions approved;
+- 24 Source candidates, 21 human-approved and 3 rejected;
+- AI Source reviewer produced advisory recommendations while all 24 remained pending until human action;
+- full-source Evidence extraction produced a broad candidate pool;
+- transient Vertex 429 and Cloud Run request-starvation 429 were converted into production resilience fixes;
+- the 123-Evidence live run motivated Adaptive Evidence Budget instead of hiding or deleting research material.
 
-## Participant / legal self-attestation
+Adaptive Evidence Budget PR #39 must still complete final merge/deploy/live acceptance before its exact deployed `candidate → active → archived` counts are used as submission evidence.
 
-The repository cannot determine personal legal eligibility. Before final submission, the entrant must personally confirm in Devpost that:
+## Safe scientific claim boundary
 
-- they meet the age-of-majority requirement;
-- their country/territory is eligible under the official rules;
-- all required Devpost terms and prize/tax declarations are accepted;
-- any team/organization details are accurate.
+Safe:
 
-Do not infer or automate those attestations.
+> New production Evidence is grounded through Parallel `web_fetch` of the exact human-approved Source URL, and its provenance is stored in Tital.
 
-## Disclosure discipline
+Do **not** convert that into:
 
-The submission should accurately disclose that Tital uses:
+> Every source/evidence item has been independently verified as scientifically true.
 
-- Google ADK and Gemini on Vertex AI;
-- Parallel Search MCP as an external source-discovery tool;
-- Firebase Authentication;
-- Cloud Run and Cloud Storage;
-- open-source application dependencies listed in `package.json`.
+Full-source grounding, AI review assistance, human review, and deterministic governance audit are different layers.
 
-If the Devpost form asks about prior work, reused code, teams, employers, or development assistance, answer that field truthfully based on the entrant's actual development history. This checklist does not attempt to interpret unverified legal language.
+## Performance/cost claim boundary
+
+Safe:
+
+> Tital uses separate concurrency controls for general agent work and full-source Evidence, bounded retry for transient provider rate limits, and an Adaptive Evidence Budget to reduce active review/downstream volume while preserving broad research candidates.
+
+Do **not** claim a percentage cost/speed improvement until controlled comparable runs exist. Adaptive Evidence Budget V1 still retrieves/extracts approved Sources before global compaction.
+
+## Participant/legal self-attestation
+
+The entrant must personally confirm all Devpost age, country/territory, team, ownership, prize/tax, prior-work, and related legal fields. Repository code cannot self-attest personal eligibility.
 
 ## Final go/no-go
 
-**GO** only when:
-
 ```text
-Gemini 3.5 live E2E smoke test       PASS
-CI + production deployment          PASS
-public demo                          PASS
-architecture diagram                ATTACHED
-video <= ~4 min                      PENDING UPLOAD
-Cloud proof visible in video         YES
-repo + README reproducibility        PASS
-Devpost personal eligibility         PENDING SELF-CONFIRMATION
+hosted application / public demo        PASS
+Gemini 3.5 + Google ADK runtime          PASS
+Parallel runtime integration             PASS
+human-governed workflow                  PASS
+full-source grounding                    PASS
+AI review authority boundary             PASS
+revision/versioning implementation       PASS
+Adaptive Evidence Budget CI              PASS on PR branch; deployment acceptance pending
+architecture/docs                        UPDATED
+video                                    PENDING RECORD/UPLOAD
+Devpost personal/legal fields            PENDING HUMAN ACTION
 ```
+
+Final GO requires current main deployment, final live smoke acceptance, uploaded video, and completed personal Devpost submission fields.
