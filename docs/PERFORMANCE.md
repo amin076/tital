@@ -1,80 +1,157 @@
 # Tital Performance Investigation
 
-Status: **static bottleneck confirmed; instrumentation and bounded concurrency implemented; live before/after benchmark still required**
+Status date: **2026-08-24**
 
-This document separates measured facts from static code findings and provider guidance. Tital must not report an optimisation percentage until the same representative live workflow has been measured before and after the change.
+Status: **bounded concurrency, runtime instrumentation, provider-rate resilience, Cloud Run serving-capacity hardening, and Adaptive Evidence Budget are implemented; controlled before/after cost/speed benchmarks remain required before claiming percentages.**
 
-## Executive finding
+This document separates measured live facts from architecture decisions and future hypotheses.
 
-The clearest self-inflicted latency problem in the current runtime was not Firebase. It was **sequential execution of independent external calls inside a stage**.
+## Performance is a four-way balance
 
-Before this change, `createRealMvpStepExecutors` used loops conceptually equivalent to:
-
-```text
-RQ 1 search → wait
-RQ 2 search → wait
-RQ 3 search → wait
-...
-```
-
-and similarly for:
-
-- Evidence extraction across approved Sources;
-- Claim generation across Research Questions;
-- Script generation across Research Questions;
-- Scene generation across Research Questions;
-- Shot generation across Scenes;
-- Visual Decision generation across Shots.
-
-These items are independent **within a stage** after their upstream data has been approved. They do not need to run one at a time.
-
-Tital still preserves true stage dependencies:
+For Tital, performance cannot be reduced to wall-clock speed. Scientific production has four competing resources:
 
 ```text
-Research Questions
-→ Sources
-→ Evidence
-→ Claims
-→ Script
-→ Scenes
-→ Shots
-→ Visual Decisions
+scientific coverage
+human attention
+external API/model cost
+wall-clock latency
 ```
 
-No optimisation may bypass those governance boundaries.
+Maximizing Evidence count is not automatically maximizing production quality. The system therefore manages both **execution concurrency** and **information volume**.
+
+## Live Aurora evidence-volume finding
+
+A hosted 5-minute `Aurora Grounding Test` with 21 approved Sources performed full-source Evidence extraction and produced:
+
+```text
+Evidence candidates          123
+measured Evidence stage      ~16m47s
+runtime profile calls         29
+```
+
+This is one smoke-test observation, not a generalized benchmark.
+
+The result showed that full-source grounding worked at scale, but it also exposed a product/performance problem: 123 Evidence items would create unnecessary AI-review context, human-review work, and downstream Claim/Script context for a 5-minute film.
+
+The response is **not** to discard scientific research. Tital now separates:
+
+```text
+broad research / candidate pool
+from
+active production Evidence
+```
+
+See [ADAPTIVE_EVIDENCE_BUDGET.md](ADAPTIVE_EVIDENCE_BUDGET.md).
+
+## Implemented: Adaptive Evidence Budget
+
+V1 reduces information volume in two places.
+
+### Per-source output control
+
+The full-source Evidence Agent is instructed to return a compact strongest set, and application code caps production output at 3 proposals per Source.
+
+### Global active-review compaction
+
+Before AI-assisted Evidence review, a deterministic budget promotes a duration/RQ-priority-aware subset and preserves the remainder as `ARCHIVED_CANDIDATE`.
+
+For a 5-minute production, the current baseline target is 24 active Evidence records.
+
+Expected savings surfaces:
+
+```text
+smaller extraction output
+→ smaller AI review context
+→ smaller human gate
+→ fewer approved Evidence records
+→ smaller Claim/Script contexts
+```
+
+Important limitation: V1 still full-fetches/extracts approved Sources before global compaction. Therefore the system does **not** claim that Adaptive Evidence Budget currently removes the initial `web_fetch`/Gemini call per approved Source. Future early stopping/caching can address that layer.
 
 ## Implemented: bounded parallelism
 
-Independent external calls now run through `mapWithConcurrency`, which:
+Independent external calls inside one already-authorized stage use `mapWithConcurrency`. True stage/human dependencies remain sequential.
 
-- caps concurrent work;
-- preserves deterministic input/output ordering;
-- propagates failures;
-- does not reorder persisted provenance;
-- defaults to a conservative concurrency of `3`;
-- accepts `TITAL_EXTERNAL_CONCURRENCY` and clamps it to `1..8`.
-
-Example:
+General default:
 
 ```text
-Before
-Q1 ───────→ Q2 ───────→ Q3 ───────→
-
-Now (concurrency 3)
-Q1 ───────┐
-Q2 ───────┼→ ordered combine
-Q3 ───────┘
+TITAL_EXTERNAL_CONCURRENCY=3
 ```
 
-The default is deliberately conservative because Vertex/Parallel quotas and Cloud Run memory must be observed under real load before increasing it.
+This applies to appropriate independent work such as several RQ source searches or several per-RQ generation calls.
 
-Explicit replacement retries use the same bounded-parallel strategy when several uncovered targets are retried together.
+Results preserve deterministic input order.
+
+## Implemented: Evidence-specific concurrency
+
+Full-source Evidence is heavier than the old excerpt-based path because every approved Source requires a Gemini turn plus Parallel `web_fetch`.
+
+Default:
+
+```text
+TITAL_EVIDENCE_CONCURRENCY=1
+```
+
+This is intentionally separate from general external concurrency. Operators may raise it only after observing their own Vertex/Parallel quota envelope.
+
+## Implemented: transient provider retry
+
+A live Evidence smoke test produced a Vertex/ADK 429. Tital now distinguishes transient model/runtime failures from non-retryable blockers.
+
+Retryable examples:
+
+```text
+rate limit / capacity style transient failure
+selected timeout / 5xx runtime failure where classified transient
+```
+
+Non-retryable examples remain fail-closed:
+
+```text
+billing / spend cap
+authorization/authentication
+safety stop
+schema/provenance validation
+scientific/application deterministic errors
+```
+
+The Evidence stage uses bounded exponential backoff rather than unlimited retries.
+
+## Implemented: Cloud Run serving capacity is separate from model concurrency
+
+A second live 429 appeared as a plain browser response:
+
+```text
+Rate exceeded.
+```
+
+The deployment had combined:
+
+```text
+--max-instances=1
+--concurrency=1
+```
+
+so one long-running agent request could occupy the only HTTP request slot. The deployment was adjusted to keep a small cost guard while allowing UI/read/health traffic during long agent waits:
+
+```text
+Cloud Run request concurrency: 8
+Cloud Run max instances: 2
+Evidence model concurrency: 1
+```
+
+This distinction is important:
+
+```text
+HTTP serving concurrency ≠ Gemini/Parallel work concurrency
+```
+
+More HTTP capacity does not mean Tital should burst more Evidence model calls.
 
 ## Implemented: lightweight timing traces
 
-Tital previously had no reliable answer to "where did this Continue action spend its time?"
-
-`MvpSessionEvent` can now persist an optional performance trace:
+Automation events can persist safe timing data:
 
 ```text
 durationMs
@@ -84,9 +161,11 @@ operations[]
   targetId
   durationMs
   success
+  safe runtime metadata
+  optional safe failure category
 ```
 
-Runtime operation names include:
+Representative operation names:
 
 ```text
 gemini.research_questions
@@ -99,196 +178,180 @@ gemini.shot_generation
 gemini.visual_decision
 ```
 
-The trace deliberately excludes prompts, source text, credentials, tokens, and user secrets.
+The trace excludes prompts, full source text, credentials, private bucket paths, and secrets.
 
-This is lightweight application instrumentation, not a distributed-observability platform.
+## Existing hosted baseline
 
-## What is measured now
-
-For new live continuations, Tital can measure:
-
-- duration of the automated step executed by that continuation;
-- number of timed external runtime calls;
-- individual runtime-call duration;
-- target ID for correlation;
-- success/failure of the timed external call.
-
-## What is not yet measured
-
-Tital does not yet persist reliable provider token-usage metadata, time-to-first-token, MCP-internal search substeps, Firebase token-verification duration, or GCS read/write duration.
-
-Those can be added if the new traces show they are necessary. They should not be added merely because they are possible.
-
-## Static execution-path findings
-
-### Gemini / ADK
-
-Most generative stages create an ADK `InMemoryRunner`, send one task, consume the emitted events, parse structured JSON, and validate it. One or more such model calls therefore dominate stages with multiple independent parents.
-
-Tital uses Gemini 2.5 Flash for cinematic proposal agents, which is already a latency-oriented model choice relative to heavier reasoning models. Model latency is still an external floor that application code cannot eliminate.
-
-### Parallel MCP
-
-Source discovery invokes the Parallel Search MCP once per uncovered approved Research Question. Parallel's official MCP quickstart states that Search MCP invokes Search API `basic` mode, tuned for low-latency responses inside agent loops:
-
-- https://docs.parallel.ai/integrations/mcp/quickstart
-
-Therefore simply changing to `basic` mode is not a missing optimisation in the current MCP path; MCP already uses it. The larger application-side issue was performing multiple question searches serially.
-
-Parallel also documents the direct Search API as a way to answer a broad objective in one call and its `basic` mode as lower-latency than `advanced`:
-
-- https://docs.parallel.ai/search/search-quickstart
-- https://docs.parallel.ai/search/modes
-
-Tital should not collapse distinct Research Questions into one search solely to save time unless result quality and provenance remain equivalent.
-
-### Cloud Storage and Firebase Auth
-
-A hosted Continue request loads the session, authenticates the user, executes the stage, and saves the updated session. Those operations add latency, but static inspection does not support blaming them for the very long multi-call stages.
-
-Firebase Authentication is part of the security boundary and should not be removed for speed.
-
-GCS read/write timing can be added later if stage traces show large unexplained overhead around external model calls.
-
-### Cloud Run
-
-Cloud Run can add cold-start latency when scaling from zero. Google documents two relevant controls:
-
-- minimum instances keep a warm instance available;
-- startup CPU boost can reduce startup latency.
-
-Official documentation:
-
-- https://cloud.google.com/run/docs/tips/general
-- https://cloud.google.com/run/docs/configuring/min-instances
-- https://cloud.google.com/run/docs/configuring/services/cpu
-
-These settings cost money or change resource allocation. They should be evaluated from Cloud Run metrics before being enabled for a hackathon workload.
-
-Cloud Run request concurrency is a **different** issue from bounded concurrency of independent external calls inside one request. The service has deliberately used conservative request concurrency because session writes do not yet have optimistic locking. Increasing Cloud Run request concurrency before fixing concurrent session mutation could trade latency for correctness.
-
-Official concurrency guidance:
-
-- https://cloud.google.com/run/docs/about-concurrency
-
-## Prompt size and context caching
-
-Vertex AI context caching can reduce repeated processing of large, reused prompt prefixes. Google documents both implicit and explicit caching for supported Gemini models and notes latency/cost benefits when substantial context is repeated:
-
-- https://cloud.google.com/blog/products/ai-machine-learning/vertex-ai-context-caching
-
-Tital's current stage prompts are usually small-to-moderate structured subsets tied to one Research Question, Source, Scene, or Shot. Much of the scientific payload changes between calls. Explicit context caching is therefore **not the first optimisation** compared with removing serial waits.
-
-It becomes more attractive if Tital later sends a large reusable Director Profile, source corpus, style bible, or project context into many calls. At that point cache hit rate and token metadata should be measured first.
-
-## Caching and reuse policy
-
-Tital already persists expensive generated artifacts as typed records. The first cache is therefore the workflow itself:
+A prior hosted Sky workflow recorded approximately:
 
 ```text
-approved/discovered Source → do not search it again automatically
-attempted Source Evidence → do not extract it again automatically
-reviewed stage candidate → do not silently regenerate it
+measured Continue-stage wall time   2m29s
+external calls                      39
+external-call failures              0
+aggregate external-work overlap     2.28x
 ```
 
-The retry/waiver changes are also performance fixes because they stop accidental duplicate calls.
+The overlap metric is:
 
-Potential future cache candidates:
+```text
+sum(external-call durations) / measured stage wall time
+```
 
-- provider source discovery results keyed by normalized Research Question + search policy;
-- full-source retrieval if/when that stage is implemented;
-- reusable reference media metadata;
-- large repeated Gemini context via Vertex context caching.
+It indicates overlapped work; it is **not** a before/after speedup claim.
 
-Caching must preserve retrieval time, provider provenance, and a clear refresh policy. Scientific freshness-sensitive searches must not be served indefinitely from stale cache.
+That run predates the new full-source Evidence path and Adaptive Evidence Budget, so it is not directly comparable to the Aurora Evidence-stage observation.
+
+## Parallel Search MCP
+
+Source discovery uses Parallel `web_search`. Full-source Evidence grounding uses Parallel `web_fetch` after Source approval.
+
+This makes cost/latency policy explicit:
+
+```text
+search broadly enough to identify candidates
+→ human approves Sources
+→ fetch only approved Sources
+→ extract compact Evidence
+→ budget the active production subset
+```
+
+The current architecture does not fetch rejected/discovered-only Sources for Evidence.
+
+## Caching and reuse
+
+Typed persisted workflow records are already the first cache: Tital does not automatically repeat successful/reviewed stages.
+
+High-value next cache work:
+
+- full-source fetched content keyed by source identity + freshness/refresh policy;
+- source-discovery results keyed by normalized Research Question/search policy;
+- repeated large Gemini context via Vertex context caching only when actual repeated context is measured.
+
+A duration-only revision such as 5 → 8 minutes should ultimately be able to reuse unchanged approved scientific material rather than re-fetching it.
+
+## Coverage-aware early stopping — future
+
+Adaptive Evidence Budget currently compacts after Source approval/full extraction. A future controller can reduce earlier cost by asking:
+
+```text
+Does the active research question already have strong, diverse coverage?
+Are important claims independently corroborated?
+Are contradictions or uncertainty unresolved?
+```
+
+If coverage is sufficient, additional source extraction can stop. If contradiction/weak coverage exists, the budget can expand.
+
+This is preferable to both extremes:
+
+```text
+always fetch everything
+or
+hard cap regardless of scientific difficulty
+```
+
+## Human attention is a performance metric
+
+Tital treats number of items requiring human judgment as a first-class product-performance quantity.
+
+Useful measures include:
+
+```text
+candidate Evidence count
+active Evidence review count
+archived candidate count
+high-attention AI-review count
+human decisions required
+```
+
+A system that saves 30 seconds but forces a director to manually inspect 123 nearly redundant Evidence cards is not necessarily faster in practice.
+
+## Current cost/latency metrics to record
+
+For representative hosted runs:
+
+| Metric | Why it matters |
+|---|---|
+| approved Source count | upstream research breadth |
+| full-source extraction calls | primary Evidence-stage external work |
+| candidate Evidence count | machine knowledge breadth |
+| active/promoted Evidence | AI/human review workload |
+| archived Evidence | compaction retained knowledge |
+| Evidence stage wall time | runtime latency |
+| failed/retried calls | quota resilience |
+| downstream Claim/Script counts | compounding context volume |
+| Cloud Run revision/release | benchmark reproducibility |
+
+Provider token/cost metadata is not yet persisted reliably enough to claim exact dollar savings per project.
 
 ## Perceived performance
 
-The current HTTP workflow deliberately runs one governed automatic stage and then stops at the next human gate. That is good for reviewability but can make each Continue feel opaque while a long external stage runs.
+A governed `Continue` action waits for a complete validated stage before presenting reviewable records. That is correct for trust but can feel opaque during a long stage.
 
-The first UX improvement should use the new timing data to show stage-specific progress, for example:
-
-```text
-Discovering sources for 5 approved research questions…
-3 calls running concurrently
-2 / 5 completed
-```
-
-More advanced progressive rendering or server-sent events can be considered later. Streaming partial model text into the review UI is **not** automatically useful because Tital must validate structured proposals before showing them as reviewable records.
-
-A safe progressive model is:
+Safe future UX can show validated progress rather than streaming unvalidated model tokens as if they were records:
 
 ```text
-external work starts
-→ completed candidate batch validates
-→ persisted governed record batch becomes visible
+21 approved Sources
+→ 7/21 full-source Evidence extractions complete
+→ candidates validated
+→ final active budget calculated
 ```
 
-not unvalidated token streaming masquerading as approved workflow state.
+Server-sent events or job-style progress can be considered after correctness/session-concurrency policy is mature.
 
-## Baseline protocol
+## Benchmark protocol
 
-A valid before/after benchmark should use the same project shape and provider configuration. Record per stage:
+A meaningful before/after Evidence-budget benchmark should hold constant:
 
-| Stage | Before | After | External calls | Notes |
-|---|---:|---:|---:|---|
-| Research-question generation | pending live measurement | pending | 1 | Gemini |
-| Source discovery | pending live measurement | pending | N RQs | Parallel MCP |
-| Evidence extraction | pending live measurement | pending | N Sources | Gemini |
-| Claim generation | pending live measurement | pending | N RQs | Gemini |
-| Script generation | pending live measurement | pending | N RQs | Gemini |
-| Scene generation | pending live measurement | pending | N RQs | Gemini |
-| Shot generation | pending live measurement | pending | N Scenes | Gemini |
-| Visual decisions | pending live measurement | pending | N Shots | Gemini |
-| GCS/Auth/other | not separately instrumented | not separately instrumented | — | add only if unexplained |
+- project idea and FilmBrief duration;
+- Research Questions;
+- approved Source set;
+- Gemini model and Vertex location;
+- Parallel configuration;
+- Cloud Run revision/resource configuration;
+- concurrency settings.
 
-No percentage improvement is claimed yet because the previous dinosaur run predates this instrumentation and did not record comparable per-call timings.
+Record:
 
-## Expected impact versus verified impact
+```text
+Evidence stage wall time
+model/tool call count
+candidate Evidence count
+active Evidence count
+AI-review elapsed time/calls
+human gate size
+downstream record counts
+failure/retry events
+```
 
-### Verified by code/tests
+Do not claim a percentage improvement until comparable runs exist.
 
-- serial independent loops were present;
-- bounded concurrency now exists;
-- result ordering is preserved;
-- automatic duplicate regeneration has been removed;
-- timing data is now persistable for new runtime events.
+## Safety rules for future optimization
 
-### Expected but not yet measured live
+Do not optimize by:
 
-- source discovery with several uncovered RQs should approach the duration of the slowest concurrency waves rather than the sum of every request;
-- evidence extraction and Visual Decision generation should see particularly visible improvements when many parents are active;
-- total workflow wall-clock time should drop without reducing evidence quality.
-
-### External latency that remains
-
-- Gemini generation latency and capacity variability;
-- Parallel MCP search latency;
-- network latency;
-- possible Cloud Run cold starts;
-- provider rate limiting/retries.
-
-## Safety rules for future optimisation
-
-Do not optimise by:
-
-- skipping evidence extraction;
-- lowering source quality requirements;
-- bypassing review gates;
-- dropping uncertainty/disclosure generation;
-- batching unrelated scientific questions if provenance becomes ambiguous;
-- increasing Cloud Run request concurrency before concurrent session writes are safe.
+- bypassing full-source grounding;
+- auto-approving AI recommendations;
+- dropping uncertainty/disclosure requirements;
+- silently deleting research evidence;
+- hiding contradictions to fit a budget;
+- increasing model concurrency until rate limits become normal;
+- caching freshness-sensitive scientific sources indefinitely.
 
 Prefer:
 
-- bounded parallelism;
-- deduplication;
-- targeted retries;
-- prompt/context reduction where measured;
-- caching with provenance and freshness;
-- progressive validated results;
-- model routing only after quality evaluation.
+- compact strongest evidence;
+- transparent archive vs active production separation;
+- bounded concurrency;
+- targeted transient retry;
+- explicit caching/freshness policy;
+- coverage-aware early stopping;
+- measurable human-attention reduction;
+- controlled benchmarks.
 
-## Next performance step
+## Next performance steps
 
-Run one representative hosted project with the new instrumentation, export the recent event traces, and identify the top two measured contributors. Only then decide whether the next investment should be Cloud Run warm instances, more detailed GCS/Auth timing, prompt/token work, caching, or a streaming/progressive UI.
+1. Deploy Adaptive Evidence Budget.
+2. Re-run the existing 123-candidate Aurora Evidence gate and verify compaction to the 5-minute active target without deleting candidates.
+3. Measure AI Evidence Review on the compacted subset.
+4. Complete the downstream production and revision smoke test.
+5. Only then decide whether the next performance investment is source caching, early stopping, richer progress UX, or additional concurrency tuning.

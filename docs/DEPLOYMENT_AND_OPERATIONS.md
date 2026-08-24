@@ -1,181 +1,148 @@
 # Deployment and Operations
 
-Status date: **2026-08-22**
+Status date: **2026-08-24**
 
-This document describes Tital's current hosted architecture, authentication boundary, persistence model, deployment process, GitHub Actions design, and operational failure handling.
+Tital runs as a single Cloud Run service serving both the production React build and the Node API. Live project state is stored in Cloud Storage, protected session APIs use Firebase ID-token verification, Google ADK/Gemini runs through Vertex AI, and scientific web research uses Parallel Search MCP.
 
-## Hosted architecture
-
-Tital is deployed as one Cloud Run service that serves both the production React build and the Node API:
+## Hosted topology
 
 ```text
 Internet
-                ↓
-          Cloud Run: tital
-                ↓
-      Node production server
-        ├─ React static UI
-        └─ /api/*
-             ↓
-       governed services
-        ├─ Vertex AI / Gemini
-        ├─ Parallel Search MCP
-        └─ Cloud Storage sessions
+   ↓
+Cloud Run: tital
+   ├─ React / MUI Director Workspace
+   └─ Node /api/*
+        ├─ Firebase Admin authentication
+        ├─ Governed session/orchestration services
+        ├─ Google ADK → Gemini 3.5 Flash / Vertex AI
+        ├─ Parallel MCP → web_search / web_fetch
+        └─ Cloud Storage session persistence
 ```
 
-The web app uses same-origin `/api/...` requests in production. The Vite proxy is development-only.
+The Cloud Run endpoint is network-public so judges can load the landing/demo, while `/api/sessions*` remains application-authenticated.
 
-## Current validated cloud path
+## Persistence and isolation
 
-The following have been live-validated on Google Cloud:
-
-- Cloud Run source deployment in `australia-southeast1`;
-- production React build served by the Node process;
-- `/api/health` and session API through the deployed runtime;
-- Vertex AI/Gemini execution from Cloud Run service identity;
-- Parallel MCP execution from the hosted workflow;
-- durable Cloud Storage session persistence;
-- session survival across Cloud Run revision replacement;
-- Firebase Email/Password login;
-- Firebase ID-token verification by the backend;
-- per-user session namespace using Firebase `uid`;
-- public landing plus detached read-only completed demo;
-- live workflow protected behind Firebase sign-in;
-- GitHub Actions deployment through Workload Identity Federation.
-
-The Cloud Run service is publicly reachable so judges can load the landing page and completed demo. Application authorization remains enforced separately: anonymous requests cannot access `/api/sessions*`, while `/api/public/*` and `/api/health` expose only deliberate public data.
-
-Release evidence captured on 2026-08-22: final-readiness PR #29 passed CI, main workflow #61 completed the Cloud Run deployment and post-deploy runtime assertion, and the public landing reported `gemini-3.5-flash`, Google ADK, Vertex AI, revision `tital-00028-dqn`, and code release `f667387`. Current revision/release values are rendered dynamically and may advance after later main-branch documentation or product changes.
-
-## Production server configuration
-
-`src/api/runtimeConfig.ts` resolves local and hosted defaults.
-
-Local defaults:
-
-```text
-host: 127.0.0.1
-port: 8787
-web origin: http://127.0.0.1:5173
-```
-
-When Cloud Run supplies `PORT`, hosted defaults are:
-
-```text
-host: 0.0.0.0
-port: $PORT
-same-origin UI/API
-```
-
-The server serves the built Vite app for non-API GET routes and preserves JSON 404 behavior for unknown `/api/*` routes.
-
-## Persistence
-
-Tital uses a storage abstraction:
+Hosted state uses:
 
 ```text
 MvpSessionStore
-├─ JsonMvpSessionStore          local development
-└─ CloudStorageMvpSessionStore  hosted deployment
+└─ CloudStorageMvpSessionStore
 ```
 
-Store selection:
+Conceptual user layout:
 
 ```text
-TITAL_GCS_BUCKET set    → Cloud Storage
-TITAL_GCS_BUCKET absent → local JSON
+gs://<private-bucket>/<prefix>/users/<firebase-uid>/<session-id>.json
 ```
 
-Base hosted object layout:
+Public completed demos are detached sanitized snapshots; they are not direct views into mutable authenticated sessions.
+
+## Authentication
 
 ```text
-gs://<bucket>/<prefix>/<session-id>.json
-```
-
-Authenticated user layout:
-
-```text
-gs://<bucket>/<prefix>/users/<firebase-uid>/<session-id>.json
-```
-
-A curated public demo is intentionally separate from user-owned live sessions.
-
-Cloud Storage is the durable source of hosted session state. Cloud Run container filesystem must not be used as project persistence.
-
-## Authentication architecture
-
-Public-facing web configuration is delivered by:
-
-```text
-GET /api/public/config
-```
-
-The browser initializes Firebase Authentication and signs in with Email/Password. For protected API calls:
-
-```text
-Firebase sign-in
-→ client ID token
+Firebase browser sign-in
+→ ID token
 → Authorization: Bearer <token>
-→ Tital backend
 → Firebase Admin verifyIdToken()
 → decoded uid
 → user-scoped session store
 ```
 
-The Firebase Web API key/config is a browser-side Firebase identifier, not the authorization boundary. Authorization comes from verified ID tokens and server-side session scoping.
+Firebase browser configuration is not the security boundary. Do not expose service-account keys, user tokens, passwords, OAuth secrets, or private bucket paths.
 
-Secrets that must never be placed in the browser bundle or repository include service-account private keys, access tokens, refresh tokens, judge passwords, OAuth client secrets, and non-browser API secrets.
+## Runtime proof
 
-## Public demo vs live workflow
-
-Target public experience:
+`/api/health` and `/api/public/config` expose only safe deployment metadata such as:
 
 ```text
-Anonymous visitor
-├─ landing page
-├─ product explanation
-└─ completed read-only demo
-
-Authorized judge/user
-└─ sign in
-    └─ create/review/continue live governed projects
-```
-
-The normal demo snapshot ID is `public-demo`; `TITAL_DEMO_SESSION_ID` is an optional override. Publishing is allowed only from an authenticated `READY_FOR_PRODUCTION` session with a passing governance/provenance audit. Promotion constructs a detached snapshot, clears private project input, event history, and Director Feedback Memory, and never exposes another user's private namespace.
-
-## Public runtime proof
-
-`GET /api/health` and `GET /api/public/config` expose a safe, non-secret runtime manifest:
-
-```text
-Gemini model
-provider/backend
-model platform
-agent framework
+model: gemini-3.5-flash
+backend/platform: Vertex AI
+agent framework: Google ADK
 Cloud Run service/revision
-release Git commit SHA
-public persistence label
+release Git SHA
 ```
 
-They do not expose private bucket names, object prefixes, service-account credentials, or tokens. The public landing page renders the model/framework/infrastructure values. Authenticated project runtime records also render non-secret execution metadata for audited model calls: provider `Google`, backend `VERTEX_AI`, model identifier `gemini-3.5-flash`, Google ADK, Vertex AI, Cloud Run revision, release SHA, and execution timestamp. After deployment, CI calls `/api/health` and fails unless the model is `gemini-3.5-flash`, the framework is Google ADK, the infrastructure is Cloud Run, and the release SHA matches the triggering main-branch commit.
+The deployment workflow calls `/api/health` after deploy and fails if model/framework/infrastructure/release do not match the intended main-branch release.
 
-## ADK/Vertex runtime failures
+## CI/CD
 
-Tital treats ADK event streams as structured runtime evidence, not just text fragments. Model-backed stages inspect each event for ADK error code/message, finish reason, and blocked/safety reason before parsing JSON content.
+Workflow:
 
-Failure policy:
+```text
+.github/workflows/ci-deploy-cloud-run.yml
+```
 
-- quota, spend-cap, billing, timeout, safety stop, authorization, and provider-runtime errors fail the current stage closed;
-- `advanceMvpSession` records an `AUTOMATION_FAILED` event with timing, failed external operation metadata, provider/backend, model identifier, Cloud Run revision, release SHA, execution timestamp, safe failure category, error code when present, and finish reason when present;
-- the API saves that failed event before returning a non-2xx response to the UI;
-- no partial generated records are persisted, no empty output is approved, and no fallback model is used;
-- malformed JSON, schema failure, and provenance failure remain deterministic validation errors.
+Main path:
 
-Observed production regression on 2026-08-22: the Aurora project reached Claims with approved Film Brief, Research Questions, Sources, and Evidence, but three claim-generation attempts produced ADK/Vertex no-content failures that were previously surfaced as `Claim generation agent returned an empty response.` Cloud Run logs and local reproduction showed ADK requests using model `gemini-3.5-flash`, backend `VERTEX_AI`, and Vertex returning a spend-cap/quota-style error event with no content. The fix classifies that provider failure directly and persists auditable failure metadata.
+```text
+pull request / push
+→ npm ci
+→ typecheck
+→ deterministic tests
+→ production build
+→ main-only enabled deployment
+→ GitHub OIDC
+→ Google Workload Identity Federation
+→ Cloud Run source deploy
+→ post-deploy runtime assertion
+```
+
+Runtime and deploy identities are separated. Long-lived Google service-account JSON credentials are not the intended CI/CD mechanism.
+
+## Current Cloud Run serving configuration
+
+Live smoke testing showed why HTTP request concurrency and model-call concurrency must not be conflated.
+
+An earlier deployment used:
+
+```text
+--max-instances=1
+--concurrency=1
+```
+
+During a long Evidence request, that configuration could occupy the service's only HTTP request slot and make a normal browser reload return:
+
+```text
+Rate exceeded.
+```
+
+Current deployment policy keeps a small cost guard while allowing UI/read/health traffic during agent waits:
+
+```text
+--max-instances=2
+--concurrency=8
+--memory=1Gi
+```
+
+This does **not** mean Tital executes eight Evidence model calls at once.
+
+## Model/tool concurrency is separate
+
+General independent external work:
+
+```text
+TITAL_EXTERNAL_CONCURRENCY=3
+```
+
+Full-source Evidence:
+
+```text
+TITAL_EVIDENCE_CONCURRENCY=1
+```
+
+Evidence is intentionally conservative because each approved Source now requires a Gemini turn plus Parallel `web_fetch`.
+
+```text
+Cloud Run HTTP concurrency = ability to serve requests
+Evidence concurrency       = pressure on Vertex/Parallel
+```
+
+They solve different problems.
 
 ## Environment variables
 
-Core hosted variables:
+Core hosted variables include:
 
 ```text
 GOOGLE_CLOUD_PROJECT
@@ -187,33 +154,22 @@ TITAL_AUTH_REQUIRED=true
 TITAL_FIREBASE_PROJECT_ID
 TITAL_FIREBASE_API_KEY
 TITAL_FIREBASE_AUTH_DOMAIN
-TITAL_DEMO_SESSION_ID   optional override; defaults to public-demo
-TITAL_RELEASE_SHA       injected by deployment workflow
+TITAL_DEMO_SESSION_ID        optional
+TITAL_RELEASE_SHA            injected by CI
+TITAL_EVIDENCE_CONCURRENCY=1
 ```
 
-Cloud Run provides `PORT` automatically.
+`TITAL_EXTERNAL_CONCURRENCY` defaults conservatively in application code unless explicitly configured.
 
-Runtime Google Cloud credentials come from the Cloud Run service identity. Do not upload a JSON key and do not configure `GOOGLE_APPLICATION_CREDENTIALS` in Cloud Run for this deployment.
+Cloud Run supplies `PORT`. Runtime Google credentials come from the Cloud Run service identity / Application Default Credentials.
 
 ## Runtime service identity
 
-Tital uses a dedicated runtime service account conceptually named:
+Runtime service account responsibility is limited to application runtime needs such as Vertex AI access and required Cloud Storage operations. Deployment permissions belong to the CI deploy identity.
 
-```text
-tital-runtime@<project>.iam.gserviceaccount.com
-```
+## Manual deployment reference
 
-Its responsibilities are runtime-only, primarily:
-
-- access Vertex AI required by Tital;
-- read/write/list/delete session objects in the configured bucket as permitted;
-- no GitHub deployment responsibility.
-
-Separating runtime and deploy identities limits blast radius.
-
-## Manual deployment
-
-The current manual source-deployment pattern is:
+A manual deployment equivalent to the current serving posture is conceptually:
 
 ```powershell
 gcloud run deploy tital `
@@ -221,119 +177,88 @@ gcloud run deploy tital `
   --project=<project-id> `
   --region=australia-southeast1 `
   --service-account=<runtime-service-account> `
-  --set-env-vars="..." `
-  --max-instances=1 `
-  --concurrency=1 `
+  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,TITAL_EVIDENCE_CONCURRENCY=1,..." `
+  --max-instances=2 `
+  --concurrency=8 `
   --timeout=900 `
   --memory=1Gi
 ```
 
-For private operational debugging, an authenticated developer can still use:
+The checked-in GitHub Actions workflow is the preferred reproducible release path.
 
-```powershell
-gcloud run services proxy tital `
-  --project=<project-id> `
-  --region=australia-southeast1 `
-  --port=8081
-```
+## ADK / Vertex failure handling
 
-The conservative `concurrency=1` / `max-instances=1` posture reduces concurrent session-write risk until optimistic locking/version preconditions are implemented. It is not the intended final scale configuration.
+Tital inspects ADK event streams before parsing model JSON and records safe provider/runtime failure metadata.
 
-## GitHub Actions CI/CD
+### Fail closed
 
-The repository contains:
+These do not trigger blind recovery:
 
 ```text
-.github/workflows/ci-deploy-cloud-run.yml
+billing / spend cap
+authentication / authorization
+safety stop
+schema validation
+provenance validation
+application/domain errors
 ```
 
-Intended flow:
+### Bounded transient retry
 
-```text
-pull request / push
-→ npm ci
-→ typecheck
-→ tests
-→ production build
-→ deploy only on approved branch/manual condition
-→ Google Cloud authentication with OIDC/WIF
-→ Cloud Run source deployment
-→ deployed health/model/revision/release verification
-```
+Transient runtime failures such as classified rate-limit/capacity conditions may receive bounded retry/backoff. Full-source Evidence uses a particularly conservative concurrency/retry policy because of its heavier tool+model path.
 
-### Why Workload Identity Federation
+No fallback model silently replaces Gemini when a governed stage fails.
 
-GitHub Actions should not store a long-lived Google service-account JSON key. Use GitHub OIDC with Google Workload Identity Federation (WIF), producing short-lived credentials.
+## Live 429 incidents and fixes
 
-Recommended identity split:
+### Vertex Evidence 429
 
-```text
-tital-runtime  → application runtime permissions
-tital-deployer → CI/CD deployment permissions
-```
+The Aurora Grounding Test reached Evidence with 21 approved Sources and exposed a transient Vertex/ADK 429. The response was:
 
-The WIF provider must be constrained to the expected GitHub repository and, where practical, the deployment branch/environment.
+- classify rate-limit failure separately from generic provider failure;
+- bounded exponential retry/backoff;
+- default full-source Evidence concurrency 1;
+- no retry for billing/auth/safety/deterministic failures.
 
-Official references:
+### Cloud Run serving 429
 
-- Google Cloud WIF for deployment pipelines: https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines
-- Google GitHub auth action: https://github.com/google-github-actions/auth
-- Cloud Run deployment action: https://github.com/google-github-actions/deploy-cloudrun
-- Cloud Run source deployment permissions: https://cloud.google.com/run/docs/deploying-source-code
+A separate browser-level `Rate exceeded.` appeared while the service had one instance and one concurrent HTTP request slot. The response was:
 
-### Deployment permissions
+- HTTP concurrency 8;
+- max instances 2;
+- keep Evidence model concurrency 1.
 
-For source deployment, Google documents roles such as Cloud Run Source Developer and Service Usage Consumer for the deployer, Service Account User on the runtime identity, and Cloud Run Builder for the build service account. Exact least-privilege bindings should be verified when WIF is configured rather than broadening the runtime identity.
+These were separate failure domains and are documented separately on purpose.
 
-## Deployment failure scenarios
+## Adaptive Evidence Budget and operations
 
-### CI tests fail
+A later live Evidence run produced 123 candidate Evidence items for a 5-minute film. The system now limits per-source Evidence output and compacts the broad candidate pool before AI/human review.
 
-Do not deploy. Fix type/schema/test failures first.
+This reduces review/downstream load, but V1 still full-fetches approved Sources before global compaction. Source-content caching and coverage-aware early stopping remain the next operational cost layer.
 
-### Cloud build fails
+See:
 
-Keep the current serving revision. Inspect build logs; do not change application schemas merely to make deployment proceed.
+- [ADAPTIVE_EVIDENCE_BUDGET.md](ADAPTIVE_EVIDENCE_BUDGET.md)
+- [PERFORMANCE.md](PERFORMANCE.md)
 
-### New revision starts but health/API fails
+## Concurrency correctness limitation
 
-Shift traffic back to the previous known-good revision or deploy the known-good commit. Cloud Storage sessions remain outside the revision and should survive rollback.
+Higher Cloud Run HTTP serving concurrency makes the application responsive during long async agent calls, but Tital still does not have general optimistic locking for simultaneous mutation of the **same** session.
 
-### Firebase login succeeds but API says authentication required
+Until session version/precondition support is implemented:
 
-Check whether the browser sends `Authorization: Bearer <ID token>` and whether backend `verifyIdToken()` succeeds. A previous Tital defect used revocation checking unnecessarily; current verification uses normal Firebase Admin ID-token verification and logs verification failures.
+- avoid treating Tital as a high-contention collaborative editor;
+- keep mutations governed and user-driven;
+- add optimistic locking before broad multi-user concurrent editing claims.
 
-### Session disappears after revision
+## Operational smoke checklist
 
-Check `TITAL_GCS_BUCKET`, prefix, service-account bucket permissions, and user `uid` namespace. Hosted sessions must not be read from local container disk.
+After a main deploy:
 
-### Parallel/Vertex transient failure
-
-Persist no partial generated batch. Retry from the last valid session state. Distinguish network/quota errors from deterministic validation errors.
-
-### Duplicate writes / concurrent Continue
-
-Current risk until optimistic locking exists. Keep conservative concurrency and avoid multiple simultaneous Continue requests on the same session. Planned solution: session version/generation preconditions and conflict response.
-
-## Public release regression checklist
-
-Before every submission-facing release:
-
-```text
-CI green
-hosted health green
-anonymous landing works
-anonymous protected session API returns authorization failure
-Firebase judge login works
-judge-owned sessions isolated by uid
-curated demo works without login
-live Continue works after login
-Parallel malformed-item recovery validated
-trusted model-reference audit validated
-GCS revision persistence validated
-complete hosted project reaches READY_FOR_PRODUCTION
-rollback procedure understood
-cost controls/max instances set
-```
-
-Public Cloud Run access and application authentication are separate layers. Making Cloud Run reachable must not make protected live workflow endpoints anonymously usable.
+1. deployment job passes `Validate` and `Deploy to Cloud Run`;
+2. `/api/health` reports current release/model/framework;
+3. anonymous landing/demo loads;
+4. authenticated project loads;
+5. long agent operation does not make ordinary browser/read requests return Cloud Run `Rate exceeded.`;
+6. transient provider errors leave governed state recoverable;
+7. session refresh preserves review/revision/version state.

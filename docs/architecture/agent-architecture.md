@@ -1,214 +1,241 @@
 # Agent Architecture
 
-Tital uses Google Agent Development Kit (ADK) `LlmAgent` instances as **specialized proposal generators** inside a deterministic application workflow. Agents do not own trusted workflow state. They generate structured scientific or creative proposals that application services validate, attach to trusted provenance, and place behind human review gates.
+Status date: **2026-08-24**
 
-## Implemented agents
+Tital uses Google Agent Development Kit (ADK) `LlmAgent` instances as specialized proposal/evaluation workers inside a deterministic application workflow. Agents do not own trusted workflow state. They generate structured scientific/creative proposals or advisory review findings; application services validate, map provenance, assign trusted identity/status, and place eligible work behind human authority.
 
-| Agent | Main responsibility | External tool use |
+## Implemented agent roles
+
+| Agent / role | Main responsibility | External tool use |
 |---|---|---|
-| `defineAgent` | Raw idea → FilmBrief proposal | Gemini |
-| `researchQuestionAgent` | FilmBrief → Research Questions | Gemini |
-| `parallelSourceAgent` | Discover public-web sources | Gemini + Parallel Search MCP |
-| `evidenceExtractionAgent` | Approved source/question → Evidence proposals | Gemini |
-| `claimGenerationAgent` | Approved evidence → Claims | Gemini |
-| `scientificScriptAgent` | Approved claims → Script Lines | Gemini |
-| `sceneDirectorAgent` | Approved script → Scenes | Gemini |
-| `shotDirectorAgent` | Approved scene → Shots | Gemini |
-| `visualDecisionAgent` | Approved shot → governed visual treatment | Gemini |
+| `defineAgent` | raw idea + project controls → FilmBrief proposal | Gemini |
+| `researchQuestionAgent` | approved FilmBrief → Research Questions | Gemini |
+| `parallelSourceAgent` | discover public-web sources | Gemini + Parallel `web_search` |
+| `evidenceExtractionAgent` | approved exact Source URL → compact full-source Evidence proposals | Gemini + Parallel `web_fetch` |
+| Review Evaluator | independently evaluate Source/Evidence candidates for human attention | Gemini |
+| `claimGenerationAgent` | approved active Evidence → Claims | Gemini |
+| `scientificScriptAgent` | approved Claims → Script Lines | Gemini |
+| `sceneDirectorAgent` | approved Script + director context → Scenes | Gemini |
+| `shotDirectorAgent` | approved Scene/Script + constraints → Shots | Gemini |
+| `visualDecisionAgent` | approved Shot → governed visual treatment | Gemini |
+| Final Production Reviewer | completed package → advisory cross-stage findings | Gemini |
 
-The governance/provenance audit and production-package builder are deterministic services, not LLM agents.
+The following are **not** model authority:
+
+```text
+trusted IDs / parent mapping
+record statuses
+Adaptive Evidence Budget
+human review decisions
+coverage rules / waivers
+revision impact / STALE propagation
+scientific governance/provenance audit
+ProductionPackage construction
+package version history
+```
+
+Those remain deterministic application responsibilities.
 
 ## Core trust rule
 
 ```text
-Model proposes.
+Model proposes or evaluates.
 Application validates.
 Application owns identity/provenance/status.
-Human reviews.
+Human owns approval and revision decisions.
 Workflow progresses only when deterministic rules allow it.
 ```
 
-A stronger reliability rule applies to upstream references:
-
-> **Do not ask a model to echo trusted UUID-like record IDs when the application can provide numbered references instead.**
+An AI reviewer is therefore not a second approver. Its output is advisory metadata such as recommendation, confidence, risks, flags, and human-attention level.
 
 ## Numbered-reference design
 
-```text
-approved records with trusted IDs
-        ↓ application sanitizes
-numbered model inputs: #1, #2, #3
-        ↓
-model proposal references [1, 3]
-        ↓ deterministic range check
-application maps [1, 3] → trusted IDs
-        ↓
-final domain record
-```
-
-Current mappings:
+When a model must select from trusted upstream records, Tital avoids asking it to reproduce opaque UUID-like IDs.
 
 ```text
-Claim proposal        evidenceNumbers   → EvidenceRecord IDs
-Script Line proposal  claimNumbers      → ClaimRecord IDs
-Scene proposal        scriptLineNumbers → ScriptLineRecord IDs
-Shot proposal         scriptLineNumbers → scene-local ScriptLineRecord IDs
+trusted approved records
+→ application sends #1, #2, #3
+→ model returns numbered references
+→ deterministic range check
+→ application maps numbers back to trusted IDs
 ```
 
-For single-parent stages, the model does not return parent identity when application code can attach it directly.
+Current mappings include:
 
-## Standard service boundary
-
-```mermaid
-graph LR
-    I[Validated approved upstream state]
-    S[Service sanitizes / numbers input]
-    A[ADK LlmAgent]
-    M[Model or MCP]
-    P[Proposal]
-    Z[Proposal schema]
-    R[Range / provenance checks]
-    D[Trusted IDs + final domain schema]
-    H[Human review]
-
-    I --> S --> A --> M --> A --> P --> Z --> R --> D --> H
+```text
+Claim        evidenceNumbers   → EvidenceRecord IDs
+Script Line  claimNumbers      → ClaimRecord IDs
+Scene        scriptLineNumbers → ScriptLineRecord IDs
+Shot         scriptLineNumbers → scene-local ScriptLineRecord IDs
 ```
 
-Services are responsible for validating upstream approval/provenance, sanitizing model context, parsing/validating output, mapping numbered references to trusted IDs, assigning application-owned identity/status, and preserving human review.
+Single-parent identity such as `sourceId`, `sceneId`, or `shotId` is attached by application code when possible.
+
+## Full-source Evidence Agent
+
+The Evidence Extraction Agent has a stricter tool contract than ordinary semantic generation:
+
+1. receive one approved Source title/URL plus its approved Research Question;
+2. call Parallel `web_fetch` for the **exact approved URL**;
+3. use fetched content, not discovery snippets or model memory, as the Evidence basis;
+4. fail rather than fabricate when usable content cannot be retrieved;
+5. return a compact set of strongest, distinct, production-relevant propositions;
+6. preserve uncertainty/inference boundaries;
+7. application code caps the result to 3 Evidence candidates per Source and adds grounding provenance.
+
+This changes the previous scientific boundary: Evidence is now full-source grounded for new production extractions. It does **not** mean the model independently certifies scientific truth.
+
+## Adaptive Evidence Budget is deliberately not another agent
+
+After extraction, a deterministic controller manages the difference between research breadth and human production review.
+
+```text
+full-source Evidence candidates
+→ duration/RQ-priority budget
+→ strength + grounding + source diversity + duplicate-reduction heuristic
+→ REVIEW_REQUIRED promoted subset
+→ ARCHIVED_CANDIDATE preserved remainder
+```
+
+Why deterministic?
+
+- the budget must not give a model hidden authority to suppress science;
+- results must be reproducible for the same persisted candidate pool;
+- archive vs active-review status is an application workflow decision;
+- the full candidate records remain available for later product expansion.
+
+See [../ADAPTIVE_EVIDENCE_BUDGET.md](../ADAPTIVE_EVIDENCE_BUDGET.md).
+
+## AI Review Evaluator
+
+At high-volume Source/Evidence gates, a separate review task sees the validated candidate set and stage-specific rubric. It can output:
+
+```text
+APPROVE_SUGGESTED
+REJECT_SUGGESTED
+REVIEW_REQUIRED
+
+attention: LOW | MEDIUM | HIGH
+confidence
+reasons[]
+risks[]
+flags[]
+```
+
+The evaluator receives a clean evaluation boundary rather than the generator's hidden reasoning. Even when both roles use Gemini, their tasks/context are separated.
+
+For Evidence, adaptive compaction is applied before the evaluator runs, so a broad archived research pool does not automatically become a broad AI-review/human-review workload.
 
 ## Human director context for cinematic agents
 
-`sceneDirectorAgent`, `shotDirectorAgent`, and `visualDecisionAgent` remain proposal generators. They receive optional application-supplied cinematic context derived from the project's `DirectorBrief`, project feedback that the director explicitly chose to remember, and—for a replacement retry—the current scoped instruction.
+`sceneDirectorAgent`, `shotDirectorAgent`, and `visualDecisionAgent` may receive application-supplied cinematic context from the project `DirectorBrief`, feedback the director explicitly chose to remember, and an optional scoped replacement instruction.
 
-The prompt-level precedence rule is:
+Precedence:
 
 ```text
 1. approved science / provenance / uncertainty / visual-integrity constraints
 2. approved production constraints
-3. human Director Brief + explicitly remembered feedback + scoped director instruction
+3. Director Brief + explicitly remembered feedback + scoped director instruction
 4. AI cinematic preference
 ```
 
-This is important: director control does **not** mean the model may satisfy style by weakening scientific constraints.
+The application—not the agent—adds cinematic `decisionProvenance` where supported.
 
-The application, not the agent, adds `decisionProvenance` to Scene, Shot, and Visual Decision records. That provenance distinguishes AI recommendation from applied human guidance, including `learnedFeedbackCount`, without confusing recommendation origin with human approval.
+## Explicit feedback memory
 
-### Explicit feedback memory
+A retry instruction is one-off by default. If the director explicitly chooses to remember it, `resolveMvpReview` persists a project-scoped `DirectorFeedback` record. Later cinematic agents can receive the remembered instructions as guidance.
 
-A retry instruction is one-off by default. The UI presents an off-by-default control to remember it. If selected, `resolveMvpReview` persists a `DirectorFeedback` record in the project session; later cinematic executors format those records as learned preferences. The current retry instruction is still passed separately so provenance can distinguish immediate guidance from prior feedback.
+The memory is inspectable, bounded, project-scoped, and removed from detached public demo snapshots. Tital does not imply hidden cross-project learning.
 
-Remembered feedback is project-scoped, inspectable in the Director Context rail, capped by the domain schema, and removed when a completed session is promoted to the anonymous public demo. Tital does not implement a hidden cross-project Director Profile.
+## Rejection and retry
 
-See [../DIRECTOR_CONTROL.md](../DIRECTOR_CONTROL.md).
-
-## Retry is explicit, not autonomous self-correction
-
-Rejected candidates are terminal history. Agents do not automatically regenerate because coverage became incomplete.
-
-If a human explicitly chooses `RETRY`, `retryMvpCoverage` calls only the relevant stage/target and filters duplicates. Cinematic retries can receive the scoped director note that motivated the replacement.
-
-If the human chooses `WAIVE`, no agent call is made for that gap; a `CoverageWaiver` records the intentional omission.
-
-## Parallel MCP exception: partial external batches
-
-Parallel source discovery is a tool-backed batch integration. One malformed candidate should not destroy otherwise valid provider results:
+Rejected candidates remain terminal history. Missing coverage does not authorize silent agent regeneration.
 
 ```text
-validate response envelope
-→ safe-parse each source candidate
-→ discard malformed candidates with warning
-→ preserve valid candidates
-→ fail if no valid candidate remains
+first proposal
+→ human rejects
+→ REJECTED history
+→ explicit RETRY or explicit WAIVE if policy allows
 ```
 
-Tital does not fabricate missing source metadata.
+A governed revision is different: records made invalid by an explicit upstream change become `STALE`, which permits deliberate selective repair while preserving old history.
 
-## Bounded concurrency inside a stage
+## Final Production Reviewer
 
-The workflow remains sequential **between dependent stages**, but independent agent/tool calls inside one stage can now run concurrently with a bounded worker pool.
+A `READY_FOR_PRODUCTION` package can be reviewed by a separate Gemini semantic reviewer. It can identify advisory findings related to:
 
-Examples safe to parallelize after upstream approval:
+- scientific fidelity/overstatement;
+- uncertainty propagation;
+- narrative/pacing;
+- audience fit;
+- visual representation risk;
+- Director Brief conflicts.
+
+It cannot modify the package. The human may turn a finding into an explicit `RevisionRequest`, after which deterministic impact analysis and selective repair take over.
+
+## Bounded concurrency and rate-limit policy
+
+True workflow stages remain sequential across human gates. Independent external calls inside one authorized stage can use bounded concurrency.
+
+General default:
 
 ```text
-source discovery: Research Question A / B / C
-Evidence extraction: Source A / B / C
-Claims: RQ A / B / C
-Scenes: RQ A / B / C
-Shots: Scene A / B / C
-Visual Decisions: Shot A / B / C
+TITAL_EXTERNAL_CONCURRENCY=3
 ```
 
-Results are combined in deterministic input order. Default external concurrency is conservative (`3`) and can be configured through `TITAL_EXTERNAL_CONCURRENCY` within `1..8`.
+Full-source Evidence is intentionally serialized by default:
 
-This does not make dependent stages parallel and does not bypass human gates.
+```text
+TITAL_EVIDENCE_CONCURRENCY=1
+```
 
-## Lightweight runtime timing
+because every approved Source requires a Gemini turn plus Parallel `web_fetch`. Transient model/provider failures such as rate limits receive bounded retry/backoff; deterministic validation, billing, authorization, safety, and provenance failures fail closed.
 
-Real runtime service calls can emit application timing operations such as:
+## Runtime timing
+
+External operations can emit safe timing/runtime metadata, including:
 
 ```text
 gemini.evidence_extraction
 parallel.source_discovery
+gemini.claim_generation
 gemini.shot_generation
 ```
 
-`advanceMvpSession` stores the relevant operation timings on the automation event. This is intended for real baseline measurement before further optimisation, not as a replacement for full distributed tracing.
+Persisted diagnostics avoid raw prompts, source documents, credentials, private bucket paths, and provider secrets.
 
-External model operations now include non-secret runtime audit metadata: provider, ADK backend, model identifier, Google ADK, Vertex AI, Cloud Run service/revision, release SHA, and execution timestamp. Failed ADK/Vertex operations also record a safe failure category, provider error code when present, finish reason when present, and event count. Credentials, raw prompts, private bucket paths, and raw provider payloads are not persisted or rendered.
+## Known live incidents that shaped this architecture
 
-See [../PERFORMANCE.md](../PERFORMANCE.md).
-
-## Error-handling rule
-
-Use deterministic recovery only when the intended transformation is unambiguous:
-
-- numbered reference → exact trusted ID: deterministic mapping;
-- MEDIUM/HIGH visual disclosure missing: deterministic disclosure from governed context;
-- malformed one-of-many external source candidate: discard while preserving valid candidates.
-
-Fail closed when recovery would require guessing scientific meaning or provenance.
-
-## Known live incidents that shaped the architecture
-
-- model-echoed Shot `sceneId` mismatch → application assigns `sceneId`;
-- model-echoed Visual Decision `shotId` mismatch → application assigns `shotId`;
-- Parallel candidate with empty title aborted full batch → per-item validation/discard;
-- Shot proposal referenced a ScriptLine ID not present in the Scene → numbered scene-local references;
-- rejected Evidence regenerated with new IDs → first-attempt-only automatic generation;
-- rejected Scene regenerated because required coverage disappeared → explicit Retry / Waive / Cancel coverage resolution;
-- evidence uncertainty returned semantic-null strings → strict validation + legacy-load migration;
-- MEDIUM/HIGH visual proposal omitted disclosure → deterministic disclosure fallback.
+- model-echoed trusted ID/reference drift → application-owned IDs + numbered references;
+- malformed Parallel candidate aborting a batch → per-candidate validation;
+- rejected content silently regenerating → first-attempt-only automation + explicit retry;
+- provider empty content hiding quota/spend-cap failures → ADK/Vertex failure classification;
+- full-source Evidence burst causing Vertex 429 → Evidence-specific concurrency + bounded retry;
+- Cloud Run `Rate exceeded.` during a long single-slot request → HTTP serving capacity separated from model-call concurrency;
+- 5-minute Aurora run producing 123 Evidence candidates → compact per-source extraction + Adaptive Evidence Budget.
 
 See [../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md).
-
-## ADK execution pattern
-
-Most stages run an `LlmAgent` through `InMemoryRunner`, inspect ADK response events for provider error metadata, accumulate textual content only after those checks, parse structured proposals, and validate them before trusted state is created. Durable project state is handled separately by Tital persistence.
-
-If ADK emits an error event with no content, Tital no longer reports a generic empty JSON response. It classifies quota/billing, timeout, safety stop, authorization, and provider-runtime failures, records an `AUTOMATION_FAILED` session event, and leaves governed state unchanged so the same project can resume from the failed stage after the external blocker is fixed.
-
-`defineAgent` uses ADK `outputSchema`. Other stages commonly parse JSON text through Zod proposal schemas. In every case, **unvalidated model text never becomes trusted application state**.
 
 ## Agent design rules
 
 When adding or changing an agent:
 
 1. Give it one narrow responsibility.
-2. Supply only approved upstream information it is allowed to use.
-3. Remove opaque trusted IDs from model context unless truly necessary.
-4. For multi-parent selection, send numbered records and accept numbered references.
-5. Require structured output and validate it with a proposal schema.
-6. Range-check references deterministically.
-7. Assign trusted IDs, provenance and statuses in application code.
+2. Supply only approved upstream information it may use.
+3. Use tools explicitly when grounding requires them; fail rather than inventing unavailable source content.
+4. Remove opaque trusted IDs from model context whenever application mapping can replace them.
+5. Require structured output and validate it.
+6. Range/provenance-check references deterministically.
+7. Assign trusted IDs, parent mapping and statuses in application code.
 8. Preserve uncertainty; never silently increase certainty.
-9. Keep human review outside the model.
-10. For cinematic agents, treat Director Brief, opted-in feedback, and scoped notes as guidance below scientific constraints.
-11. Do not silently regenerate rejected content.
-12. Turn every reproducible live failure into a regression test.
-13. Preserve ADK/Vertex failure metadata without exposing prompts, credentials, or private infrastructure values.
+9. Keep human approval outside the model.
+10. Keep AI review advisory and independent from trusted decision state.
+11. Treat director style below scientific constraints.
+12. Do not silently regenerate rejected content.
+13. Distinguish `STALE` governed repair from rejected-history regeneration.
+14. Turn reproducible live failures into regression tests.
+15. Control volume/cost with explicit application policy rather than hidden prompt truncation.
 
 ## Research alignment
 
-Google ADK structured output improves reliability but does not replace application-level trust/provenance enforcement. Tital therefore uses ADK for generation and deterministic application code for identity, governance and state transitions.
-
-Official ADK TypeScript reference: https://adk.dev/api-reference/typescript/interfaces/LlmAgentConfig.html
+ADK structured output and Gemini tool use improve generation reliability, but they do not replace application-level trust, provenance, cost control, or human authority. Tital therefore uses agents for bounded semantic work and deterministic services for state transitions, Evidence budgeting, revision impact, audit, and package lifecycle.

@@ -1,4 +1,5 @@
 import { MvpSessionSchema, type MvpSession } from '../domain/mvpSession.js';
+import { summarizeEvidenceBudget } from './evidenceBudget.js';
 import { evaluateMvpWorkflow } from './evaluateMvpWorkflow.js';
 import { getCurrentMvpReviewGate } from './getCurrentMvpReviewGate.js';
 import { getMvpPerformanceInsights } from './getMvpPerformanceInsights.js';
@@ -88,6 +89,7 @@ export function getMvpSessionView(session: MvpSession) {
     continueAction: continueActionFor(validated),
     workflowInsights: getMvpWorkflowInsights(validated.state),
     performanceInsights: getMvpPerformanceInsights(validated),
+    evidenceBudget: summarizeEvidenceBudget(validated.state),
     approvedChain: selectApprovedProductionChain(validated.state),
     coverageWaivers: validated.state.coverageWaivers ?? [],
     audit: validated.state.audit,

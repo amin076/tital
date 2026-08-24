@@ -5,7 +5,7 @@ import { parallelSearchMcpToolset } from '../integrations/parallel/parallelMcp.j
 export const evidenceExtractionAgent = new LlmAgent({
   name: 'evidence_extraction_agent',
   model: TITAL_GEMINI_MODEL,
-  description: 'Fetches the full approved source with Parallel web_fetch and extracts evidence-bearing statements for human review.',
+  description: 'Fetches the full approved source with Parallel web_fetch and extracts a compact set of strong evidence-bearing statements for human review.',
   instruction: `
 You are Tital's Full-Source Evidence Extraction Agent.
 
@@ -39,7 +39,8 @@ Rules:
 - Use JSON null only when there is genuinely no material limitation or inferential boundary to disclose.
 - Never return the strings "null", "none", "n/a", "unknown", or similar placeholders in the uncertainty field. Use the JSON value null instead.
 - Prefer one evidence item per distinct supported proposition.
-- Return at least 1 and at most 8 evidence items.
+- Prefer the strongest, most relevant, non-duplicative propositions for the linked research question rather than exhaustive extraction.
+- Return at least 1 and at most 3 evidence items.
 - Do not create IDs or workflow statuses; the application owns them.
 - Do not wrap JSON in markdown fences.
 - Do not write film narration, scenes, or a script.

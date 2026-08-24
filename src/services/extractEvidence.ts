@@ -9,12 +9,15 @@ import {
 } from '../domain/evidenceRecord.js';
 import {
   EvidenceProposalListSchema,
+  type EvidenceProposal,
   type EvidenceProposalList,
 } from '../domain/evidenceProposal.js';
 import { ResearchQuestionSchema, type ResearchQuestion } from '../domain/researchQuestion.js';
 import { SourceRecordSchema, type SourceRecord } from '../domain/sourceRecord.js';
 import { collectAdkResponseText, toModelRuntimeError } from '../utils/adkModelResponse.js';
 import { parseJsonFromModelResponse } from '../utils/modelJson.js';
+
+export const DEFAULT_MAX_EVIDENCE_PER_SOURCE = 3;
 
 export function validateSourceForEvidence(
   source: SourceRecord,
@@ -63,6 +66,25 @@ export function parseEvidenceProposalList(rawText: string): EvidenceProposalList
   }
 
   return parsed.data;
+}
+
+function strengthRank(proposal: EvidenceProposal): number {
+  if (proposal.strength === 'HIGH') return 3;
+  if (proposal.strength === 'MEDIUM') return 2;
+  return 1;
+}
+
+export function strongestEvidenceProposals(
+  proposals: EvidenceProposalList,
+  maxItems = DEFAULT_MAX_EVIDENCE_PER_SOURCE
+): EvidenceProposalList {
+  const validated = EvidenceProposalListSchema.parse(proposals);
+  const safeMax = Math.max(1, Math.min(8, Math.floor(maxItems)));
+  return {
+    evidence: [...validated.evidence]
+      .sort((a, b) => strengthRank(b) - strengthRank(a))
+      .slice(0, safeMax),
+  };
 }
 
 export function assembleEvidenceRecords(
@@ -115,7 +137,7 @@ export async function callEvidenceExtractionAgent(
       newMessage: {
         parts: [
           {
-            text: `Extract evidence for this APPROVED research question from the FULL content of the exact APPROVED source URL. You MUST call Parallel MCP web_fetch for this URL before answering. The earlier search excerpt is intentionally not supplied as evidence grounding.\n\nResearch question:\n${question.question}\n\nApproved source title:\n${source.title}\n\nExact approved source URL:\n${source.url}`,
+            text: `Extract the strongest production-relevant evidence for this APPROVED research question from the FULL content of the exact APPROVED source URL. You MUST call Parallel MCP web_fetch for this URL before answering. The earlier search excerpt is intentionally not supplied as evidence grounding. Prefer a compact set of distinct propositions rather than exhaustive extraction.\n\nResearch question:\n${question.question}\n\nApproved source title:\n${source.title}\n\nExact approved source URL:\n${source.url}`,
           },
         ],
       },
@@ -153,10 +175,14 @@ export async function extractEvidence(
     idFactory?: () => string;
     now?: () => string;
     fullSourceGrounded?: boolean;
+    maxItems?: number;
   } = {}
 ): Promise<EvidenceRecord[]> {
   validateSourceForEvidence(source, question);
-  const proposals = await modelCaller(source, question);
+  const proposals = strongestEvidenceProposals(
+    await modelCaller(source, question),
+    options.maxItems ?? DEFAULT_MAX_EVIDENCE_PER_SOURCE
+  );
   const fullSourceGrounded = options.fullSourceGrounded ?? modelCaller === callEvidenceExtractionAgent;
   const grounding = fullSourceGrounded
     ? fullSourceGroundingFor(source, (options.now ?? (() => new Date().toISOString()))())

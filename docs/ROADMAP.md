@@ -1,225 +1,281 @@
 # Tital Roadmap
 
-Status date: **2026-08-22**
+Status date: **2026-08-24**
 
-Tital has moved beyond the local-only governed MVP. `main` now includes Cloud Run deployment, Cloud Storage persistence, Firebase-authenticated live workflow, a published detached public demo, GitHub Actions/WIF deployment, Director controls, explicit replacement recovery, downstream stale-record invalidation, and All Things Agentic packaging.
+Tital has moved beyond its original linear governed MVP. `main` now includes a hosted Cloud Run/Firebase/GCS application, full evidence-to-visual provenance, AI-assisted human review, exact-URL full-source Evidence grounding, governed revision/impact analysis/selective repair, final-package AI review, package version history, runtime performance diagnostics, and production resilience learned from live smoke tests.
 
 For implementation truth, see [CURRENT_STATUS.md](CURRENT_STATUS.md).
 
 ## Completed foundations
 
-### Governed workflow core
+### Governed production chain
 
 ```text
-film idea
-→ FilmBrief
+FilmBrief
 → Research Questions
-→ Parallel source discovery
-→ Evidence
+→ Parallel Source discovery
+→ full-source Evidence
 → Claims
 → Script
 → Scenes
 → Shots
 → Visual Decisions
-→ deterministic governance/provenance audit
+→ deterministic Governance/Provenance Audit
 → Production Package
 ```
 
-### Governed web UI
+### Human authority
 
-Create/list/open projects, human review, rejection recovery, coverage/progress, provenance traceability, final package and JSON/text/PDF outputs are implemented.
+Implemented:
 
-### Cloud deployment foundation
+- human review gates for every generative stage;
+- rejected history with no silent regeneration;
+- explicit Retry / Waive / Cancel gap recovery;
+- Director Brief and opted-in project feedback memory;
+- independent AI review assistance for high-volume Source/Evidence gates;
+- final-package AI review that remains advisory.
 
-Implemented and live-validated:
+### Full-source research grounding
 
-```text
-Cloud Run single-service UI/API
-Cloud Storage durable session store
-revision-surviving persistence
-Vertex AI / Gemini in hosted runtime
-Parallel MCP in hosted runtime
-Firebase Email/Password sign-in
-backend ID-token verification
-per-user session namespace
-public landing/demo shell
-```
-
-### Reliability hardening from live runs
-
-Implemented or actively being validated:
-
-- semantic-null Evidence uncertainty handling;
-- legacy session migration;
-- Visual Decision disclosure fallback;
-- application-owned Shot `sceneId` and Visual Decision `shotId`;
-- malformed Parallel candidate discard without losing the valid batch;
-- numbered model references mapped to trusted IDs for Claim, Script, Scene and Shot stages.
-
-See [AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md).
-
----
-
-## Completed — Public authenticated Hackathon release
-
-Implemented and anonymously browser-validated.
-
-Target experience:
+Implemented:
 
 ```text
-anonymous visitor
-→ public Tital landing
-→ completed read-only demo
-
-authorized judge
-→ Firebase sign-in
-→ live create/review/continue workflow
-```
-
-Delivered:
-
-1. public Cloud Run landing page;
-2. detached, sanitized Dinosaur demo at `COMPLETE / READY_FOR_PRODUCTION`;
-3. Firebase-protected live workspace and per-user Cloud Storage namespaces;
-4. anonymous public-demo access without anonymous mutation access;
-5. conservative Cloud Run cost/concurrency controls;
-6. revision-surviving persistence;
-7. public runtime model/framework/revision/release proof.
-
-Release gate: [AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md).
-
----
-
-## Completed — GitHub Actions deployment automation
-
-Workflow file exists:
-
-```text
-.github/workflows/ci-deploy-cloud-run.yml
-```
-
-Validated Google Cloud/GitHub path:
-
-```text
-GitHub OIDC
-→ Google Workload Identity Federation
-→ dedicated tital-deployer service account
-→ least-privilege source deployment roles
-→ Service Account User on tital-runtime
-→ Cloud Run source deploy after validation
-→ post-deploy `/api/health` release verification
-```
-
-Do not use a long-lived Google service-account JSON key for the preferred CI/CD design.
-
-Automatic `main` deployment uses WIF and a dedicated deploy identity. The workflow now asserts that the deployed model, agent framework, Cloud Run runtime, and release SHA match the intended submission release.
-
-See [DEPLOYMENT_AND_OPERATIONS.md](DEPLOYMENT_AND_OPERATIONS.md).
-
----
-
-## Priority 3 — Full-source verification before Evidence
-
-Current Parallel discovery preserves search excerpts/provider provenance, but Evidence extraction does not yet retrieve and verify dedicated full content for every approved source.
-
-Target:
-
-```text
-Research Question
-→ Parallel web_search
+Parallel web_search
 → SourceRecord DISCOVERED
-→ human source approval
-→ controlled approved-source retrieval / web_fetch
-→ retrieval provenance + bounded evidence-bearing content
-→ Evidence Extraction Agent
-→ EvidenceRecord REVIEW_REQUIRED
+→ AI assistance / human Source review
+→ approved Source
+→ Parallel web_fetch exact approved URL
+→ grounded EvidenceRecord proposals
+```
+
+New Evidence metadata explicitly distinguishes full-source grounding from discovery excerpts.
+
+### Governed revision and package versions
+
+Implemented:
+
+```text
+READY_FOR_PRODUCTION v1
+→ RevisionRequest
+→ impact preview
+→ affected descendants STALE
+→ selective repair
+→ human re-review
+→ re-audit
+→ READY_FOR_PRODUCTION v2
+→ version history / comparison
+```
+
+Supported revision targets currently include project duration, Source revocation, Claim, Shot, and Visual Decision.
+
+### Cloud deployment and CI/CD
+
+Implemented/live:
+
+```text
+Cloud Run UI/API
+Cloud Storage persistence
+Firebase auth + per-user namespaces
+GitHub Actions validation
+Workload Identity Federation deployment
+post-deploy model/framework/release verification
+public detached demo
+```
+
+---
+
+## In progress — Adaptive Evidence Budget and human-attention control
+
+A 5-minute Aurora live test produced 123 Evidence candidates from 21 approved Sources. The research breadth was useful, but the review/downstream workload was excessive.
+
+Current implementation target:
+
+```text
+Broad Candidate Evidence Pool
+→ deterministic adaptive compaction
+→ active REVIEW_REQUIRED subset
+→ ARCHIVED_CANDIDATE preserved remainder
+→ Gemini Review Assistant
+→ human Evidence decisions
+```
+
+V1 includes:
+
+- compact strongest Evidence output per Source (application cap 3);
+- duration-based active budget;
+- Research Question priority allocation;
+- full-source grounding/strength/source-diversity preference;
+- lightweight duplicate reduction;
+- preserved non-promoted archive;
+- UI visibility of candidate/active/archive counts;
+- regression tests.
+
+See [ADAPTIVE_EVIDENCE_BUDGET.md](ADAPTIVE_EVIDENCE_BUDGET.md).
+
+---
+
+## Priority 1 — Complete live acceptance of the feedback-driven release
+
+After Adaptive Evidence Budget deploys:
+
+1. reopen the existing Aurora project with 123 Evidence candidates;
+2. run AI Evidence review and confirm the active 5-minute subset is compacted near the 24-item policy target while all candidates remain persisted;
+3. verify AI recommendations do not auto-approve Evidence;
+4. finish human Evidence review;
+5. continue through Claims/Script/Scenes/Shots/Visuals;
+6. run final-package AI review;
+7. revise duration 5 → 8 minutes;
+8. verify impact preview, selective repair, re-review, re-audit and v2 package history;
+9. capture screenshots/timings for submission evidence.
+
+---
+
+## Priority 2 — Source-content cache and coverage-aware early stopping
+
+Adaptive Evidence Budget V1 reduces output/review/downstream volume but still retrieves/extracts all approved Sources before global compaction.
+
+Next cost layer:
+
+```text
+approved Source
+→ fetch/cache content identity + timestamp
+→ reuse unchanged source content where policy allows
+→ evaluate Research Question coverage
+→ stop extracting additional Sources when governed coverage is sufficient
+→ expand research only for contradiction / weak coverage / human depth request
 ```
 
 Requirements:
 
-- fetch only approved sources;
-- preserve source/retrieval provenance and timestamp;
-- surface retrieval failure instead of inventing evidence;
-- avoid unnecessary storage of copyrighted full documents;
-- support source type/publisher/authors/DOI metadata only where useful;
-- keep human evidence review explicit.
+- freshness/refresh policy;
+- provenance timestamp/content identity;
+- no indefinite cache for freshness-sensitive science;
+- contradiction can expand rather than shrink budget;
+- revisions reuse unchanged science where safe;
+- metrics demonstrate actual call/token/cost reduction before claims.
 
 ---
 
-## Priority 4 — General edit UX on top of implemented staleness
+## Priority 3 — Research depth controls
 
-The deterministic invalidation foundation is implemented: changed trusted upstream records can mark dependent downstream records `STALE`, invalidate audit/package state, and keep stale records out of active review coverage. The remaining roadmap item is a complete user-facing edit/version workflow:
+Add explicit user-facing research strategy without making the user configure dozens of low-level knobs:
 
 ```text
-approved upstream record changes
-→ dependent downstream records become stale
-→ audit/package invalidated
-→ regenerate only affected coverage
-→ require human review again
+AUTO      default adaptive policy
+FOCUSED   smaller, faster production research
+BALANCED  normal scientific depth
+DEEP      larger corroboration/contradiction budget
 ```
 
-Preserve old history rather than silently overwriting trusted decisions. Add explicit edit commands, conflict-safe persistence, version comparison, and human re-review on top of the existing invalidation service.
+The system should display estimated/actual source calls, Evidence target, and measured elapsed work rather than hiding cost consequences.
 
 ---
 
-## Priority 5 — Persistence concurrency and reviewer accountability
+## Priority 4 — Archived Evidence browsing/promotion
 
-Cloud Storage persistence is implemented, but production hardening still needs:
+`ARCHIVED_CANDIDATE` preserves research that does not enter the active production chain. Add an explicit UI so a director/researcher can:
+
+- browse archived candidates by Research Question/Source;
+- inspect why an item was not promoted;
+- explicitly promote selected candidates back to human review;
+- optionally increase research depth/budget;
+- keep approval distinct from promotion.
+
+This completes the principle:
+
+> **Rich machine knowledge, compact human attention, explicit human override.**
+
+---
+
+## Priority 5 — Persistence concurrency and session versioning
+
+Cloud Storage persistence is durable, but production hardening still needs:
 
 ```text
-session version / optimistic locking
-conflict response for concurrent Continue/review
-formal schema/session versioning
-broader migrations
-reviewer identity in review events
-review rationale/timestamps
+optimistic locking / session revision number
+conflict response for simultaneous review/Continue/revision
+formal schema/session migration versioning
+reviewer identity/rationale/timestamps where appropriate
 backup/export/import policy
 ```
 
-Authentication identifies the reviewer but must never be presented as proof that approved science is true.
+HTTP serving concurrency has been increased enough to avoid request starvation during long agent calls, which makes conflict-safe session mutation more important for broader multi-user operation.
 
 ---
 
-## Priority 6 — Scientific governance expansion
+## Priority 6 — Scientific semantic governance
 
-High-value semantic checks:
+The deterministic audit should remain structurally trustworthy. A separate semantic layer can expand checks such as:
 
 ```text
 UNCERTAINTY_DROPPED
+CLAIM_OVERSTATED
 SCIENTIFIC_CONSTRAINT_VIOLATION
+REPRESENTATION_DISCLOSURE_MISSING
 proposition-aware unsupported-claim detection
-citation/source-authority evaluation
+source-authority / citation evaluation
 ```
 
-Keep checks deterministic where possible. If semantic model assistance is introduced, label it explicitly and keep it separate from deterministic governance integrity.
+Model-assisted semantic findings must remain labelled as advisory/evaluation, not deterministic proof of truth.
 
 ---
 
-## Priority 7 — Scientific-status / contradiction model
+## Priority 7 — Contradiction and epistemic-status model
 
-Longer-term epistemic categories may include observation, measurement, experiment, theoretical prediction, model-dependent inference, consensus, debate, hypothesis and analogy.
+Longer-term scientific records may model:
 
-Do this after source retrieval and edit/staleness mature because it affects schemas, migrations, audit and UI.
+```text
+observation
+measurement
+experiment
+theoretical prediction
+model-dependent inference
+consensus
+debate
+hypothesis
+analogy
+contradiction / corroboration relationships
+```
+
+This would allow Adaptive Evidence Budget to expand automatically for contested/uncertain branches rather than relying only on duration/RQ priority.
 
 ---
 
-## Priority 8 — Submission hardening
+## Priority 8 — Progressive validated execution UX
 
-Before final Hackathon submission:
+Long stages should report meaningful progress without streaming unvalidated tokens as trusted records.
 
-1. Public judge-testable URL.
-2. Completed curated demo available immediately.
-3. Judge credentials and instructions tested.
-4. Hosted live workflow verified.
-5. GitHub Actions deployment reproducible.
-6. Architecture/error-handling/security docs current.
-7. Demo narrative emphasizes: **“Why are we saying or showing this?”**
-8. Show evidence-to-shot provenance and human review clearly.
-9. Keep governance audit distinct from independent scientific peer review.
-10. Capture screenshots, architecture diagram and short demo video.
+Potential UX:
+
+```text
+21 approved Sources
+→ 7 / 21 full-source retrievals complete
+→ 34 Evidence candidates validated
+→ final candidate pool compacted
+→ 24 active for review
+```
+
+SSE/job progress is a later implementation option after session concurrency policy is hardened.
+
+---
+
+## Submission hardening
+
+Before final hackathon submission:
+
+1. keep public judge-testable URL healthy;
+2. keep detached completed demo immediately available;
+3. finish feedback-driven live smoke evidence;
+4. update architecture diagram/screenshots to show AI review + Evidence Budget + revision loop;
+5. show exact Google/Parallel runtime proof;
+6. explain scientific boundary: full-source grounding improves provenance but does not equal peer review;
+7. explain cost/attention design explicitly;
+8. record the strongest demo moment: AI triage/compaction plus governed revision rather than a long sequence of generation screens;
+9. avoid unsupported performance/cost percentages;
+10. keep submission/repo frozen appropriately after the relevant hackathon deadline.
 
 ## Explicitly deferred
 
-Unless needed to prove the core value, do not prioritize a large video-generation stack, 3D editor, mobile apps, billing, custom foundation models, large graph infrastructure, or decorative extra agents.
+Unless needed to prove the core value, do not prioritize a large video-generation stack, 3D editor, mobile app, billing system, custom foundation model, decorative agent count, or unrelated graph infrastructure.
 
-Tital's advantage is the governed evidence-to-film chain, not the number of agents.
+Tital's advantage is the **governed, grounded, reviewable, revisable evidence-to-film production system**, not the raw number of agents or Evidence records.

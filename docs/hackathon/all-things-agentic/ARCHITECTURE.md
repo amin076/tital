@@ -1,8 +1,10 @@
 # Tital Architecture — All Things Agentic
 
+Status date: **2026-08-24**
+
 ## Design goal
 
-Tital is designed as a **governed agentic workflow**, not a chat transcript. Semantic generation is separated from trusted application state, and every generative stage is bounded by deterministic validation and human authority.
+Tital is a **governed scientific-production system**, not a chain of prompts. Gemini performs bounded semantic work; application code owns trusted identity, provenance, coverage, Evidence-volume policy, revision impact, audit, and package history; the human director owns approval and revision decisions.
 
 ## Hosted architecture
 
@@ -11,29 +13,35 @@ flowchart TB
     U[Director / Evaluator]
     WEB[React 19 + MUI\nDirector Workspace]
     API[Node API\nCloud Run]
-    AUTH[Firebase Auth\nID-token verification]
-    ORCH[Governed Session Orchestrator\nworkflow + coverage + retry]
-    STORE[Cloud Storage\nuser-scoped sessions]
+    AUTH[Firebase Auth]
+    ORCH[Governed Session Orchestrator]
+    STORE[Cloud Storage\nuser-scoped state]
     ADK[Google ADK\nTypeScript agents]
     GEM[Gemini 3.5 Flash\nVertex AI]
-    PAR[Parallel Search MCP\nweb_search]
-    VALID[Zod + deterministic mapping\ntrusted IDs / provenance]
-    HUMAN[Human Review Gate\nApprove / Reject / Try another / Waive]
-    MEMORY[Opt-in Director Feedback Memory\nproject-scoped + public-snapshot sanitized]
-    AUDIT[Deterministic\nGovernance & Provenance Audit]
-    PKG[ProductionPackage\nJSON / text / PDF]
-    DEMO[Detached Public Demo Snapshot]
-    RUNTIME[Safe Runtime Proof\nmodel + framework + revision + release]
+    PAR[Parallel Search MCP\nweb_search + web_fetch]
+    VALID[Zod + deterministic\ntrusted provenance mapping]
+    BUDGET[Adaptive Evidence Budget\nactive review + archive]
+    AIREV[AI Review Assistant\nadvisory]
+    HUMAN[Human Review Gate\ntrusted decision]
+    MEMORY[Opt-in Director Feedback]
+    AUDIT[Deterministic Governance\n& Provenance Audit]
+    PKG[ProductionPackage]
+    FINAL[Final Production AI Review\nadvisory findings]
+    REV[Revision Impact\nSTALE + selective repair]
+    VER[Version History]
+    DEMO[Detached Public Demo]
+    RUNTIME[Safe Runtime Proof]
 
     U --> WEB --> API
     API --> AUTH
-    API --> ORCH
-    ORCH <--> STORE
+    API --> ORCH <--> STORE
     ORCH --> ADK --> GEM
     ADK --> PAR
-    ADK --> VALID --> HUMAN --> ORCH
+    ADK --> VALID --> BUDGET --> AIREV --> HUMAN --> ORCH
     HUMAN --> MEMORY --> ORCH
-    ORCH --> AUDIT --> PKG
+    ORCH --> AUDIT --> PKG --> FINAL
+    HUMAN --> REV --> ORCH
+    PKG --> VER
     PKG --> DEMO --> WEB
     API --> RUNTIME
 ```
@@ -47,10 +55,12 @@ FilmBrief
   ↓ human approval
 Research Questions
   ↓ human approval
-Sources          ← Parallel Search MCP
-  ↓ human approval
-Evidence
-  ↓ human approval
+Sources ← Parallel web_search
+  ↓ AI assistance + human approval
+Full-source Evidence candidates ← Parallel web_fetch exact approved URLs
+  ↓ Adaptive Evidence Budget
+Active Evidence + preserved archive
+  ↓ AI assistance + human approval
 Claims
   ↓ human approval
 Script Lines
@@ -61,122 +71,174 @@ Shots
   ↓ human approval
 Visual Decisions
   ↓
-Governance / provenance audit
+Deterministic Governance / Provenance Audit
   ↓
-Production Package
+Production Package v1
+  ↓ optional final AI review + human revision
+Impact Preview → selective repair → re-audit
+  ↓
+Production Package v2 + history
 ```
 
 ## Agent responsibilities
 
-| Agent | Input boundary | Action | Trusted output handling |
+| Agent / role | Input boundary | Action | Trusted output handling |
 |---|---|---|---|
-| Define Agent | raw idea + authoritative production controls | proposes FilmBrief fields | app enforces selected controls and assigns ID/status |
-| Research Question Agent | approved FilmBrief | proposes research questions | app assigns IDs/status |
-| Source Discovery Agent | approved Research Question | must call Parallel MCP `web_search` | candidate sources validated and mapped to app-owned SourceRecords |
-| Evidence Extraction Agent | approved SourceRecord excerpt + linked RQ | extracts supported evidence | app owns source/RQ provenance |
-| Claim Agent | approved evidence list | synthesizes bounded scientific claims | numbered evidence references mapped back to trusted IDs |
-| Script Agent | approved claims | proposes narration/explanatory lines | numbered claim references mapped to trusted IDs |
-| Scene Director Agent | approved script lines + Director Brief | proposes scene concepts | human review + app-owned provenance |
-| Shot Director Agent | approved scene/script + Director Brief | proposes production shots and scientific constraints | visual category/parent mapping validated |
-| Visual Decision Agent | approved shot + Director Brief | proposes what production should show + disclosure/risk | trusted shot/category/scientific constraint remain application-owned |
+| Define Agent | raw idea + production controls | proposes FilmBrief | app assigns trusted fields/status |
+| Research Question Agent | approved FilmBrief | proposes RQs | app assigns IDs/status |
+| Source Discovery Agent | approved RQ | must call Parallel `web_search` | candidates validated into SourceRecords |
+| Evidence Extraction Agent | approved Source URL + RQ | must call Parallel `web_fetch`; proposes strongest Evidence | app records grounding/provenance; caps per-source output |
+| Review Evaluator | pending Source/Evidence set | recommends attention/approve/reject/review | advisory only; human status unchanged |
+| Claim Agent | approved active Evidence | synthesizes Claims | numbered references map to trusted Evidence IDs |
+| Script Agent | approved Claims | proposes narration | numbered Claim references mapped by app |
+| Scene Director | approved Script + Director Brief | proposes Scenes | human review + app provenance |
+| Shot Director | approved Scene/Script + Director Brief | proposes Shots/constraints | application owns parent mapping |
+| Visual Decision Agent | approved Shot | proposes treatment/disclosure/risk | human review + validated constraints |
+| Final Production Reviewer | completed package | identifies semantic production risks | advisory findings only |
 
-## Why the trust boundary exists
+Deterministic services own Adaptive Evidence Budget, coverage policy, human status transitions, revision impact, `STALE` invalidation, selective repair routing, audit, package building, and version history.
 
-A model is useful for semantic reasoning but should not be the authority for workflow identity, approval, or provenance. Tital uses this contract:
+## Why this is more than a chat
+
+A chat can generate similar individual artifacts. Tital keeps them as governed state and can answer:
+
+> **Why does this shot exist, what evidence supports it, who approved it, and what becomes invalid if we change the science or directing decision?**
+
+The core contract is:
 
 ```text
-model/tool proposes semantic content
-        ↓
-domain schema validates
-        ↓
-application maps trusted IDs/provenance/status
-        ↓
-human reviews
-        ↓
-coverage engine decides whether the workflow may advance
+model/tool proposes or evaluates
+→ schema/provenance validation
+→ application-owned trusted fields
+→ optional AI recommendation
+→ human decision
+→ deterministic eligibility
 ```
 
 Consequences:
 
-- a model cannot approve its own output;
-- rejected content remains history;
-- opaque UUIDs do not need to be copied by the model;
-- a rejected branch cannot silently regenerate;
-- intentional omissions are explicit `CoverageWaiver` records;
-- revised upstream data can invalidate stale downstream records;
-- the final package contains only approved, provenance-connected production content plus explicit waivers.
+- AI cannot approve its own output;
+- rejection remains history;
+- no silent regeneration after rejection;
+- trusted IDs/provenance are not delegated to model UUID copying;
+- source/evidence review can be AI-assisted without removing human authority;
+- revisions invalidate only affected dependencies;
+- old production versions remain inspectable.
+
+## Adaptive Evidence Budget: production-scale collaboration
+
+A 5-minute live Aurora smoke test produced 123 Evidence candidates from 21 approved Sources. Sending all of them to Gemini review, the human director, and downstream generation would turn rich research into excessive review/cost.
+
+Tital now separates:
+
+```text
+Broad scientific research
+        ↓
+Candidate Evidence Pool
+        ↓
+Adaptive Evidence Budget
+   ↙                  ↘
+Active production     ARCHIVED_CANDIDATE
+Evidence              preserved research
+   ↓
+AI Review Assistant
+   ↓
+Human Review
+```
+
+Current 5-minute baseline: 24 active Evidence items. The deterministic selector uses film duration, RQ priority, full-source grounding, strength, source diversity, and duplicate reduction. Nothing is auto-approved and non-promoted research is not deleted.
+
+This is the hackathon-ready explanation:
+
+> **Tital keeps broad machine research while budgeting human attention and downstream computation.**
+
+The V1 controller reduces Evidence output/review/downstream context, but still full-fetches approved Sources before global compaction. Caching and coverage-aware early stopping remain later optimizations; no unsupported percentage cost saving is claimed.
 
 ## Human collaboration loop
 
-Tital's primary hackathon track is **Collaborative Partner** because feedback changes future agent behaviour.
-
 ```mermaid
 flowchart TB
-    B[Director Brief + opted-in feedback] --> P[AI proposal]
-    P --> H{Human review}
-    H -->|Approve| A[Advance]
-    H -->|Reject| R[Terminal history]
-    H -->|Try another| S[Scoped instruction]
-    S --> T[Targeted replacement]
-    S -->|Explicit remember choice| M[Project feedback memory]
-    M --> B
+    B[Director Brief + opted-in feedback]
+    P[AI proposal]
+    E[Independent AI review assistance]
+    H{Human decision}
+    A[Advance]
+    R[REJECTED history]
+    S[Scoped replacement instruction]
+    M[Optional project feedback memory]
+
+    B --> P --> E --> H
+    H -->|Approve| A
+    H -->|Reject| R
+    H -->|Try another| S --> P
+    S -->|Explicit remember| M --> B
 ```
 
-If a rejection removes the last required coverage for a branch, the human must explicitly choose retry or intentional waiver.
+If rejection removes required coverage, Tital requires explicit retry or allowed waiver.
+
+## Final review and governed revision
+
+After `READY_FOR_PRODUCTION`, Gemini can perform a whole-package advisory review. A human may accept a finding as a revision request.
+
+```text
+Package v1
+→ AI findings
+→ human chooses revision
+→ deterministic impact preview
+→ affected descendants STALE
+→ selective regeneration
+→ human re-review
+→ re-audit
+→ Package v2
+```
+
+This turns production completion into a versioned milestone instead of a dead end.
+
+## Full-source grounding boundary
+
+Source discovery and Evidence grounding are distinct:
+
+```text
+web_search = candidate discovery
+web_fetch exact approved URL = Evidence grounding
+```
+
+Search snippets are not the basis for new full-source Evidence. Grounding still does not equal independent peer review or proof of scientific truth.
+
+## Performance / resilience architecture
+
+General external calls can use bounded concurrency after upstream approval:
+
+```text
+TITAL_EXTERNAL_CONCURRENCY=3
+```
+
+Full-source Evidence is intentionally conservative:
+
+```text
+TITAL_EVIDENCE_CONCURRENCY=1
+```
+
+Live smoke testing converted two different 429 failures into architecture hardening:
+
+- transient Vertex/ADK Evidence rate limits → classified bounded retry/backoff;
+- Cloud Run request starvation → HTTP serving capacity separated from model-call concurrency.
+
+The runtime records wall time, external operations, safe failure categories, configured concurrency, model/runtime metadata, and release SHA. No performance percentage is claimed without controlled comparable runs.
 
 ## State and persistence
 
-Hosted sessions are stored in Cloud Storage under user-specific namespaces selected after Firebase ID-token verification. The application persists the full governed state rather than relying on model conversation memory.
+Hosted sessions persist in Cloud Storage under Firebase-user namespaces. The workflow state contains review recommendations, feedback memory, revision requests, version history, performance events, and all scientific/cinematic records rather than relying on conversational memory.
 
-Conceptually:
+A detached public demo is sanitized and read-only.
 
-```text
-gs://<private-bucket>/sessions/users/<firebase-uid>/<session-id>.json
-```
+## Google Cloud proof points for the demo
 
-A public demo is generated as a detached read-only snapshot from a completed production package. It does not expose the authenticated user's mutable session, private event history, or project-scoped Director Feedback Memory.
+Show at least two:
 
-## Runtime and release proof
+1. public `run.app` application;
+2. Cloud Run service/revision;
+3. visible runtime metadata proving Gemini 3.5 Flash / Vertex AI / Google ADK;
+4. GitHub Actions `Deploy to Cloud Run` success.
 
-`/api/public/config` and `/api/health` expose only safe deployment facts: the central model ID, Vertex AI platform, Google ADK framework, Cloud Run service/revision, and release commit. Private bucket names, credentials, user IDs, and prompt/session content are not exposed. The main deployment job performs a post-deploy assertion against the health endpoint and fails if the exact model/framework/infrastructure/release do not match the commit being deployed.
-
-## Failure handling
-
-Tital treats malformed model/provider output as data to validate, not trusted state.
-
-Examples already converted into deterministic hardening:
-
-- malformed Parallel candidates are discarded while valid candidates survive;
-- semantic-null uncertainty strings are rejected for new EvidenceRecords;
-- application owns trusted parent IDs instead of relying on model UUID echoing;
-- MEDIUM/HIGH-risk visual decisions require viewer disclosure;
-- rejected evidence cannot enter an automatic regeneration loop;
-- explicit replacement retry is duplicate-filtered;
-- stale dependent records are excluded from the trusted production chain.
-
-## Performance architecture
-
-Independent calls **within one already-authorized stage** use bounded concurrency. True stage dependencies remain sequential because human approval is part of correctness.
-
-```text
-Research Question A ─┐
-Research Question B ─┼─ concurrent source discovery (bounded)
-Research Question C ─┘
-          ↓
-      human gate
-          ↓
-Evidence calls across approved sources (bounded)
-```
-
-The runtime records wall-clock time, external-call timing, failures, stage executions, configured concurrency, and internal vs external work. The UI reports external-work overlap but does not mislabel it as before/after speedup.
-
-## Google Cloud proof points for the demo video
-
-Show at least two of these in the final recording:
-
-1. the public `run.app` Tital URL in the browser;
-2. Cloud Run service/revision in Google Cloud Console;
-3. Vertex AI / Gemini activity or logs for the deployed project;
-4. GitHub Actions deployment run showing `Deploy to Cloud Run` succeeded.
-
-Recommended sequence: public URL first, then a 5–8 second Cloud Run Console proof shot near the end of the video.
+The stronger product demo moment is not simply “Gemini generated another stage.” Show **AI triage/attention control and a governed revision** so the architectural difference from ordinary chat is visible.
