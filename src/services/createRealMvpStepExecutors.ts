@@ -4,6 +4,7 @@ import type { PerformanceOperation } from '../domain/performanceTrace.js';
 import type { MvpWorkflowState } from '../domain/mvpWorkflow.js';
 import { ModelRuntimeError } from '../utils/adkModelResponse.js';
 import { mapWithConcurrency, resolveExternalConcurrency } from '../utils/mapWithConcurrency.js';
+import { withModelRuntimeRetry } from '../utils/retryModelRuntime.js';
 import type { MvpStepExecutors } from './executeNextMvpStep.js';
 import { discoverSourcesWithParallelMcp } from './discoverSourcesWithParallelMcp.js';
 import { extractEvidence } from './extractEvidence.js';
@@ -39,6 +40,8 @@ export interface MvpRuntimeExecutionOptions {
   directorBrief?: DirectorBrief;
   directorFeedback?: DirectorFeedback[];
   externalConcurrency?: number;
+  evidenceConcurrency?: number;
+  modelRetrySleep?: (delayMs: number) => Promise<void>;
   onOperation?: (operation: PerformanceOperation) => void;
 }
 
@@ -124,6 +127,18 @@ export function createRealMvpStepExecutors(
   const concurrency = options.externalConcurrency ?? resolveExternalConcurrency(
     process.env.TITAL_EXTERNAL_CONCURRENCY
   );
+  // Full-source evidence extraction includes a Gemini turn plus a Parallel
+  // web_fetch tool call for every approved source. Keep this stage deliberately
+  // gentler than source discovery/other generation so a large approved source set
+  // does not burst Vertex rate limits. Operators may raise it explicitly after
+  // observing their quota envelope.
+  const evidenceConcurrency = Math.min(
+    concurrency,
+    options.evidenceConcurrency ?? resolveExternalConcurrency(
+      process.env.TITAL_EVIDENCE_CONCURRENCY,
+      1
+    )
+  );
   const learnedPreferences = (options.directorFeedback ?? []).map(
     (feedback) => feedback.instruction
   );
@@ -186,14 +201,22 @@ export function createRealMvpStepExecutors(
 
       const batches = await mapWithConcurrency(
         sourcesNeedingFirstExtraction,
-        concurrency,
+        evidenceConcurrency,
         (source) => timed(
           'gemini.evidence_extraction',
           source.id,
           options.onOperation,
-          () => services.extractEvidence(
-            source,
-            questionFor(state, source.researchQuestionId)
+          () => withModelRuntimeRetry(
+            () => services.extractEvidence(
+              source,
+              questionFor(state, source.researchQuestionId)
+            ),
+            {
+              maxAttempts: 3,
+              baseDelayMs: 1500,
+              maxDelayMs: 6000,
+              ...(options.modelRetrySleep ? { sleep: options.modelRetrySleep } : {}),
+            }
           )
         )
       );
