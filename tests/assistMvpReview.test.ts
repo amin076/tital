@@ -193,13 +193,13 @@ describe('assistMvpReview', () => {
     expect(second.state.sources[0]?.status).toBe('DISCOVERED');
   });
 
-  it('refuses unsupported gates instead of pretending to review them', async () => {
+  it('refuses review assistance when there is no active human gate or ready production package', async () => {
     const session = sourceGateSession();
     session.state.sources[0] = { ...session.state.sources[0]!, status: 'APPROVED' };
     session.state.evidence = [];
 
     await expect(assistMvpReview(session, { modelCaller: sourceModelCaller })).rejects.toThrow(
-      'currently available only'
+      'requires an active human-review gate'
     );
   });
 });
