@@ -1,13 +1,15 @@
 # Workflow Architecture
 
-Status date: **2026-08-22**
+Status date: **2026-08-24**
 
-Tital has four related structures that must not be confused:
+Tital's workflow combines six structures that must remain distinct:
 
-1. **provenance chain** — why a scientific statement or visual exists;
-2. **execution stage machine** — what the application may do next;
+1. **provenance chain** — why a scientific/cinematic decision exists;
+2. **execution stage machine** — what automation may legally run next;
 3. **governed coverage** — whether required branches are approved or intentionally waived;
-4. **director context** — artistic guidance applied inside, not above, scientific constraints.
+4. **human attention policy** — how broad research becomes a manageable review set;
+5. **director context** — creative guidance below scientific constraints;
+6. **revision/version lifecycle** — how completed productions change without starting over.
 
 ## Provenance chain
 
@@ -28,7 +30,7 @@ graph LR
     FB --> RQ --> SR --> ER --> CR --> SL --> SC --> SH --> VD --> AU --> PP
 ```
 
-A downstream statement or visual choice can be traced through approved scientific context. Cinematic records can additionally preserve whether AI recommendation used project/scoped director guidance.
+Only approved/locked provenance-connected records enter the trusted downstream chain.
 
 ## Execution stage machine
 
@@ -46,46 +48,68 @@ DEFINE
 → COMPLETE
 ```
 
-`evaluateMvpWorkflow` derives current stage from persisted state. `executeNextMvpStep` selects the next legal action. `advanceMvpSession` applies it to a persisted session.
+`evaluateMvpWorkflow` derives the current stage from persisted state. `executeNextMvpStep` selects the next legal action. `advanceMvpSession` applies one governed model/tool stage and stops at the next human boundary; the deterministic audit/package tail may continue automatically.
 
-The controller intentionally stops after one model/tool-assisted automated stage so the next human gate is visible. The only automatic multi-step tail is deterministic audit → package.
-
-## Hosted persisted session loop
+## Research-to-Evidence loop
 
 ```text
-create authenticated project
-→ Gemini proposes FilmBrief
-→ save session
-→ human review
-→ save decision
-→ Continue
-→ next eligible model/tool stage
-→ save proposals
-→ human review
-→ ...
-→ audit
-→ package
-→ COMPLETE
+approved ResearchQuestion
+→ Parallel web_search
+→ SourceRecord DISCOVERED
+→ optional AI Source review assistance
+→ human Source decision
+→ approved Source
+→ Parallel web_fetch exact URL
+→ compact Evidence proposals
+→ Candidate Evidence Pool
+→ Adaptive Evidence Budget
+→ active Evidence human gate
+→ optional AI Evidence review assistance
+→ human Evidence decision
 ```
 
-Hosted sessions use Cloud Storage with Firebase-UID namespaces. Local development can use JSON-file persistence.
+Discovery snippets orient source selection but are not the Evidence basis for new full-source records.
+
+## Adaptive human-attention layer
+
+A large scientific research pool is useful; a large mandatory review queue is not necessarily useful.
+
+```mermaid
+graph TD
+    P[Full-source Evidence candidates]
+    B[Deterministic Adaptive Evidence Budget]
+    A[Active REVIEW_REQUIRED subset]
+    X[ARCHIVED_CANDIDATE research archive]
+    R[AI Review Assistant]
+    H[Human Review]
+    D[Approved downstream chain]
+
+    P --> B
+    B --> A --> R --> H --> D
+    B --> X
+```
+
+The current budget uses film duration and Research Question priority, then favors Evidence strength, full-source grounding, source diversity, and reduced duplication.
+
+Archived candidates are persisted but not considered pending review, approved coverage, or trusted production Evidence.
+
+See [../ADAPTIVE_EVIDENCE_BUDGET.md](../ADAPTIVE_EVIDENCE_BUDGET.md).
 
 ## Human review gate
 
 ```mermaid
 graph LR
-    A[Approved upstream]
-    M[Agent / tool proposal]
-    R[Pending review]
+    M[Validated proposal]
+    AI[Optional AI recommendation]
     H{Human decision}
     OK[APPROVED]
     NO[REJECTED]
-    G{Gap created?}
+    G{Coverage gap?}
     RT[RETRY]
     W[WAIVE]
     C[CANCEL]
 
-    A --> M --> R --> H
+    M --> AI --> H
     H -->|approve| OK
     H -->|reject| G
     G -->|no| NO
@@ -94,95 +118,129 @@ graph LR
     G -->|back| C
 ```
 
-Rejected records are terminal history. They are not silently regenerated.
+AI review is advisory. It cannot convert `DISCOVERED`/`REVIEW_REQUIRED` into `APPROVED` or `REJECTED`.
 
 ## Governed coverage
 
-Progression is not based on counts. It uses required parent coverage through approved provenance or an explicit `CoverageWaiver`.
-
-Current high-level requirements:
+Progression is based on required parent coverage through approved provenance or explicit human waiver, not raw counts.
 
 ```text
-required ResearchQuestion → approved Source
-required ResearchQuestion → approved Evidence through approved Source
-required ResearchQuestion → approved Claim
-required ResearchQuestion → approved ScriptLine
-required ResearchQuestion → approved Scene OR Scene-stage waiver
-required Scene            → approved Shot OR Shot-stage waiver
-required Shot             → approved VisualDecision OR Visual-stage waiver
+required RQ    → approved Source
+required RQ    → approved active Evidence through approved Source
+required RQ    → approved Claim
+required RQ    → approved ScriptLine
+required RQ    → approved Scene or waiver
+required Scene → approved Shot or waiver
+required Shot  → approved VisualDecision or waiver
 ```
 
-Evidence coverage is intentionally **not** `every approved Source → approved Evidence`. A Source can be acceptable for consideration while every candidate Evidence item from that source is rejected. Human evidence review must remain meaningful.
+Important semantics:
 
 ```text
-count ≠ coverage
-approved Source ≠ forced Evidence approval
+approved Source ≠ every Evidence from that Source must be approved
+ARCHIVED_CANDIDATE ≠ rejected
+ARCHIVED_CANDIDATE ≠ approved
+candidate count ≠ scientific coverage
 waived gap ≠ approved content
 ```
 
-The UI distinguishes approved coverage, intentional waivers, and unresolved gaps.
-
 ## Rejection recovery
 
-Old behavior could regenerate rejected Evidence or Scenes with new UUIDs because only approved children were used to determine whether a parent had been attempted.
-
-Current behavior:
+Rejected candidates remain terminal history and do not authorize silent regeneration.
 
 ```text
 first automatic attempt
 → human rejects
-→ record remains REJECTED
-→ no silent regeneration
-→ if gap matters: explicit RETRY or WAIVE
+→ REJECTED remains persisted
+→ if required coverage is lost:
+     explicit RETRY
+     or explicit WAIVE where policy permits
 ```
 
-`RETRY` is target-specific and duplicate-filtered. `WAIVE` persists a `CoverageWaiver` and allows the branch to remain intentionally absent where policy permits.
+`RETRY` is target-specific and duplicate-resistant. `WAIVE` records the intentional omission.
 
 ## Director-control context
 
-Scene, Shot, and Visual Decision generation can consume a project `DirectorBrief`. An explicit cinematic replacement retry can also consume a scoped director instruction.
+Scene/Shot/Visual agents can consume `DirectorBrief`, explicitly remembered project feedback, and scoped replacement guidance.
 
 ```text
-science / uncertainty / integrity constraints
+science / uncertainty / visual-integrity constraints
         ↓ hard boundary
-Director Brief / scoped note
+Director Brief / remembered preference / scoped note
         ↓ creative guidance
-AI cinematic proposal
+AI proposal
         ↓
 human review
 ```
 
-Director guidance does not affect scientific coverage rules and cannot turn reconstruction into observation.
+Director guidance cannot turn inference into observation or bypass source/Evidence governance.
 
-See [../DIRECTOR_CONTROL.md](../DIRECTOR_CONTROL.md).
+## Final-package review and revision loop
+
+`COMPLETE / READY_FOR_PRODUCTION` is no longer treated as an irreversible endpoint.
+
+```mermaid
+graph TD
+    P1[ProductionPackage v1 READY]
+    AR[AI Final Production Review\nadvisory]
+    H{Human chooses change?}
+    RR[RevisionRequest]
+    IP[Deterministic Impact Preview]
+    S[Mark affected descendants STALE]
+    REP[Selective Repair]
+    HR[Human re-review]
+    AU[Re-audit]
+    P2[ProductionPackage v2 READY]
+    HIST[Version history / comparison]
+
+    P1 --> AR --> H
+    H -->|no| P1
+    H -->|yes| RR --> IP --> S --> REP --> HR --> AU --> P2 --> HIST
+```
+
+Supported revision targets include project duration, approved Source, Claim, Shot, and Visual Decision. The impact graph prevents a cinematic-only change from unnecessarily discarding valid upstream science.
+
+Example:
+
+```text
+Shot revision
+→ Shot STALE
+→ dependent Visual Decision STALE
+→ Source/Evidence/Claim/Script/Scene preserved
+```
+
+A Source revocation may invalidate a much larger downstream branch. The preview tells the director before applying the revision.
+
+## Version semantics
+
+Old trusted work is not overwritten in place. Revised packages are stored as production-version milestones with change summaries and revision links.
+
+```text
+v1 → superseded by governed revision → v2
+```
+
+The current package is the active production result; prior versions remain inspectable history.
 
 ## Multi-record routing and concurrency
 
-The real executor routes records according to provenance:
+Provenance routing remains:
 
 - Source discovery per required approved Research Question;
-- Evidence extraction per approved Source;
+- full-source Evidence extraction per approved Source;
 - Claim/Script/Scene generation grouped by Research Question;
-- Shot generation per approved Scene and its referenced Script Lines;
+- Shot generation per approved Scene;
 - Visual Decision generation per approved Shot.
 
-True stage dependencies remain sequential, but independent calls **inside the same stage** now use bounded concurrency. The worker pool preserves deterministic result order and defaults to three concurrent external calls.
+General independent calls inside an authorized stage may use bounded concurrency. Full-source Evidence is deliberately more conservative because each Source requires a Gemini + Parallel tool interaction.
 
 ```text
-RQ-A search ─┐
-RQ-B search ─┼→ ordered source batch → review
-RQ-C search ─┘
+TITAL_EXTERNAL_CONCURRENCY=3
+TITAL_EVIDENCE_CONCURRENCY=1
 ```
 
-See [../PERFORMANCE.md](../PERFORMANCE.md).
+The rate-limit retry policy applies only to transient provider/runtime failures and does not weaken fail-closed validation.
 
-## Source discovery special case
-
-Parallel discovery creates `SourceRecord.status = DISCOVERED`. A source must be explicitly reviewed before Evidence extraction.
-
-Parallel Search MCP is the current real discovery provider. Discovery excerpts are not equivalent to full approved-source retrieval/verification; that remains a scientific-quality milestone.
-
-## Model-assisted versus deterministic responsibility
+## Model-assisted versus deterministic responsibilities
 
 Model/tool-assisted:
 
@@ -190,62 +248,76 @@ Model/tool-assisted:
 FilmBrief
 Research Questions
 Source discovery
-Evidence
+Full-source Evidence extraction
+Source/Evidence review recommendations
 Claims
 Script Lines
 Scenes
 Shots
 Visual Decisions
+Final Production Review findings
 ```
 
 Deterministic application code:
 
 ```text
 schema validation
-trusted IDs and parent mapping
+trusted IDs / parent mapping
 status assignment
+Adaptive Evidence Budget / archive status
 human review transitions
 coverage evaluation
 Retry/Waive policy
-CoverageWaiver creation
-cinematic decision provenance
+Director feedback persistence policy
+revision impact / STALE invalidation
+selective repair routing
 stage evaluation
-bounded concurrency/orchestration
+bounded concurrency policy
 audit
 ProductionPackage construction
+production version history
 session persistence
 ```
 
 ## Audit and package
 
-When required governed visual coverage is resolved, workflow reaches `AUDIT`. The audit validates implemented provenance/governance integrity and disclosure rules. It does not independently certify scientific truth or source authority.
+The final audit validates implemented governance/provenance integrity and visual disclosure rules. It does not independently certify scientific truth or publisher authority.
 
-If audit and readiness pass:
+If readiness passes:
 
 ```text
 stage: COMPLETE
 ProductionPackage.status: READY_FOR_PRODUCTION
 ```
 
-## Performance traces
+The final AI reviewer is a separate advisory semantic layer after package readiness; it does not replace the deterministic audit.
 
-New automation events may contain lightweight timing data for the automated step and individual external calls. This allows future optimisation to be based on live measurement rather than assumptions.
-
-## Current editing limitation
-
-Tital supports rejection, replacement, intentional omission, `STALE` record states, and deterministic downstream invalidation when trusted upstream state changes. It does not yet expose a complete general post-approval editing/version-comparison UX.
-
-Future behavior should support:
+## Hosted persisted session loop
 
 ```text
-approved upstream record edited/replaced
-→ dependent downstream records become STALE (or equivalent)
-→ prior audit/package invalidated
-→ affected chain regenerated/reviewed
+create authenticated project
+→ model/tool stage
+→ persist candidates
+→ optional deterministic compaction
+→ optional AI review assistance
+→ human review
+→ persist decision
+→ Continue
+→ ...
+→ audit/package
+→ optional final AI review
+→ optional governed revision/repair
+→ new version
 ```
 
-General lock/unlock/version comparison must be designed together with that staleness lifecycle.
+Hosted state is durable in Cloud Storage under Firebase user namespaces.
 
-## Current deployment status
+## Current limits
 
-Tital is hosted on Cloud Run with Firebase-authenticated live routes and Cloud Storage persistence. The public landing and detached read-only demo are implemented and anonymously browser-validated. Authenticated operators can promote only a completed `READY_FOR_PRODUCTION` project; the promotion service sanitizes project input, event history, and project-scoped Director Feedback Memory before writing the public snapshot.
+Known remaining workflow work includes:
+
+- optimistic locking for simultaneous session mutation;
+- explicit UI to browse/promote `ARCHIVED_CANDIDATE` Evidence;
+- source-content cache and coverage-aware research early stopping;
+- richer semantic contradiction/source-authority modeling;
+- final film rendering.
