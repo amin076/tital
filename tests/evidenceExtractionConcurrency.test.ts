@@ -67,7 +67,7 @@ function evidenceFor(sourceId: string): EvidenceRecord[] {
     strength: 'HIGH',
     uncertainty: null,
     grounding: {
-      method: 'PARALLEL_WEB_FETCH',
+      mode: 'PARALLEL_WEB_FETCH',
       sourceUrl: `https://example.com/${sourceId === 'SRC-1' ? '1' : '2'}`,
       fetchedAt: '2026-08-24T00:00:01.000Z',
       provider: 'PARALLEL',
