@@ -12,7 +12,7 @@ Tital uses Google Agent Development Kit (ADK) `LlmAgent` instances as specialize
 | `researchQuestionAgent` | approved FilmBrief → Research Questions | Gemini |
 | `parallelSourceAgent` | discover public-web sources | Gemini + Parallel `web_search` |
 | `evidenceExtractionAgent` | approved exact Source URL → compact full-source Evidence proposals | Gemini + Parallel `web_fetch` |
-| Review Evaluator | independently evaluate Source/Evidence candidates for human attention | Gemini |
+| Review Evaluator | independently evaluate any current human-gate candidate with a stage-specific rubric | Gemini |
 | `claimGenerationAgent` | approved active Evidence → Claims | Gemini |
 | `scientificScriptAgent` | approved Claims → Script Lines | Gemini |
 | `sceneDirectorAgent` | approved Script + director context → Scenes | Gemini |
@@ -106,9 +106,67 @@ Why deterministic?
 
 See [../ADAPTIVE_EVIDENCE_BUDGET.md](../ADAPTIVE_EVIDENCE_BUDGET.md).
 
-## AI Review Evaluator
+## Stage-aware AI Review Evaluator
 
-At high-volume Source/Evidence gates, a separate review task sees the validated candidate set and stage-specific rubric. It can output:
+The Review Evaluator can be invoked at **every active human-review gate**:
+
+```text
+FilmBrief
+ResearchQuestion
+SourceRecord
+EvidenceRecord
+ClaimRecord
+ScriptLineRecord
+SceneRecord
+ShotRecord
+VisualDecisionRecord
+```
+
+The same agent role is reused, but the rubric and supplied context are stage-specific. This avoids multiplying reviewer agents merely to increase an agent count while still creating clean evaluation boundaries.
+
+### Context boundary
+
+The evaluator does not receive generator hidden reasoning. Application code supplies only the candidate, relevant approved upstream content, and project/director controls needed for the current review.
+
+Examples:
+
+```text
+Claim candidate
+→ supporting approved Evidence (+ Source grounding context)
+
+Script candidate
+→ supporting approved Claims → their Evidence
+→ target audience / knowledge level / duration / tone
+
+Scene candidate
+→ supporting approved Script
+→ Director Brief
+
+Shot candidate
+→ approved Scene + Script
+→ camera / representation controls
+→ scientific constraint + visual-integrity category
+
+Visual candidate
+→ approved Shot
+→ representation category / disclosure / risk / Director Brief
+```
+
+This lets Gemini evaluate whether a downstream candidate faithfully transforms its approved upstream record rather than merely judging prose in isolation.
+
+### Stage rubrics
+
+- **FilmBrief:** raw-project fit, scope, duration, audience, communication objective, research practicality.
+- **ResearchQuestion:** relevance, overlap, scope, uncertainty framing, usefulness for evidence-backed story construction.
+- **Source:** relevance, visible authority/primary-source signals, duplication, promotional/weak-source risk.
+- **Evidence:** support by full-source-grounded material, uncertainty, overstatement, contradiction, duplication.
+- **Claim:** approved-Evidence support, confidence, uncertainty, unsupported precision/causality, scope/audience relevance.
+- **Script:** approved-Claim fidelity, uncertainty, unsupported additions, audience terminology, pacing/density, redundancy, Director Brief/tone.
+- **Scene:** Script coverage, narrative purpose, pacing, uncertainty, visual framing, Director Brief consistency.
+- **Shot:** Scene/Script fidelity, camera treatment, scientific constraints, visual-integrity category, disclosure, cinematic excess/redundancy.
+- **Visual Decision:** Shot fidelity, category/decision/constraint/risk coherence, disclosure, observation-vs-reconstruction integrity, representation preference.
+
+The output contract remains:
 
 ```text
 APPROVE_SUGGESTED
@@ -122,9 +180,24 @@ risks[]
 flags[]
 ```
 
-The evaluator receives a clean evaluation boundary rather than the generator's hidden reasoning. Even when both roles use Gemini, their tasks/context are separated.
+Flags now include scientific/provenance signals plus downstream production risks such as `AUDIENCE_MISMATCH`, `PACING_RISK`, `NARRATIVE_REDUNDANCY`, `DIRECTOR_CONSTRAINT_RISK`, `VISUAL_INTEGRITY_RISK`, `PROVENANCE_RISK`, and `UNSUPPORTED_ADDITION`.
 
-For Evidence, adaptive compaction is applied before the evaluator runs, so a broad archived research pool does not automatically become a broad AI-review/human-review workload.
+### Cost/latency policy
+
+Stage-aware review is **optional and user-triggered**. Tital does not automatically run a second Gemini call after every generation step. The director chooses where a second semantic evaluation pass is worth its cost and latency.
+
+Evidence is the special high-volume case: deterministic Adaptive Evidence Budget is applied before Gemini review so a broad research pool does not automatically become a broad AI-review/human-review workload.
+
+### Authority boundary
+
+The evaluator can assist checkbox selection, but it cannot modify candidate statuses. `APPROVE_SUGGESTED` is advisory metadata, not `APPROVED` state.
+
+```text
+AI recommendation
+→ human inspection
+→ explicit human Approve / Reject
+→ trusted state transition
+```
 
 ## Human director context for cinematic agents
 
@@ -158,7 +231,7 @@ first proposal
 → explicit RETRY or explicit WAIVE if policy allows
 ```
 
-A governed revision is different: records made invalid by an explicit upstream change become `STALE`, which permits deliberate selective repair while preserving old history.
+A governed revision is different: records made invalid by an explicit upstream change become `STALE`, which permits deliberate selective repair while preserving old history. Repaired candidates can again receive optional stage-aware AI review before human re-approval.
 
 ## Final Production Reviewer
 
@@ -170,6 +243,8 @@ A `READY_FOR_PRODUCTION` package can be reviewed by a separate Gemini semantic r
 - audience fit;
 - visual representation risk;
 - Director Brief conflicts.
+
+This is intentionally separate from per-gate review. The per-gate evaluator asks “should this current candidate receive human attention or approval?”; Final Production Review asks “what cross-stage risks remain in the completed production?”
 
 It cannot modify the package. The human may turn a finding into an explicit `RevisionRequest`, after which deterministic impact analysis and selective repair take over.
 
@@ -212,7 +287,8 @@ Persisted diagnostics avoid raw prompts, source documents, credentials, private 
 - provider empty content hiding quota/spend-cap failures → ADK/Vertex failure classification;
 - full-source Evidence burst causing Vertex 429 → Evidence-specific concurrency + bounded retry;
 - Cloud Run `Rate exceeded.` during a long single-slot request → HTTP serving capacity separated from model-call concurrency;
-- 5-minute Aurora run producing 123 Evidence candidates → compact per-source extraction + Adaptive Evidence Budget.
+- 5-minute Aurora run producing 123 Evidence candidates → compact per-source extraction + Adaptive Evidence Budget;
+- live Script gate exposing the absence of downstream AI assistance → stage-aware Review Evaluator across the full human-gated workflow.
 
 See [../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md](../AGENT_FAILURE_SCENARIOS_AND_RESILIENCE.md).
 
@@ -230,11 +306,13 @@ When adding or changing an agent:
 8. Preserve uncertainty; never silently increase certainty.
 9. Keep human approval outside the model.
 10. Keep AI review advisory and independent from trusted decision state.
-11. Treat director style below scientific constraints.
-12. Do not silently regenerate rejected content.
-13. Distinguish `STALE` governed repair from rejected-history regeneration.
-14. Turn reproducible live failures into regression tests.
-15. Control volume/cost with explicit application policy rather than hidden prompt truncation.
+11. Make review stage-aware rather than asking a generic critic to judge every artifact by the same criteria.
+12. Treat director style below scientific constraints.
+13. Do not silently regenerate rejected content.
+14. Distinguish `STALE` governed repair from rejected-history regeneration.
+15. Turn reproducible live failures into regression tests.
+16. Control volume/cost with explicit application policy rather than hidden prompt truncation.
+17. Keep optional review user-triggered unless a future policy explicitly justifies automatic evaluation.
 
 ## Research alignment
 
