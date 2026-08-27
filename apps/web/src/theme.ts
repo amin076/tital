@@ -6,6 +6,19 @@ const teal = '#23766F';
 const gold = '#B97824';
 
 export const titalTheme = createTheme({
+  breakpoints: {
+    values: {
+      xs: 0,
+      sm: 600,
+      md: 900,
+      lg: 1200,
+      // The workspace's three-column desktop layout is keyed to `xl`.
+      // Keep that layout available on standard desktop browsers even when
+      // browser chrome / OS scaling leaves the CSS viewport below MUI's
+      // default 1536px xl threshold.
+      xl: 1280,
+    },
+  },
   palette: {
     mode: 'light',
     primary: {
