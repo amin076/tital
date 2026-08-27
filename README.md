@@ -4,7 +4,7 @@
 
 > **Evidence → Story, not Story → Evidence.**
 
-Hosted application: **https://tital-o7za4b3w5q-ts.a.run.app/**
+Hosted application: **https://tital-593835701785.australia-southeast1.run.app/**
 
 Tital is not a generic research chatbot and it is not a final-video generator. It is a production-control workspace for scientific filmmaking: Gemini agents propose and evaluate semantic work, deterministic application code owns trusted state/provenance, and the human director owns every approval, omission and revision decision.
 
